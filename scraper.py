@@ -133,8 +133,12 @@ def scrape_all_pages(base_url, load_sleep_time=2, scroll_sleep_time=1, headless=
     print(f"Total pages: {page_num}")
 
     for i in range(2, page_num + 1):
+        if base_url.endswith('?vrs=1'): # check if the filter "tin xac thuc" is on or not
+            next_url = f"{base_url[:-6]}/p{i}?vrs=1"
+        else:
+            next_url = f"{base_url}/p{i}"
         html_soup_extra = get_soup(
-            url=f"{base_url}/p{i}",
+            url=next_url,
             load_sleep_time=2,
             scroll_sleep_time=1, 
             headless=headless
