@@ -2,12 +2,12 @@
 
 This project uses Python for scraping real estate listings from from [batdongsan.com.vn](https://batdongsan.com.vn). The flow of the project:
 
-![Data Pipeline](readme_figs/project-flow2.png)
+![Data Pipeline](figs/project-flow2.png)
 
 * Scraping data from batdongsan.com
 * Storing on Supabase
 * Visualizing & analysing on [Google Locker Studio](https://lookerstudio.google.com/reporting/9e21618f-97dc-4480-b101-cbda26b9b2a5)
-    ![alt text](image.png)
+    ![alt text](figs/dashboard-preview.png)
 
 # Quick Start
 
