@@ -30,7 +30,7 @@ pip install -r requirements.txt
 
 Create a `.env` file in the project root with your Supabase credentials and any other required settings. Example:
 
-```
+```bash
 SUPABASE_URL=your_supabase_url
 SUPABASE_KEY=your_supabase_key
 ```
@@ -39,4 +39,22 @@ SUPABASE_KEY=your_supabase_key
 
 ```bash
 python main.py
+```
+
+# To do
+
+## Getting the verified field
+
+* find in "pr-title js__card-title" the "re__card-image-verified "
+* pros: getting the fuller vision over the market -> avoid overlooking good deals
+* cons: potential information contaminated because of scammed listings
+
+Sample HTML:
+
+```html
+<span class="pr-title js__card-title" product-title="">
+                                <span class="re__card-image-verified " data-bds-tooltip-width="220" data-bds-tooltip-position="top" data-bds-tooltip="Tin đăng đã được xác thực thông qua việc kiểm tra sổ đỏ và hình ảnh cung cấp bởi người đăng tin. &lt;a style=&quot;display: flex; justify-content: center; text-align: center; text-decoration: underline; font-size: 13px&quot; class=&quot;js__verified-info-click&quot; href=&quot;javascript:void(0);&quot; onclick=&quot;window.FrontEnd_Product_VerifiedListing.ShowVerifiedListingPopup();&quot; tracking-id=&quot;verified-more-infor-click&quot; tracking-label=&quot;loc=text&quot;&gt; Tìm hiểu thêm&lt;/span&gt;"></span>
+                        Vinhome Ba Son 3 phòng ngủ đầu hồi giá tốt nhất định phải mua tháng 09 ( 240tr/m2 còn sót lại )
+                    </span>
+
 ```
