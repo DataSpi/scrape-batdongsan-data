@@ -137,14 +137,18 @@ def scrape_all_pages(base_url, load_sleep_time=2, scroll_sleep_time=1, headless=
             next_url = f"{base_url[:-6]}/p{i}?vrs=1"
         else:
             next_url = f"{base_url}/p{i}"
-        html_soup_extra = get_soup(
-            url=next_url,
-            load_sleep_time=2,
-            scroll_sleep_time=1, 
-            headless=headless
-        )
-        df = pd.concat([df, soup_to_df(html_soup_extra)], ignore_index=True)
-        print(f"Scraped {len(df)} listings from page {i}.")
+        try: 
+            html_soup_extra = get_soup(
+                url=next_url,
+                load_sleep_time=2,
+                scroll_sleep_time=1, 
+                headless=headless
+            )
+            df = pd.concat([df, soup_to_df(html_soup_extra)], ignore_index=True)
+            print(f"Scraped {len(df)} listings from page {i}.")
+        except Exception as e:
+            print(f"Error occurred while scraping page {i}: {e}")
+            print("proceeding to the next page...")
     return df
 
 

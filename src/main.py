@@ -1,10 +1,5 @@
-# 2025-9-7
-# url = "https://batdongsan.com.vn/ban-can-ho-chung-cu-tp-hcm?vrs=1"
-
 from utils import setup_logging, load_env, prevent_sleep, stop_sleep, format_worksheet
-from scraper import get_soup, soup_to_df, scrape_all_pages
-# import gspread
-from gspread_dataframe import set_with_dataframe
+from scraper import scrape_all_pages
 import re
 import pandas as pd
 from supabase import create_client, Client
@@ -18,9 +13,11 @@ caffeinate_proc = prevent_sleep()
 
 # Scraping
 urls = [
-    # "https://batdongsan.com.vn/ban-can-ho-chung-cu-tp-hcm?vrs=1",
+    "https://batdongsan.com.vn/ban-can-ho-chung-cu-tp-hcm?vrs=1",
     "https://batdongsan.com.vn/ban-nha-dat-tp-hcm?vrs=1",
 ]
+# url = "https://batdongsan.com.vn/ban-can-ho-chung-cu-tp-hcm?vrs=1"
+# url = "https://batdongsan.com.vn/ban-nha-dat-tp-hcm?vrs=1"
 
 for url in urls:
     print(f"--------------Scraping from: {url}--------------")
@@ -205,23 +202,12 @@ for url in urls:
         )
 
 
-
     # 1. Fetch existing unique_ids from Supabase
-    existing_ids_resp = supabase.table("real_estate").select("unique_id").execute()
-    existing_ids = set(row["unique_id"]
-                    for row in existing_ids_resp.data if row.get("unique_id"))
-
-    # 2. Filter out records with duplicate unique_id
-    new_data = [row for row in df_final.to_dict(
-        orient="records") if row["unique_id"] not in existing_ids]
-
-    # 3. Insert only non-duplicate records
-    if new_data:
-        response = supabase.table("real_estate").insert(new_data).execute()
-        print(f"Inserted {len(new_data)} new records.")
-        print(f"{len(df)-len(new_data)} duplicate records found.")
-    else:
-        print("No new unique records to insert.")
+    new_data = df_final.to_dict(orient="records")
+    response = supabase.table("real_estate").upsert(new_data).execute()
+    inserted_count = len(response.data)   # rows actually written to DB
+    print(f"Inserted {inserted_count} new records.")
+    print(f"{len(new_data) - inserted_count} duplicates skipped.")
 
 
 stop_sleep(caffeinate_proc)
