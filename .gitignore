@@ -1,3 +1,5 @@
 *.env
 credentials.json
 *.excalidraw
+venv/
+logs/

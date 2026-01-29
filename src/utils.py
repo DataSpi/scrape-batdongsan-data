@@ -1,6 +1,10 @@
 import logging
+import time
 from dotenv import load_dotenv
 import os
+import platform
+import shutil
+import subprocess
 
 def setup_logging():
     logging.basicConfig(
@@ -15,11 +19,33 @@ def load_env():
     return os.environ
 
 def prevent_sleep():
-    import subprocess
-    return subprocess.Popen(['caffeinate'])
+    system = platform.system().lower()
+    if system == "darwin" and shutil.which("caffeinate"):
+        return subprocess.Popen(["caffeinate"])
+    if system == "linux" and shutil.which("systemd-inhibit"):
+        proc = subprocess.Popen(
+            [
+                "systemd-inhibit",
+                "--what=sleep",
+                "--why=Scraping",
+                "--mode=block",
+                "sleep",
+                "infinity"
+            ],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL
+        )
+        time.sleep(0.2)
+        if proc.poll() is not None:
+            logging.getLogger(__name__).warning("Sleep prevention not available (systemd-inhibit denied).")
+            return None
+        return proc
+    logging.getLogger(__name__).warning("Sleep prevention not available on this system.")
+    return None
 
 def stop_sleep(proc):
-    proc.terminate()
+    if proc:
+        proc.terminate()
 
 def format_worksheet(worksheet):
     worksheet.spreadsheet.batch_update({
@@ -81,3 +107,5 @@ def format_worksheet(worksheet):
             }
         ]
     })
+
+# prevent_sleep()

@@ -2,40 +2,33 @@ import pandas as pd
 from selenium import webdriver
 from bs4 import BeautifulSoup
 import time
+from utils import setup_logging
+logger = setup_logging()
 
-
-def get_soup(url, load_sleep_time, scroll_sleep_time, headless=True):
-
-    # Set up the driver to use a headless Chrome browser
-    options = webdriver.ChromeOptions()
+def get_soup(url, load_sleep_time, scroll_sleep_time, headless=True, chrome_binary_path=None):
+    options = webdriver.FirefoxOptions()
     if headless:
-        options.add_argument('--headless')
-        options.add_argument('--disable-gpu')
-        options.add_argument('--window-size=1920,1080')
-        options.add_argument('--no-sandbox')
-        options.add_argument('--disable-dev-shm-usage')
-        options.add_argument('user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36')
-    driver = webdriver.Chrome(options=options)
+        options.add_argument("--headless")
+        options.add_argument("--width=1920")
+        options.add_argument("--height=1080")
 
-    # Load the URL in the browser and wait for the page to load
+    if chrome_binary_path:
+        options.binary_location = chrome_binary_path
+
+    driver = webdriver.Firefox(options=options)
+
     driver.get(url)
     driver.implicitly_wait(load_sleep_time)
 
-    # Scroll down the page to load more jobs (repeat this several times)
     for i in range(5):
-        driver.execute_script(
-            "window.scrollTo(0, document.body.scrollHeight);")
+        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
         time.sleep(scroll_sleep_time)
 
-    # Extract the HTML content from the fully rendered page
     html_content = driver.page_source
     driver.quit()
 
-    # Parse the HTML content (of the searching_page) using BeautifulSoup
     html_content = BeautifulSoup(html_content, 'html.parser')
-
     return html_content
-
 
 
 def soup_to_df(html_soup):
@@ -109,16 +102,7 @@ def soup_to_df(html_soup):
 
     return pd.DataFrame(results)
 
-# soup = get_soup(
-#     url="https://batdongsan.com.vn/ban-can-ho-chung-cu-tan-binh",
-#     load_sleep_time=2,
-#     scroll_sleep_time=1,
-#     headless=True
-# )
-# df = soup_to_df(soup)
-# df
-
-def scrape_all_pages(base_url, load_sleep_time=2, scroll_sleep_time=1, headless=True) -> pd.DataFrame:
+def scrape_all_pages(base_url, load_sleep_time=2, scroll_sleep_time=1, headless=True, partial_page_num=0) -> pd.DataFrame:
     html_soup = get_soup(
         url=base_url,
         load_sleep_time=load_sleep_time,
@@ -126,11 +110,14 @@ def scrape_all_pages(base_url, load_sleep_time=2, scroll_sleep_time=1, headless=
         headless=headless
     )
     df = soup_to_df(html_soup)
-    print(f"Scraped {len(df)} listings from the first page.")
+    logger.info(f"Scraped {len(df)} listings from the first page.")
 
     page_num_list = html_soup.find_all("a", class_="re__pagination-number")
     page_num = max([int(i.text.strip()) for i in page_num_list]) if page_num_list else 1
-    print(f"Total pages: {page_num}")
+    logger.info(f"Total pages: {page_num}")
+    if partial_page_num > 0:
+        page_num = min(page_num, partial_page_num)
+        logger.info(f"Partial scraping mode: limiting to {page_num} pages.")
 
     for i in range(2, page_num + 1):
         if base_url.endswith('?vrs=1'): # check if the filter "tin xac thuc" is on or not
@@ -140,16 +127,24 @@ def scrape_all_pages(base_url, load_sleep_time=2, scroll_sleep_time=1, headless=
         try: 
             html_soup_extra = get_soup(
                 url=next_url,
-                load_sleep_time=2,
-                scroll_sleep_time=1, 
+                load_sleep_time=load_sleep_time,
+                scroll_sleep_time=scroll_sleep_time, 
                 headless=headless
             )
             df = pd.concat([df, soup_to_df(html_soup_extra)], ignore_index=True)
-            print(f"Scraped {len(df)} listings from page {i}.")
+            logger.info(f"Scraped {len(df)} listings from page {i}.")
         except Exception as e:
-            print(f"Error occurred while scraping page {i}: {e}")
-            print("proceeding to the next page...")
+            logger.error(f"Error occurred while scraping page {i}: {e}")
+            logger.info("Proceeding to the next page...")
     return df
 
 
 
+# soup = get_soup(
+#     url="https://batdongsan.com.vn/ban-can-ho-chung-cu-tan-binh",
+#     load_sleep_time=2,
+#     scroll_sleep_time=1,
+#     headless=True, 
+# )
+# df = soup_to_df(soup)
+# print(df.head())

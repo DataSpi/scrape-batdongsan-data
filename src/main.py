@@ -1,14 +1,80 @@
-from utils import setup_logging, load_env, prevent_sleep, stop_sleep, format_worksheet
+from utils import load_env, prevent_sleep, stop_sleep, format_worksheet
 from scraper import scrape_all_pages
 import re
 import pandas as pd
 from supabase import create_client, Client
 import os
 import numpy as np
+import logging
 
-logger = setup_logging()
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+LOG_PATH = os.path.join(BASE_DIR, "..", "logs", "main.log")
+
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s', # Log format with timestamp, log level, and message
+    datefmt='%Y-%m-%d %H:%M:%S',
+    handlers=[
+        logging.FileHandler(LOG_PATH),
+        logging.StreamHandler() 
+    ] # using this 2 handlers to log both to file and console
+    , force=True
+)
+logger = logging.getLogger(__name__)
+logger.info("-------------------------Start the script-------------------------")
+
 env = load_env()
 caffeinate_proc = prevent_sleep()
+
+
+
+
+
+def parse_price(price_str):
+    if not price_str:
+        return None
+    price_str = price_str.lower().replace(',', '.').replace(' ', '')
+    match = re.match(r'([\d\.]+)(tỷ|triệu)', price_str)
+    if not match:
+        return None
+    value, unit = match.groups()
+    try:
+        value = float(value)
+    except ValueError:
+        return None
+    if unit == 'tỷ':
+        return int(value * 1_000)
+    elif unit == 'triệu':
+        return int(value * 1)
+    return None
+
+def parse_area(area_str):
+    if area_str is None or (isinstance(area_str, float) and np.isnan(area_str)):
+        return None
+    area_str = str(area_str)
+    match = re.search(r'([\d\.]+)\s*m', area_str.replace(',', '.'))
+    if match:
+        try:
+            return float(match.group(1))
+        except ValueError:
+            return None
+    return None
+
+def make_image_formula(images):
+    if images:
+        return f'=IMAGE("{images}", 4, 200, 200)'
+    return ''
+
+def extract_real_estate_type(link):
+    sep_keys_dict = {k: link.find(k) for k in sep_keys if link.find(
+        k) != -1}  # find all keys and their positions
+    if not sep_keys_dict:
+        return None
+    first_key = min(sep_keys_dict.items())[0]  # find the first occurring key
+    # get the part before the key
+    return link.split(sep=first_key, maxsplit=1)[0]
+
 
 
 # Scraping
@@ -20,53 +86,16 @@ urls = [
 # url = "https://batdongsan.com.vn/ban-nha-dat-tp-hcm?vrs=1"
 
 for url in urls:
-    print(f"--------------Scraping from: {url}--------------")
+    logger.info(f"--------------Scraping from: {url}--------------")
     df = scrape_all_pages(base_url=url, load_sleep_time=2,
-                        scroll_sleep_time=1, headless=True)
-
-
+                        scroll_sleep_time=1, headless=True, 
+                        partial_page_num=1)
+    df.to_excel("/home/spyno_kiem/scrape-batdongsan-data/data/real_estate_listings_raw.xlsx", index=False)   
     # ----------------------------------------------
     # Clean the DataFrame
     # ----------------------------------------------
     df['link'] = "https://batdongsan.com.vn" + \
         df['link'].astype(str).str.replace(r'^\./', '', regex=True)
-
-
-    def parse_price(price_str):
-        if not price_str:
-            return None
-        price_str = price_str.lower().replace(',', '.').replace(' ', '')
-        match = re.match(r'([\d\.]+)(tỷ|triệu)', price_str)
-        if not match:
-            return None
-        value, unit = match.groups()
-        try:
-            value = float(value)
-        except ValueError:
-            return None
-        if unit == 'tỷ':
-            return int(value * 1_000)
-        elif unit == 'triệu':
-            return int(value * 1)
-        return None
-
-
-    def parse_area(area_str):
-        if not area_str:
-            return None
-        match = re.search(r'([\d\.]+)\s*m', area_str.replace(',', '.'))
-        if match:
-            try:
-                return float(match.group(1))
-            except ValueError:
-                return None
-        return None
-
-
-    def make_image_formula(images):
-        if images:
-            return f'=IMAGE("{images}", 4, 200, 200)'
-        return ''
 
 
     df['price_num'] = df['price'].apply(parse_price)
@@ -89,25 +118,16 @@ for url in urls:
     # Find duplicated unique_id rows
     duplicated_rows = df[df['unique_id'].duplicated(keep=False)]
     if not duplicated_rows.empty:
-        print("Duplicated rows based on unique_id:")
-        print(duplicated_rows[['link']])
+        logger.info("Duplicated rows based on unique_id:")
+        logger.info(duplicated_rows[['link']])
     else:
-        print("No duplicated unique_id found.")
-    # df.to_excel("real_estate_listings.xlsx", index=False) 
+        logger.info("No duplicated unique_id found.")
+    df.to_excel("/home/spyno_kiem/scrape-batdongsan-data/data/real_estate_listings.xlsx", index=False) 
 
 
     # Extract information from the link
     sep_keys = ["-pho-", "-phuong-", "-duong-"]
 
-
-    def extract_real_estate_type(link):
-        sep_keys_dict = {k: link.find(k) for k in sep_keys if link.find(
-            k) != -1}  # find all keys and their positions
-        if not sep_keys_dict:
-            return None
-        first_key = min(sep_keys_dict.items())[0]  # find the first occurring key
-        # get the part before the key
-        return link.split(sep=first_key, maxsplit=1)[0]
 
 
     df['real_estate_type'] = df['link'].apply(extract_real_estate_type)
@@ -200,14 +220,23 @@ for url in urls:
             "area_num": "area"
             }
         )
+    # Ensure JSON-safe values
+    # df_final = df_final.replace([np.inf, -np.inf], np.nan)
+    # df_final = df_final.where(pd.notnull(df_final), None)
+    df_final = df_final.replace([np.inf, -np.inf], np.nan)
+    df_final = df_final.astype(object)
+    df_final = df_final.where(pd.notnull(df_final), None)
+    df_final = df_final.query('location.notnull()')
+
 
 
     # 1. Fetch existing unique_ids from Supabase
     new_data = df_final.to_dict(orient="records")
     response = supabase.table("real_estate").upsert(new_data).execute()
     inserted_count = len(response.data)   # rows actually written to DB
-    print(f"Inserted {inserted_count} new records.")
-    print(f"{len(new_data) - inserted_count} duplicates skipped.")
+    logger.info(f"Inserted {inserted_count} new records to Supabase.")
+    logger.info(f"{len(new_data) - inserted_count} duplicates skipped.")
 
 
 stop_sleep(caffeinate_proc)
+logger.info("-------------------------Finish the script-------------------------")
