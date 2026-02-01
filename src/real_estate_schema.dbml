@@ -1,0 +1,54 @@
+Table re_real_estate {
+  id integer [primary key]
+  title text
+  link text [unique] // Crucial for deduplication
+  price bigint // Use bigint for high-value currency (e.g. VND)
+  bedrooms integer
+  toilets integer
+  area float8
+  price_1m2 float8
+  location text // Raw address string
+  description text
+  time_scraped timestamp
+  re_type_id integer
+  ward_id integer
+  project_id integer
+  agent_id integer // New suggestion
+}
+
+// Separate agents to track performance/spam
+Table re_agent {
+  id integer [primary key]
+  name text
+  phone text [unique]
+}
+
+Table re_loc_city {
+  id integer [primary key]
+  city text
+}
+
+Table re_loc_ward {
+  id integer [primary key]
+  ward text
+  city_id integer
+}
+
+
+Table re_real_estate_type {
+  id integer [primary key]
+  real_estate_type text
+}
+
+Table re_project {
+  id integer [primary key]
+  project_name text
+  description text 
+}
+
+// Relationships
+Ref: re_real_estate.re_type_id > re_real_estate_type.id
+Ref: re_real_estate.project_id > re_project.id
+Ref: re_real_estate.ward_id > re_loc_ward.id
+Ref: re_real_estate.agent_id > re_agent.id
+Ref: re_loc_ward.city_id > re_loc_city.id

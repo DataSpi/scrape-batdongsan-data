@@ -6,9 +6,9 @@ from airflow.providers.standard.operators.bash import BashOperator
 
 with DAG(
     dag_id="real_estate_dag",
-    start_date=datetime(2026, 1, 1),
+    start_date=datetime(2026, 1, 29),
     schedule="0 10 * * *",
-    catchup=False
+    catchup=True
 ) as dag:
     scraping_task = BashOperator(
         task_id="scraping_task",

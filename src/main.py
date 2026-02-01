@@ -28,6 +28,12 @@ env = load_env()
 caffeinate_proc = prevent_sleep()
 
 
+# Get your credentials from environment variables
+sb_url: str = os.getenv("SUPABASE_PRJ_URL")
+sb_key: str = os.getenv("SUPABASE_ANON_KEY")
+
+supabase: Client = create_client(sb_url, sb_key)
+
 
 
 
@@ -61,19 +67,62 @@ def parse_area(area_str):
             return None
     return None
 
-def make_image_formula(images):
-    if images:
-        return f'=IMAGE("{images}", 4, 200, 200)'
-    return ''
+# def extract_real_estate_type(link):
+#     sep_keys_dict = {k: link.find(k) for k in sep_keys if link.find(
+#         k) != -1}  # find all keys and their positions
+#     if not sep_keys_dict:
+#         return None
+#     first_key = min(sep_keys_dict.items())[0]  # find the first occurring key
+#     # get the part before the key
+#     return link.split(sep=first_key, maxsplit=1)[0]
 
-def extract_real_estate_type(link):
-    sep_keys_dict = {k: link.find(k) for k in sep_keys if link.find(
-        k) != -1}  # find all keys and their positions
-    if not sep_keys_dict:
-        return None
-    first_key = min(sep_keys_dict.items())[0]  # find the first occurring key
-    # get the part before the key
-    return link.split(sep=first_key, maxsplit=1)[0]
+
+def normalize_real_estate_type(df: pd.DataFrame) -> pd.DataFrame:
+    whitelist = [
+        'Căn hộ chung cư',
+        'Nhà mặt phố',
+        'Nhà riêng',
+        'can-ho-chung-cu',
+        'ban-nha-biet-thu-lien-ke',
+        'nha-rieng',
+        'ban-nha-mat-pho',
+        'ban-shophouse-nha-pho-thuong-mai',
+        'ban-nha-rieng',
+        'ban-can-ho-chung-cu', 
+        'ban-condotel'
+    ]
+
+    def standardize_re_type(val: str) -> str:
+        def str_normalize(s) -> str:
+            if s is None or (isinstance(s, float) and pd.isna(s)):
+                return ""
+            return str(s).strip().lower()
+
+        x = str_normalize(val)
+        for token in whitelist:
+            if token in x:
+                return token
+        return x
+
+    df['real_estate_type'] = df['real_estate_type'].str.replace("https://batdongsan.com.vn/", "") # for some reason, this still here and need to be removed
+    df['real_estate_type'] = df['real_estate_type'].map(standardize_re_type)
+
+    type_mapping = {
+        "nhà riêng": "nhà riêng",
+        "căn hộ chung cư": "căn hộ chung cư",
+        "nhà mặt phố": "nhà mặt phố",
+        "ban-nha-biet-thu-lien-ke": "nhà biệt thự liền kề",
+        "nha-rieng": "nhà riêng",
+        "ban-nha-mat": "nhà mặt phố",
+        "ban-nha-mat-pho": "nhà mặt phố",
+        "ban-shophouse-nha-pho-thuong-mai": "shophouse nhà phố thương mại",
+        "ban-shophouse-nha": "shophouse nhà phố thương mại",
+        "can-ho-chung-cu": "căn hộ chung cư",
+        'ban-condotel': 'condotel'
+    }
+    df['real_estate_type'] = df['real_estate_type'].replace(type_mapping, regex=False)
+    return df
+
 
 
 
@@ -82,37 +131,39 @@ urls = [
     "https://batdongsan.com.vn/ban-can-ho-chung-cu-tp-hcm?vrs=1",
     "https://batdongsan.com.vn/ban-nha-dat-tp-hcm?vrs=1",
 ]
-# url = "https://batdongsan.com.vn/ban-can-ho-chung-cu-tp-hcm?vrs=1"
-# url = "https://batdongsan.com.vn/ban-nha-dat-tp-hcm?vrs=1"
 
 for url in urls:
     logger.info(f"--------------Scraping from: {url}--------------")
     df = scrape_all_pages(base_url=url, load_sleep_time=2,
                         scroll_sleep_time=1, headless=True, 
-                        partial_page_num=1)
+                        partial_page_num=10)
     df.to_excel("/home/spyno_kiem/scrape-batdongsan-data/data/real_estate_listings_raw.xlsx", index=False)   
     # ----------------------------------------------
     # Clean the DataFrame
     # ----------------------------------------------
-    df['link'] = "https://batdongsan.com.vn" + \
-        df['link'].astype(str).str.replace(r'^\./', '', regex=True)
+    # df_ori = df.copy()    # this is for saving a copy for testing if needed
+    
+    # Real estate type normalization & project extraction
+    df['real_estate_type'] = df['link']
+    df['link'] = df['link'].apply(
+        lambda x: x if str(x).startswith("http") 
+        else "https://batdongsan.com.vn" + str(x)
+    )
+    df['link'] = df['link'].str.replace(r'^\./', '', regex=True)
+    df = normalize_real_estate_type(df)
+    print(df['real_estate_type'].value_counts())
+    df['project'] = df['link'].str.split("-prj-").str[1].str.split("/").str[0]
 
 
+
+    # Price and area parsing
     df['price_num'] = df['price'].apply(parse_price)
     df['area_num'] = df['area'].apply(parse_area)
     df.drop(columns=['price', 'area',], inplace=True)
     df['price_per_m2_recal'] = df.apply(
         lambda row: row['price_num'] / row['area_num'] if row['price_num'] and row['area_num'] else None, axis=1)
 
-    # Split the 'images' column (list of image URLs) into separate columns
-    no_image_cols = df['images'].apply(
-        lambda x: len(x) if isinstance(x, list) else 0).max()
-    for idx in range(no_image_cols):
-        df[f'image_{idx+1}'] = df['images'].apply(
-            lambda imgs: imgs[idx] if isinstance(imgs, list) and len(imgs) > idx else None)
-        df[f'image_{idx+1}'] = df[f'image_{idx+1}'].apply(make_image_formula)
-
-
+    # Add date_scraped and unique_id & deduplicate check
     df['date_scraped'] = pd.Timestamp.now().normalize()
     df['unique_id'] = df['link'].str[-10:]
     # Find duplicated unique_id rows
@@ -125,37 +176,9 @@ for url in urls:
     df.to_excel("/home/spyno_kiem/scrape-batdongsan-data/data/real_estate_listings.xlsx", index=False) 
 
 
-    # Extract information from the link
-    sep_keys = ["-pho-", "-phuong-", "-duong-"]
-
-
-
-    df['real_estate_type'] = df['link'].apply(extract_real_estate_type)
-    df['real_estate_type'] = df['real_estate_type'].str.replace(
-        "https://batdongsan.com.vn/", "")
-    displaying_dict = {
-        "ban-can-ho-chung-cu": "Căn hộ chung cư",
-        "ban-nha-mat-pho": "Nhà mặt phố",
-        "ban-nha-rieng": "Nhà riêng"
-    }
-    df['real_estate_type'] = df['real_estate_type'].replace(
-        displaying_dict, regex=False)
-
-
-    # Extract project name from the link
-    df['project'] = df['link'].str.split("-prj-").str[1].str.split("/").str[0]
-
-
     # --------------------------------------------------------------
     # Save to Supabase
     # --------------------------------------------------------------
-
-    # Get your credentials from environment variables
-    url: str = os.getenv("SUPABASE_PRJ_URL")
-    key: str = os.getenv("supabase_anon_key")
-
-    supabase: Client = create_client(url, key)
-
 
     df.rename(columns={"date_scraped": "time_scraped"}, inplace=True)
 
@@ -174,11 +197,11 @@ for url in urls:
         'description', 'agent_name', 'phone',
         # 'images',
         'price_num', 'area_num', 'price_per_m2_recal',
-        'image_1', 'image_2', 'time_scraped',
+        # 'image_1', 'image_2', 
+        'time_scraped',
         'unique_id',
         'real_estate_type', 'project'
     ]
-    df[['bedrooms', 'toilets']]
 
 
     df = df.astype({
@@ -199,12 +222,6 @@ for url in urls:
         'project': "string"
 
     })
-
-    # Convert all columns whose name contains 'image_' to string type
-    image_cols = [col for col in df.columns if 'image_' in col]
-    df[image_cols] = df[image_cols].astype(str)
-    # print(type(df))
-
 
     # Ensure datetime is timezone-aware (UTC is safe default)
     df["time_scraped"] = pd.to_datetime(df["time_scraped"], utc=True)
@@ -240,3 +257,4 @@ for url in urls:
 
 stop_sleep(caffeinate_proc)
 logger.info("-------------------------Finish the script-------------------------")
+
