@@ -1,9 +1,12 @@
-from utils import load_env, prevent_sleep, stop_sleep, format_worksheet
+from utils import prevent_sleep, stop_sleep, format_worksheet
+from utils import dbConnector as db
 from scraper import scrape_all_pages
 import re
 import pandas as pd
 from supabase import create_client, Client
 import os
+from dotenv import load_dotenv
+load_dotenv()
 import numpy as np
 import logging
 
@@ -24,16 +27,21 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 logger.info("-------------------------Start the script-------------------------")
 
-env = load_env()
 caffeinate_proc = prevent_sleep()
 
 
-# Get your credentials from environment variables
-sb_url: str = os.getenv("SUPABASE_PRJ_URL")
-sb_key: str = os.getenv("SUPABASE_ANON_KEY")
-
-supabase: Client = create_client(sb_url, sb_key)
-
+DB_PASSWORD    = os.getenv("DB_PASSWORD")
+DB_USER        = os.getenv("DB_USER")
+DB_PORT        = os.getenv("DB_PORT")
+DB_HOST        = os.getenv("DB_HOST")
+DB_DB_NAME     = os.getenv("DB_DB_NAME")
+sb_conn = db.connect_to_database(
+    host=DB_HOST,
+    port=DB_PORT,
+    dbname=DB_DB_NAME,
+    user=DB_USER,
+    password=DB_PASSWORD
+)
 
 
 
@@ -66,16 +74,6 @@ def parse_area(area_str):
         except ValueError:
             return None
     return None
-
-# def extract_real_estate_type(link):
-#     sep_keys_dict = {k: link.find(k) for k in sep_keys if link.find(
-#         k) != -1}  # find all keys and their positions
-#     if not sep_keys_dict:
-#         return None
-#     first_key = min(sep_keys_dict.items())[0]  # find the first occurring key
-#     # get the part before the key
-#     return link.split(sep=first_key, maxsplit=1)[0]
-
 
 def normalize_real_estate_type(df: pd.DataFrame) -> pd.DataFrame:
     whitelist = [
@@ -136,7 +134,7 @@ for url in urls:
     logger.info(f"--------------Scraping from: {url}--------------")
     df = scrape_all_pages(base_url=url, load_sleep_time=2,
                         scroll_sleep_time=1, headless=True, 
-                        partial_page_num=10)
+                        partial_page_num=1)
     df.to_excel("/home/spyno_kiem/scrape-batdongsan-data/data/real_estate_listings_raw.xlsx", index=False)   
     # ----------------------------------------------
     # Clean the DataFrame
@@ -238,21 +236,19 @@ for url in urls:
             }
         )
     # Ensure JSON-safe values
-    # df_final = df_final.replace([np.inf, -np.inf], np.nan)
-    # df_final = df_final.where(pd.notnull(df_final), None)
     df_final = df_final.replace([np.inf, -np.inf], np.nan)
     df_final = df_final.astype(object)
     df_final = df_final.where(pd.notnull(df_final), None)
     df_final = df_final.query('location.notnull()')
+    db.upsert_df_to_table(
+        conn=sb_conn,
+        df=df_final,
+        schema="staging",
+        table="real_estate",
+        conflict_cols=["unique_id"]
+    )
 
 
-
-    # 1. Fetch existing unique_ids from Supabase
-    new_data = df_final.to_dict(orient="records")
-    response = supabase.table("real_estate").upsert(new_data).execute()
-    inserted_count = len(response.data)   # rows actually written to DB
-    logger.info(f"Inserted {inserted_count} new records to Supabase.")
-    logger.info(f"{len(new_data) - inserted_count} duplicates skipped.")
 
 
 stop_sleep(caffeinate_proc)

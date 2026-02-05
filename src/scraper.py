@@ -30,7 +30,6 @@ def get_soup(url, load_sleep_time, scroll_sleep_time, headless=True, chrome_bina
     html_content = BeautifulSoup(html_content, 'html.parser')
     return html_content
 
-
 def soup_to_df(html_soup):
     # Find all listing cards
     cards = html_soup.find_all("div", class_="js__card-full-web")

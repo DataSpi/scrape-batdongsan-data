@@ -4,9 +4,11 @@ import platform
 import shutil
 import subprocess
 import os
-import psycopg2
-from psycopg2.extras import execute_batch, execute_values
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Union
+from sqlalchemy import create_engine, text, MetaData, Table
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.engine import Engine, Connection
+from sqlalchemy import literal_column
 import pandas as pd
 
 
@@ -112,25 +114,20 @@ def format_worksheet(worksheet):
 
 class dbConnector:
         
-    def connect_to_database(host, port, dbname, user, password) -> psycopg2.extensions.connection:
+    def connect_to_database(host, port, dbname, user, password) -> Engine:
         try:
-            connection = psycopg2.connect(
-                host=host,
-                port=port,
-                dbname=dbname,
-                user=user,
-                password=password
+            connection = create_engine(
+                f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{dbname}",
+                pool_pre_ping=True,
+                future=True
             )
             logger.info("Successfully connected to the database")
             return connection
-        except psycopg2.Error as e:
-            logger.error(f"Error connecting to database: {e}")
-            raise
         except Exception as e:
             logger.error(f"Unexpected error: {e}")
             raise
 
-    def execute_query(conn, query: str, params: Optional[Tuple] = None, fetch: bool = True) -> Optional[List[Tuple]]:
+    def execute_query(conn: Union[Engine, Connection], query: str, params: Optional[Tuple] = None, fetch: bool = True) -> Optional[List[Tuple]]:
         """
         Execute a SQL query on the database connection.
         
@@ -143,27 +140,23 @@ class dbConnector:
             Optional[List[Tuple]]: Query results if fetch=True, None otherwise
         """
         try:
-            cursor = conn.cursor()
-            cursor.execute(query, params)
-            # logger.info(f"Query executed successfully:\n{query}")
-            
-            if fetch:
-                results = cursor.fetchall()
-                cursor.close()
-                return results
+            if isinstance(conn, Engine):
+                with conn.begin() as connection:
+                    result = connection.exec_driver_sql(query, params or ())
+                    if fetch:
+                        return result.fetchall()
+                    return None
             else:
+                result = conn.exec_driver_sql(query, params or ())
+                if fetch:
+                    return result.fetchall()
                 conn.commit()
-                cursor.close()
                 return None
-        except psycopg2.Error as e:
-            logger.error(f"Database error executing query: {e}")
-            conn.rollback()
-            raise
         except Exception as e:
             logger.error(f"Unexpected error executing query: {e}")
             raise
 
-    def fetch_to_dataframe(conn, query: str, params: Optional[Tuple] = None) -> pd.DataFrame:
+    def fetch_to_dataframe(conn: Union[Engine, Connection], query: str, params: Optional[Tuple] = None) -> pd.DataFrame:
         """
         Execute a SQL query and return results as a pandas DataFrame.
         
@@ -175,81 +168,89 @@ class dbConnector:
             pd.DataFrame: Query results as DataFrame
         """
         try:
-            cursor = conn.cursor()
-            cursor.execute(query, params)
-            
-            # Get column names
-            columns = [desc[0] for desc in cursor.description]
-            
-            # Fetch all results
-            results = cursor.fetchall()
-            cursor.close()
-            
-            # Create DataFrame
-            df = pd.DataFrame(results, columns=columns)
+            df = pd.read_sql_query(sql=query, con=conn, params=params)
             logger.info(f"Successfully fetched {len(df)} rows to DataFrame")
             return df
-            
-        except psycopg2.Error as e:
-            logger.error(f"Database error fetching to DataFrame: {e}")
-            raise
         except Exception as e:
             logger.error(f"Unexpected error fetching to DataFrame: {e}")
             raise
 
-    def write_df_to_table(conn, df: pd.DataFrame, schema: str, table: str):
-        cols = list(df.columns)
-        placeholders = ", ".join(["%s"] * len(cols))
-        col_names = ", ".join([f'"{c}"' for c in cols])
-
-        with conn.cursor() as cur:
-            cur.execute(f'TRUNCATE TABLE "{schema}"."{table}"')
-            execute_batch(
-                cur,
-                f'INSERT INTO "{schema}"."{table}" ({col_names}) VALUES ({placeholders})',
-                df.itertuples(index=False, name=None),
-                page_size=1000
-            )
-        conn.commit()
-
-    def upsert_df_to_table(conn, df: pd.DataFrame, schema: str, table: str, conflict_cols: List[str]):
+    def write_df_to_table(conn: Union[Engine, Connection], df: pd.DataFrame, schema: str, table: str):
         if df.empty:
+            logger.info(f"Write skipped: DataFrame is empty for {schema}.{table}")
             return
+
+        engine = conn if isinstance(conn, Engine) else conn.engine
+        with engine.begin() as connection:
+            connection.exec_driver_sql(f'TRUNCATE TABLE "{schema}"."{table}"')
+            df.to_sql(
+                name=table,
+                con=connection,
+                schema=schema,
+                if_exists="append",
+                index=False,
+                method="multi",
+                chunksize=1000
+            )
+
+    # def upsert_df_to_table(conn: Union[Engine, Connection], df: pd.DataFrame, schema: str, table: str, conflict_cols: List[str]):
+    #     if df.empty:
+    #         return
+
+    #     records = df.where(pd.notnull(df), None).to_dict(orient="records")
+    #     engine = conn if isinstance(conn, Engine) else conn.engine
+    #     metadata = MetaData()
+    #     table_obj = Table(table, metadata, schema=schema, autoload_with=engine)
+
+    #     insert_stmt = pg_insert(table_obj).values(records)
+    #     update_cols = {c: insert_stmt.excluded[c] for c in table_obj.columns.keys() if c not in conflict_cols}
+    #     upsert_stmt = insert_stmt.on_conflict_do_update(
+    #         index_elements=conflict_cols,
+    #         set_=update_cols,
+    #         where=text(f'("{table}".*) IS DISTINCT FROM (EXCLUDED.*)')
+    #     )
+
+    #     with engine.begin() as connection:
+    #         result = connection.execute(upsert_stmt)
+    #         logger.info(
+    #             f"Upserted {result.rowcount} rows into {schema}.{table} (attempted {len(df)})."
+    #         )
+    
+
+    def upsert_df_to_table(conn, df, schema, table, conflict_cols):
+        if df.empty:
+            return 0, 0
+
+        records = df.where(pd.notnull(df), None).to_dict(orient="records")
+        engine = conn if isinstance(conn, Engine) else conn.engine
+        metadata = MetaData()
+        table_obj = Table(table, metadata, schema=schema, autoload_with=engine)
+
+        insert_stmt = pg_insert(table_obj).values(records)
+        update_cols = {c: insert_stmt.excluded[c] for c in table_obj.columns.keys() if c not in conflict_cols}
         
-        # Convert all numpy types (int64, float64, etc.) to native Python types
-        data = df.astype(object).where(pd.notnull(df), None).values.tolist()
+        # 1. Define the upsert
+        upsert_stmt = insert_stmt.on_conflict_do_update(
+            index_elements=conflict_cols,
+            set_=update_cols,
+            where=text(f'("{table}".*) IS DISTINCT FROM (EXCLUDED.*)')
+        )
 
-        cols = list(df.columns)
-        col_names = ", ".join([f'"{c}"' for c in cols])
-        conflict_cols_quoted = ", ".join([f'"{c}"' for c in conflict_cols])
-        update_cols = [c for c in cols if c not in conflict_cols]
-        set_clause = ", ".join([f'"{c}" = EXCLUDED."{c}"' for c in update_cols])
+        # 2. Add RETURNING clause to detect if it was an insert or update
+        # xmax is a system column: 0 for new rows, non-zero for updated rows
+        upsert_stmt = upsert_stmt.returning(literal_column("xmax"))
 
-        sql = f'''
-            INSERT INTO "{schema}"."{table}" ({col_names})
-            VALUES %s
-            ON CONFLICT ({conflict_cols_quoted})
-            DO UPDATE SET {set_clause}
-            WHERE ("{table}".*) IS DISTINCT FROM (EXCLUDED.*)
-        '''
-
-        with conn.cursor() as cur:
-            # execute_values is more efficient for this use case
-            execute_values(
-                cur, 
-                sql, 
-                # df.to_records(index=False), # Converts DF to list of tuples
-                data,
-                template=None, 
-                page_size=1000
-            )
+        with engine.begin() as connection:
+            result = connection.execute(upsert_stmt).fetchall()
             
-            # Now cur.rowcount will correctly return the total number of affected rows
-            affected_rows = cur.rowcount
-            logger.info(
-                f"Upserted {affected_rows} rows into {schema}.{table} (attempted {len(df)})."
-            )
-        conn.commit()
+            # 3. Analyze the results
+            # In Postgres, xmax == 0 means it's a fresh INSERT
+            # xmax != 0 means it was an UPDATE
+            inserts = sum(1 for row in result if row[0] == 0)
+            updates = sum(1 for row in result if row[0] != 0)
+            
+            logger.info(f"Finished: {inserts} new, {updates} updated, {len(df) - len(result)} skipped to {schema}.{table} (attempted {len(df)}).")
+            return inserts, updates
     
     def spyno_sb_conn():
         DB_PASSWORD    = os.getenv("DB_PASSWORD")

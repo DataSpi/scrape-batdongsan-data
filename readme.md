@@ -58,30 +58,6 @@ Sample HTML:
         </span>
 ```
 
-## TODO 2026-02-01
-
-* Finish the data cleaning process.
-* Using async to scrape multiple page at once
-* Integrate `dbt` in the reporting process
-* Live stream coding this at some point?
-
-# Data Cleaning Process
-
-## Location
-
-* Tạo bảng province & ward 
-* Viết data transforming: 
-    * Tách location ra thành huyện & tỉnh -> mapping vào hai bảng province & ward
-        * if succeed -> insert
-        * else: write to excel for manually processing
-
-## Real Estate Type
-
-* Select distinct -> save vào bảng `re_real_estate_type`
-* khi chạy job từ `staging` -> schema `real_estate` thì mapping vào bảng `re_real_estate_type`
 
 
-## Project
 
-* Select distinct -> save vào bảng `re_project`
-* Khi chạy job từ `staging` -> schema `real_estate` thì mapping vào bảng `re_project`
