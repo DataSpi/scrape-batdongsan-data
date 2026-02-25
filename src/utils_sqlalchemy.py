@@ -227,7 +227,11 @@ class dbConnector:
         table_obj = Table(table, metadata, schema=schema, autoload_with=engine)
 
         insert_stmt = pg_insert(table_obj).values(records)
-        update_cols = {c: insert_stmt.excluded[c] for c in table_obj.columns.keys() if c not in conflict_cols}
+        update_cols = {
+            c: insert_stmt.excluded[c] 
+            for c in table_obj.columns.keys() 
+            if c not in conflict_cols and c != 'id'
+        }
         
         # 1. Define the upsert
         upsert_stmt = insert_stmt.on_conflict_do_update(

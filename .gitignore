@@ -4,3 +4,4 @@ credentials.json
 venv/
 logs/
 TODO.md
+src/tmp

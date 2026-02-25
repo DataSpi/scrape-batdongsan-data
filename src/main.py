@@ -134,7 +134,7 @@ for url in urls:
     logger.info(f"--------------Scraping from: {url}--------------")
     df = scrape_all_pages(base_url=url, load_sleep_time=2,
                         scroll_sleep_time=1, headless=True, 
-                        partial_page_num=1)
+                        partial_page_num=2)
     df.to_excel("/home/spyno_kiem/scrape-batdongsan-data/data/real_estate_listings_raw.xlsx", index=False)   
     # ----------------------------------------------
     # Clean the DataFrame
@@ -150,7 +150,7 @@ for url in urls:
     df['link'] = df['link'].str.replace(r'^\./', '', regex=True)
     df = normalize_real_estate_type(df)
     print(df['real_estate_type'].value_counts())
-    df['project'] = df['link'].str.split("-prj-").str[1].str.split("/").str[0]
+    df['project'] = df['link'].str.split("-prj-").str[1].fillna("").str.split("/").str[0] # fillna() add 2026-02-25 after the .str error
 
 
 
