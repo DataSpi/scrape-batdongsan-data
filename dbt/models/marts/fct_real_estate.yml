@@ -1,0 +1,25 @@
+version: 2
+
+sources:
+  - name: real_estate  # Name of your source
+    schema: real_estate # The schema you were trying to connect to!
+    tables:
+      - name: re_real_estate
+      - name: re_project
+      - name: re_real_estate_type
+      - name: re_loc_district
+      - name: re_loc_city
+models:
+  - name: fct_real_estate
+    description: "Uniting all the data from the real estate schema into one fact table for analysis."
+    columns:
+      - name: id
+        description: "Primary key of the real estate listing."
+        tests:
+          - unique
+          - not_null
+      - name: price 
+        description: "Price of the real estate listing."
+        # tests: 
+        #   - is_numeric
+      
