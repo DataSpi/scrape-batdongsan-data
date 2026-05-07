@@ -1,5 +1,5 @@
 # from utils import dbConnector as db
-from utils_sqlalchemy import dbConnector as db
+from utils.sqlalchemy_conn import dbConnector as db
 import logging
 import os
 import pandas as pd

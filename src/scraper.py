@@ -2,7 +2,7 @@ import pandas as pd
 from selenium import webdriver
 from bs4 import BeautifulSoup
 import time
-from utils import setup_logging
+from utils.common_tools import setup_logging
 logger = setup_logging()
 
 def get_soup(url, load_sleep_time, scroll_sleep_time, headless=True, chrome_binary_path=None):

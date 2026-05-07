@@ -3,7 +3,7 @@ import os
 script_dir = Path(__file__).resolve().parent
 os.chdir(script_dir.parent)
 import pandas as pd
-from utils import dbConnector as db
+from utils.common_tools import dbConnector as db
 from IPython.display import display
 
 

@@ -1,4 +1,4 @@
-from utils import dbConnector as db
+from utils.common_tools import dbConnector as db
 import pandas as pd
 from dotenv import load_dotenv
 load_dotenv()

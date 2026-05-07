@@ -1,6 +1,7 @@
-from utils import prevent_sleep, stop_sleep, format_worksheet
-from utils import dbConnector as db
-from scraper import scrape_all_pages
+from utils.common_tools import prevent_sleep, stop_sleep, format_worksheet
+from utils.common_tools import dbConnector as db
+from src.scraper import scrape_all_pages
+
 import re
 import pandas as pd
 from supabase import create_client, Client
@@ -134,7 +135,7 @@ for url in urls:
     logger.info(f"--------------Scraping from: {url}--------------")
     df = scrape_all_pages(base_url=url, load_sleep_time=2,
                         scroll_sleep_time=1, headless=True, 
-                        partial_page_num=2)
+                        partial_page_num=1)
     df.to_excel("/home/spyno_kiem/scrape-batdongsan-data/data/real_estate_listings_raw.xlsx", index=False)   
     # ----------------------------------------------
     # Clean the DataFrame
