@@ -9,8 +9,10 @@ from sqlalchemy import create_engine, text, MetaData, Table
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.engine import Engine, Connection
 from sqlalchemy import literal_column
+from sqlalchemy import inspect
 import pandas as pd
-
+from dotenv import load_dotenv
+load_dotenv()
 
 
 def setup_logging():
@@ -193,28 +195,33 @@ class dbConnector:
                 chunksize=1000
             )
 
-    # def upsert_df_to_table(conn: Union[Engine, Connection], df: pd.DataFrame, schema: str, table: str, conflict_cols: List[str]):
-    #     if df.empty:
-    #         return
+    def write_df_to_table(conn: Union[Engine, Connection], df: pd.DataFrame, schema: str, table: str):
+        if df.empty:
+            logger.info(f"Write skipped: DataFrame is empty for {schema}.{table}")
+            return
 
-    #     records = df.where(pd.notnull(df), None).to_dict(orient="records")
-    #     engine = conn if isinstance(conn, Engine) else conn.engine
-    #     metadata = MetaData()
-    #     table_obj = Table(table, metadata, schema=schema, autoload_with=engine)
+        engine = conn if isinstance(conn, Engine) else conn.engine
+        
+        # Check if the table exists before truncating
+        inspector = inspect(engine)
+        table_exists = inspector.has_table(table, schema=schema)
 
-    #     insert_stmt = pg_insert(table_obj).values(records)
-    #     update_cols = {c: insert_stmt.excluded[c] for c in table_obj.columns.keys() if c not in conflict_cols}
-    #     upsert_stmt = insert_stmt.on_conflict_do_update(
-    #         index_elements=conflict_cols,
-    #         set_=update_cols,
-    #         where=text(f'("{table}".*) IS DISTINCT FROM (EXCLUDED.*)')
-    #     )
+        with engine.begin() as connection:
+            if table_exists:
+                logger.info(f"Table {schema}.{table} exists. Truncating...")
+                connection.exec_driver_sql(f'TRUNCATE TABLE "{schema}"."{table}"')
+            else:
+                logger.info(f"Table {schema}.{table} does not exist. It will be created by to_sql.")
 
-    #     with engine.begin() as connection:
-    #         result = connection.execute(upsert_stmt)
-    #         logger.info(
-    #             f"Upserted {result.rowcount} rows into {schema}.{table} (attempted {len(df)})."
-    #         )
+            df.to_sql(
+                name=table,
+                con=connection,
+                schema=schema,
+                if_exists="append",
+                index=False,
+                method="multi",
+                chunksize=1000
+            )
     
 
     def upsert_df_to_table(conn, df, schema, table, conflict_cols):

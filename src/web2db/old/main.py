@@ -1,6 +1,6 @@
 from utils.common_tools import prevent_sleep, stop_sleep, format_worksheet
 from utils.common_tools import dbConnector as db
-from src.web2db.scraper import scrape_all_pages
+from web2db.old.scraper import scrape_all_pages
 
 import re
 import pandas as pd

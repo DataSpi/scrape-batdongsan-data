@@ -1,13 +1,96 @@
 import asyncio
-# from curl_cffi.aio import AsyncSession
 from curl_cffi.requests import AsyncSession
-from src.web2db.scraper import soup_to_df
 from bs4 import BeautifulSoup
 import pandas as pd
+
+from utils.sqlalchemy_conn import dbConnector as db
+# conn = db.spyno_sb_conn()
+# df = pd.read_excel("")
+
 
 # Maximum number of concurrent requests
 MAX_CONCURRENCY = 5
 URL = "https://batdongsan.com.vn/ban-can-ho-chung-cu-mizuki-park"
+
+
+
+def soup_to_df(html_soup):
+    # Find all listing cards
+    cards = html_soup.find_all("div", class_="js__card-full-web")
+
+    results = []
+    for card in cards:
+        # Title
+        title_tag = card.find("span", class_="pr-title js__card-title")
+        title = title_tag.text.strip() if title_tag else None
+
+        # Link
+        link_tag = card.find("a", class_="js__product-link-for-product-id")
+        link = link_tag['href'] if link_tag and link_tag.has_attr('href') else None
+
+        # Price
+        price_tag = card.find("span", class_="re__card-config-price")
+        price = price_tag.text.strip() if price_tag else None
+
+        # Area
+        area_tag = card.find("span", class_="re__card-config-area")
+        area = area_tag.text.strip() if area_tag else None
+
+        # Price per m2
+        ppm2_tag = card.find("span", class_="re__card-config-price_per_m2")
+        price_per_m2 = ppm2_tag.text.strip() if ppm2_tag else None
+
+        # Bedrooms
+        bedroom_tag = card.find("span", class_="re__card-config-bedroom")
+        bedrooms = bedroom_tag.find("span").text.strip() if bedroom_tag and bedroom_tag.find("span") else None
+
+        # Bathrooms
+        toilet_tag = card.find("span", class_="re__card-config-toilet")
+        toilets = toilet_tag.find("span").text.strip() if toilet_tag and toilet_tag.find("span") else None
+
+        # Location
+        location_tag = card.find("div", class_="re__card-location")
+        location = location_tag.find("span").text.strip() if location_tag and location_tag.find("span") else None
+
+        # Description
+        desc_tag = card.find("div", class_="re__card-description")
+        description = desc_tag.text.strip() if desc_tag else None
+
+        # Agent name
+        agent_tag = card.find("div", class_="agent-name")
+        agent_name = agent_tag.text.strip() if agent_tag else None
+
+        # Agent phone (may be masked)
+        phone_tag = card.find("span", class_="js__card-phone-btn")
+        phone = phone_tag.find_all("span")[-1].text.strip() if phone_tag else None
+
+        # Images
+        img_tags = card.find_all("img")
+        images = [img['src'] for img in img_tags if img.has_attr('src')]
+
+        results.append({
+            "title": title,
+            "link": link,
+            "price": price,
+            "area": area,
+            "price_per_m2": price_per_m2,
+            "bedrooms": bedrooms,
+            "toilets": toilets,
+            "location": location,
+            "description": description,
+            "agent_name": agent_name,
+            "phone": phone,
+            "images": images
+        })
+
+    return pd.DataFrame(results)
+
+def get_total_pages(html_content, base_url):
+    """Extract total number of pages from HTML content."""
+    page_num_list = html_content.find_all("a", class_="re__pagination-number")
+    page_num = max([int(i.text.strip()) for i in page_num_list]) if page_num_list else 1
+    urls = [f"{base_url}/p{i}" for i in range(1, page_num + 1)]
+    return page_num, urls
 
 async def fetch_and_parse(url, session, semaphore):
     """Fetch HTML content from URL and parse it into a DataFrame."""
@@ -34,15 +117,6 @@ async def fetch_and_parse(url, session, semaphore):
         except Exception as e:
             print(f"Error fetching {url}: {e}")
             return None, None
-
-
-def get_total_pages(html_content, base_url):
-    """Extract total number of pages from HTML content."""
-    page_num_list = html_content.find_all("a", class_="re__pagination-number")
-    page_num = max([int(i.text.strip()) for i in page_num_list]) if page_num_list else 1
-    urls = [f"{base_url}/p{i}" for i in range(1, page_num + 1)]
-    return page_num, urls
-
 
 async def fetch_all_pages(urls:list, page_num:int):
     """Fetch all pages concurrently."""
@@ -76,7 +150,10 @@ async def main(url=URL):
     return df_total
 
 if __name__ == "__main__":
+    conn = db.spyno_sb_conn()
     df_final = asyncio.run(main())
-    df_final.to_excel("/home/spyno_kiem/scrape-batdongsan-data/data/real_estate_listings_raw2.xlsx", index=False)
+    # df_final.to_excel("/home/spyno_kiem/scrape-batdongsan-data/data/real_estate_listings_raw2.xlsx", index=False)
+    
+    db.write_df_to_table(conn, df_final, schema="re_bronze", table="real_estate")
 
 
