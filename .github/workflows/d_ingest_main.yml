@@ -1,4 +1,4 @@
-name: LDL - Daily Ingestion Main
+name: Daily Ingestion Main
 
 on:
   schedule:
