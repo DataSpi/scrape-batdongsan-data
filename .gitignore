@@ -6,3 +6,6 @@ logs/
 TODO.md
 src/tmp
 tmp/
+.project
+.dbeaver/
+__pycache__/
