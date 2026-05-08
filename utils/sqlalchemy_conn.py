@@ -11,9 +11,9 @@ from sqlalchemy.engine import Engine, Connection
 from sqlalchemy import literal_column
 from sqlalchemy import inspect
 import pandas as pd
-from dotenv import load_dotenv
-load_dotenv()
-
+from dotenv import load_dotenv, find_dotenv
+load_dotenv(find_dotenv())
+print(f"DEBUG: Project Root .env found at: {find_dotenv()}")
 
 def setup_logging():
     logging.basicConfig(
@@ -177,23 +177,23 @@ class dbConnector:
             logger.error(f"Unexpected error fetching to DataFrame: {e}")
             raise
 
-    def write_df_to_table(conn: Union[Engine, Connection], df: pd.DataFrame, schema: str, table: str):
-        if df.empty:
-            logger.info(f"Write skipped: DataFrame is empty for {schema}.{table}")
-            return
+    # def write_df_to_table(conn: Union[Engine, Connection], df: pd.DataFrame, schema: str, table: str):
+    #     if df.empty:
+    #         logger.info(f"Write skipped: DataFrame is empty for {schema}.{table}")
+    #         return
 
-        engine = conn if isinstance(conn, Engine) else conn.engine
-        with engine.begin() as connection:
-            connection.exec_driver_sql(f'TRUNCATE TABLE "{schema}"."{table}"')
-            df.to_sql(
-                name=table,
-                con=connection,
-                schema=schema,
-                if_exists="append",
-                index=False,
-                method="multi",
-                chunksize=1000
-            )
+    #     engine = conn if isinstance(conn, Engine) else conn.engine
+    #     with engine.begin() as connection:
+    #         connection.exec_driver_sql(f'TRUNCATE TABLE "{schema}"."{table}"')
+    #         df.to_sql(
+    #             name=table,
+    #             con=connection,
+    #             schema=schema,
+    #             if_exists="append",
+    #             index=False,
+    #             method="multi",
+    #             chunksize=1000
+    #         )
 
     def write_df_to_table(conn: Union[Engine, Connection], df: pd.DataFrame, schema: str, table: str):
         if df.empty:
@@ -222,6 +222,7 @@ class dbConnector:
                 method="multi",
                 chunksize=1000
             )
+            logger.info(f"Successfully wrote {len(df)} rows to {schema}.{table}")
     
 
     def upsert_df_to_table(conn, df, schema, table, conflict_cols):
