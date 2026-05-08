@@ -5,3 +5,4 @@ venv/
 logs/
 TODO.md
 src/tmp
+tmp/

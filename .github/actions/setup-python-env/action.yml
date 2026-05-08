@@ -1,0 +1,27 @@
+name: Setup Python Environment
+description: Checkout, set up Python 3.14, install dependencies, and decode GCP/ENV secrets.
+
+inputs:
+  gcp-sa-key:
+    description: Base64-encoded GCP service account key
+    required: true
+  env-file:
+    description: Base64-encoded .env file contents
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: pip install -r requirements.txt
+      shell: bash
+
+    - name: Decode secrets
+      run: |
+        echo "${{ inputs.env-file }}" | base64 --decode > .env
+      shell: bash

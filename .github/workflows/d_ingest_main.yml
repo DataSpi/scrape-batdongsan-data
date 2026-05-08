@@ -1,0 +1,27 @@
+name: LDL - Daily Ingestion Main
+
+on:
+  schedule:
+    - cron: '0 1 * * *'  # Runs at 1:00 AM UTC (8:00 AM Ho Chi Minh time)
+  workflow_dispatch:      # THIS IS THE "TEST BUTTON"
+
+jobs:
+  web_to_bronze:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-python-env
+        with:
+          env-file: ${{ secrets.ENV_FILE }}
+      - name: Web to Bronze
+        run: python -m src.web2db.request_html
+
+  # bronze_to_silver:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: ./.github/actions/setup-python-env
+  #       with:
+  #         env-file: ${{ secrets.ENV_FILE }}
+  #     - name: Bronze to Silver
+  #       run: python -m src.web2db.transform_raw
