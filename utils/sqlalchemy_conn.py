@@ -207,11 +207,11 @@ class dbConnector:
         table_exists = inspector.has_table(table, schema=schema)
 
         with engine.begin() as connection:
-            if table_exists:
-                logger.info(f"Table {schema}.{table} exists. Truncating...")
-                connection.exec_driver_sql(f'TRUNCATE TABLE "{schema}"."{table}"')
-            else:
-                logger.info(f"Table {schema}.{table} does not exist. It will be created by to_sql.")
+            # if table_exists:
+            #     logger.info(f"Table {schema}.{table} exists. Truncating...")
+            #     connection.exec_driver_sql(f'TRUNCATE TABLE "{schema}"."{table}"')
+            # else:
+            #     logger.info(f"Table {schema}.{table} does not exist. It will be created by to_sql.")
 
             df.to_sql(
                 name=table,

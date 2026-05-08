@@ -2,15 +2,23 @@ import asyncio
 from curl_cffi.requests import AsyncSession
 from bs4 import BeautifulSoup
 import pandas as pd
+import os
 
 from utils.sqlalchemy_conn import dbConnector as db
 from utils.common_tools import setup_logging
 logger = setup_logging()
 
-# Maximum number of concurrent requests
-MAX_CONCURRENCY = 5
-URL = "https://batdongsan.com.vn/ban-can-ho-chung-cu-mizuki-park"
 
+MAX_CONCURRENCY = 5
+BATCH_SIZE = 100
+BATCH_DELAY_SECONDS = 10
+# URL = os.getenv("URL", "https://batdongsan.com.vn/ban-can-ho-chung-cu-trellia-cove")
+# URL = os.getenv("URL", "https://batdongsan.com.vn/ban-can-ho-chung-cu-mizuki-park")
+# URL = os.getenv("URL", "https://batdongsan.com.vn/ban-can-ho-chung-cu-mizuki-park?vrs=1")
+# URL = os.getenv("URL", "https://batdongsan.com.vn/ban-can-ho-chung-cu-tp-ho-chi-minh")
+URL = os.getenv("URL", "https://batdongsan.com.vn/ban-can-ho-chung-cu-ha-noi")
+
+# URL = os.getenv("URL", "")
 
 
 def soup_to_df(html_soup):
@@ -22,6 +30,10 @@ def soup_to_df(html_soup):
         # Title
         title_tag = card.find("span", class_="pr-title js__card-title")
         title = title_tag.text.strip() if title_tag else None
+        
+        # Verify 
+        verify_tag = card.find("span", class_="re__card-image-verified")
+        verify = True if verify_tag else False
 
         # Link
         link_tag = card.find("a", class_="js__product-link-for-product-id")
@@ -69,6 +81,7 @@ def soup_to_df(html_soup):
 
         results.append({
             "title": title,
+            "verify": verify,
             "link": link,
             "price": price,
             "area": area,
@@ -119,15 +132,28 @@ async def fetch_and_parse(url, session, semaphore):
             logger.error(f"Error fetching {url}: {e}")
             return None, None
 
-async def fetch_all_pages(urls:list):
-    """Fetch all pages concurrently."""
+async def fetch_all_pages(urls: list, batch_size: int = BATCH_SIZE, batch_delay_seconds: int = BATCH_DELAY_SECONDS):
+    """Fetch pages in bounded batches with a pause between batches."""
     semaphore = asyncio.Semaphore(MAX_CONCURRENCY)
+    all_results = []
     
     async with AsyncSession() as session:
-        tasks = [fetch_and_parse(page_url, session, semaphore) for page_url in urls]
-        results = await asyncio.gather(*tasks)
+        for start_index in range(0, len(urls), batch_size):
+            batch_number = (start_index // batch_size) + 1
+            batch_urls = urls[start_index:start_index + batch_size]
+            tasks = [fetch_and_parse(page_url, session, semaphore) for page_url in batch_urls]
+            batch_results = await asyncio.gather(*tasks)
+            all_results.extend(batch_results)
+
+            has_more_batches = start_index + batch_size < len(urls)
+            if has_more_batches:
+                logger.info(
+                    f"Completed batch {batch_number} ({len(batch_urls)} pages). "
+                    f"Sleeping {batch_delay_seconds}s before the next batch."
+                )
+                await asyncio.sleep(batch_delay_seconds)
     
-    return results
+    return all_results
 
 async def main(url=URL):
     # Fetch first page to get total pages
