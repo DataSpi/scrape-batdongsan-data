@@ -134,7 +134,9 @@ async def main(url=URL):
     semaphore = asyncio.Semaphore(1)
     async with AsyncSession() as session:
         df, html_content = await fetch_and_parse(url, session, semaphore)
+    logger.info(f"Initial page fetched. Extracted {len(df)} listings from the first page.")
     
+    assert len(df) > 0, "No listings found on the first page. Check if the page structure has changed or if the URL is correct."
     urls = get_urls_list(html_content, url)
     
     # Fetch all pages concurrently
