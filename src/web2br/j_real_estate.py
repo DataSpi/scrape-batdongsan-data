@@ -1,8 +1,11 @@
 import asyncio
+from curl_cffi import requests
 from curl_cffi.requests import AsyncSession
 from bs4 import BeautifulSoup
 import pandas as pd
 import os
+import re
+import json
 
 from utils.sqlalchemy_conn import dbConnector as db
 from utils.common_tools import setup_logging
@@ -13,73 +16,93 @@ MAX_CONCURRENCY = 5
 BATCH_SIZE = 100
 BATCH_DELAY_SECONDS = 10
 # URL = os.getenv("URL", "https://batdongsan.com.vn/ban-can-ho-chung-cu-trellia-cove")
-# URL = os.getenv("URL", "https://batdongsan.com.vn/ban-can-ho-chung-cu-mizuki-park")
+URL = os.getenv("URL", "https://batdongsan.com.vn/ban-can-ho-chung-cu-mizuki-park")
 # URL = os.getenv("URL", "https://batdongsan.com.vn/ban-can-ho-chung-cu-mizuki-park?vrs=1")
 # URL = os.getenv("URL", "https://batdongsan.com.vn/ban-can-ho-chung-cu-tp-ho-chi-minh")
-URL = os.getenv("URL", "https://batdongsan.com.vn/ban-can-ho-chung-cu-ha-noi")
-
 # URL = os.getenv("URL", "")
+# URL = os.getenv("URL", "https://batdongsan.com.vn/ban-can-ho-chung-cu-ha-noi")
+
+
+def custom_request(url):
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+    }
+    response = requests.get(url, headers=headers, impersonate="chrome124")
+    return response
+
+def extract_page_tracking_data(html_content):
+    for script in html_content.find_all('script'):
+        if script.string and 'window.pageTrackingData' in script.string:
+            script_content = script.string
+            
+            # Extract JSON from JSON.parse() call
+            pattern = r"JSON\.parse\('({.*?})'\)"
+            match = re.search(pattern, script_content, re.DOTALL)
+            
+            if match:
+                json_str = match.group(1)
+                # Handle escaped quotes and special characters
+                json_str = json_str.replace("\\'", "'").replace('\\"', '"')
+                data = json.loads(json_str)
+                data = pd.json_normalize(data['products'])
+                return data
+    logger.warning("No tracking data found in the page.")
+    return None
 
 
 def soup_to_df(html_soup):
     # Find all listing cards
     cards = html_soup.find_all("div", class_="js__card-full-web")
-
     results = []
     for card in cards:
-        # Title
+        # card = cards[0]
+        
+        id_tag = card.find("a", class_="js__product-link-for-product-id")
+        product_id = id_tag['data-product-id']
+        
         title_tag = card.find("span", class_="pr-title js__card-title")
         title = title_tag.text.strip() if title_tag else None
         
-        # Verify 
         verify_tag = card.find("span", class_="re__card-image-verified")
         verify = True if verify_tag else False
 
-        # Link
         link_tag = card.find("a", class_="js__product-link-for-product-id")
         link = link_tag['href'] if link_tag and link_tag.has_attr('href') else None
 
-        # Price
         price_tag = card.find("span", class_="re__card-config-price")
         price = price_tag.text.strip() if price_tag else None
 
-        # Area
         area_tag = card.find("span", class_="re__card-config-area")
         area = area_tag.text.strip() if area_tag else None
 
-        # Price per m2
         ppm2_tag = card.find("span", class_="re__card-config-price_per_m2")
         price_per_m2 = ppm2_tag.text.strip() if ppm2_tag else None
 
-        # Bedrooms
         bedroom_tag = card.find("span", class_="re__card-config-bedroom")
         bedrooms = bedroom_tag.find("span").text.strip() if bedroom_tag and bedroom_tag.find("span") else None
 
-        # Bathrooms
         toilet_tag = card.find("span", class_="re__card-config-toilet")
         toilets = toilet_tag.find("span").text.strip() if toilet_tag and toilet_tag.find("span") else None
 
-        # Location
         location_tag = card.find("div", class_="re__card-location")
         location = location_tag.find("span").text.strip() if location_tag and location_tag.find("span") else None
 
-        # Description
         desc_tag = card.find("div", class_="re__card-description")
         description = desc_tag.text.strip() if desc_tag else None
 
-        # Agent name
         agent_tag = card.find("div", class_="agent-name")
         agent_name = agent_tag.text.strip() if agent_tag else None
 
-        # Agent phone (may be masked)
         phone_tag = card.find("span", class_="js__card-phone-btn")
         phone = phone_tag.find_all("span")[-1].text.strip() if phone_tag else None
 
-        # Images
-        img_tags = card.find_all("img")
-        images = [img['src'] for img in img_tags if img.has_attr('src')]
+        # img_tags = card.find_all("img")
+        # images = [img['src'] for img in img_tags if img.has_attr('src')]
 
         results.append({
+            "product_id": product_id,
             "title": title,
             "verify": verify,
             "link": link,
@@ -92,11 +115,26 @@ def soup_to_df(html_soup):
             "description": description,
             "agent_name": agent_name,
             "phone": phone,
-            "images": images
+            # "images": images
         })
 
     logger.info(f"Extracted {len(results)} listings from the page")
     return pd.DataFrame(results)
+
+def merge_listing_with_tracking_data(df, tracking_data):
+    """Merge listing cards with tracking metadata by product id."""
+    if df is None or df.empty:
+        return pd.DataFrame()
+
+    if tracking_data is None or tracking_data.empty:
+        logger.warning("Tracking data is empty for this page. Returning listing data only.")
+        return df.copy()
+
+    tracking_data = tracking_data.copy()
+    tracking_data['productId'] = tracking_data['productId'].astype(str)
+    return pd.merge(df, tracking_data, how='left', left_on='product_id', right_on='productId')
+
+
 
 def get_urls_list(html_content, base_url):
     """Extract total number of pages from HTML content."""
@@ -127,7 +165,9 @@ async def fetch_and_parse(url, session, semaphore):
                 return None, None
                 
             df = soup_to_df(html_content)
-            return df, html_content
+            tracking_data = extract_page_tracking_data(html_content)
+            df_combined = merge_listing_with_tracking_data(df, tracking_data)
+            return df_combined, html_content
         except Exception as e:
             logger.error(f"Error fetching {url}: {e}")
             return None, None
@@ -159,19 +199,19 @@ async def main(url=URL):
     # Fetch first page to get total pages
     semaphore = asyncio.Semaphore(1)
     async with AsyncSession() as session:
-        df, html_content = await fetch_and_parse(url, session, semaphore)
-    if df is None or len(df) == 0:
+        df_combined_first, html_content = await fetch_and_parse(url, session, semaphore)
+    if df_combined_first is None or len(df_combined_first) == 0:
         logger.error(f"No listings found on the first page. HTML content:\n{html_content}")
         raise AssertionError("No listings found on the first page. Check if the page structure has changed or if the URL is correct.")
     
-    logger.info(f"Initial page fetched. Extracted {len(df)} listings from the first page.")
+    logger.info(f"Initial page fetched. Extracted {len(df_combined_first)} listings from the first page.")
     urls = get_urls_list(html_content, url)
     
-    # Fetch all pages concurrently
+     # Fetch all pages concurrently
     results = await fetch_all_pages(urls)
     
-    # Combine all dataframes
-    df_total = df.copy()
+    # Combine all dataframes (listing + tracking metadata)
+    df_total = df_combined_first.copy()
     for result_df, _ in results[1:]:
         if result_df is not None:
             df_total = pd.concat([df_total, result_df], ignore_index=True)
@@ -181,6 +221,7 @@ async def main(url=URL):
 if __name__ == "__main__":
     conn = db.spyno_sb_conn()
     df_final = asyncio.run(main())
+    # df_final.to_csv("data/real_estate_listings.csv", index=False)
     db.write_df_to_table(conn, df_final, schema="re_bronze", table="real_estate")
 
 
