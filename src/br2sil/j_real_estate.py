@@ -125,8 +125,7 @@ df['link'] = df['link'].apply(
 df['link'] = df['link'].str.replace(r'^\./', '', regex=True)
 df = normalize_real_estate_type(df)
 print(df['real_estate_type'].value_counts())
-df['project'] = df['link'].str.split("-prj-").str[1].fillna("").str.split("/").str[0] # fillna() add 2026-02-25 after the .str error
-
+# df['project'] = df['link'].str.split("-prj-").str[1].fillna("").str.split("/").str[0] # fillna() add 2026-02-25 after the .str error
 
 
 # Price and area parsing
@@ -150,4 +149,5 @@ else:
 # ----------------------------------------------
 # Write to Supabase
 # ----------------------------------------------
+# db.execute_query(conn, "drop table if exists re_silver.real_estate cascade", fetch=False)
 db.write_df_to_table(conn, df, schema="re_silver", table="real_estate")
