@@ -11,7 +11,7 @@ from utils.sqlalchemy_conn import dbConnector as db
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-LOG_PATH = os.path.join(BASE_DIR, "../..", "logs", "main.log")
+LOG_PATH = os.path.join(BASE_DIR, "../..", "logs", "br2sil_j_real_estate.log")
 os.makedirs(os.path.dirname(LOG_PATH), exist_ok=True)
 
 

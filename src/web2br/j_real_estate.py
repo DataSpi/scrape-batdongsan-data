@@ -16,11 +16,11 @@ MAX_CONCURRENCY = 5
 BATCH_SIZE = 100
 BATCH_DELAY_SECONDS = 10
 # URL = os.getenv("URL", "https://batdongsan.com.vn/ban-can-ho-chung-cu-trellia-cove")
-URL = os.getenv("URL", "https://batdongsan.com.vn/ban-can-ho-chung-cu-mizuki-park")
+# URL = os.getenv("URL", "https://batdongsan.com.vn/ban-can-ho-chung-cu-mizuki-park")
 # URL = os.getenv("URL", "https://batdongsan.com.vn/ban-can-ho-chung-cu-mizuki-park?vrs=1")
 # URL = os.getenv("URL", "https://batdongsan.com.vn/ban-can-ho-chung-cu-tp-ho-chi-minh")
 # URL = os.getenv("URL", "")
-# URL = os.getenv("URL", "https://batdongsan.com.vn/ban-can-ho-chung-cu-ha-noi")
+URL = os.getenv("URL", "https://batdongsan.com.vn/ban-can-ho-chung-cu-ha-noi")
 
 
 def custom_request(url):
@@ -50,7 +50,6 @@ def extract_page_tracking_data(html_content):
                 return data
     logger.warning("No tracking data found in the page.")
     return None
-
 
 def soup_to_df(html_soup):
     # Find all listing cards
@@ -133,8 +132,6 @@ def merge_listing_with_tracking_data(df, tracking_data):
     tracking_data = tracking_data.copy()
     tracking_data['productId'] = tracking_data['productId'].astype(str)
     return pd.merge(df, tracking_data, how='left', left_on='product_id', right_on='productId')
-
-
 
 def get_urls_list(html_content, base_url):
     """Extract total number of pages from HTML content."""
