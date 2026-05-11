@@ -10,3 +10,4 @@ tmp/
 .dbeaver/
 __pycache__/
 data/
+.vscode/

@@ -1,3 +1,4 @@
+CREATE OR REPLACE VIEW re_silver.v_apartment_analysis AS
 SELECT 
     re.unique_id,
     re."productId",
@@ -24,7 +25,4 @@ LEFT JOIN re_bronze.m_wards w
 LEFT JOIN re_bronze.m_streets s 
     ON re."streetId" = s."streetId"
 LEFT JOIN re_bronze.m_projects p 
-    ON re."projectId"= p."projectId"
-WHERE 
-    c.name IN ('Hà Nội', 'Hồ Chí Minh'); 
-
+    ON re."projectId" = p."projectId";
