@@ -21,6 +21,7 @@ Tech stack:
       - Change to `bought_currency` and `sold_currency` 
     2. Creating calculated fields. Prioritize clear name for user because this is analysis for business users. 
 - **Joining**: Identify the id columns in the source table and join it with the dimension source to get the descriptive infor. If lacking context, and can not idenify the dimension source, note it as a comment in the code and the chat response and ask for clarification.
+- `query:` can be used for create calculated tables just like CTE in SQL. 
 
 ## Joins Syntax
 join_one: source name [is source] on boolean expression
@@ -30,7 +31,15 @@ join_cross: source name [is source] [on boolean expression]
 
 ## Malloy Documentation
 - `count(distinct expression)` deprecated, use `count(expression)` instead.
-
+- to see a selection of a table we can use `run:` or `query:` block. For example:
+    ```malloy
+    run: source -> {
+        select:
+            col1, col2
+        where:
+            col3 > 100
+    }
+    ```
 # Naming convention in database 
 ## Tables Name
 

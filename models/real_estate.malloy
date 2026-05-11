@@ -1,0 +1,71 @@
+source: city is supabase.table('supabase.re_bronze.m_cities') extend {
+    primary_key: code 
+}
+
+source: district is supabase.table('supabase.re_bronze.m_districts') extend {
+     primary_key: districtId
+     join_one: city on city.code = cityCode
+}
+
+source: ward is supabase.table('supabase.re_bronze.m_wards') extend {
+     primary_key: wardId
+     join_one: district on district.districtId = districtId
+}
+
+source: street is supabase.table('supabase.re_bronze.m_streets') extend {
+     primary_key: streetId
+     join_one: district on district.districtId = districtId
+}
+
+source: prj is supabase.table('supabase.re_bronze.m_projects') extend {
+     primary_key: projectId
+     join_one: district on district.districtId = districtId
+}
+
+
+
+
+source: real_estate is supabase.table('supabase.re_silver.real_estate') extend {
+    primary_key: product_id
+
+    join_one: city on city.code = cityCode
+    join_one: district on district.districtId = districtId
+    join_one: ward on ward.wardId = wardId
+    join_one: street on street.streetId = streetId
+    join_one: prj on prj.projectId = projectId
+
+    dimension: price is price_num
+    dimension: price_1m2 is price_per_m2_recal
+    dimension: project_name is prj.name
+
+    measure: property_count is count()
+    measure: average_price is avg(price)
+    measure: average_price_1m2 is avg(price_1m2)
+
+    view: count_by_district is {
+        group_by: city.name, d_name is district.name 
+        aggregate: property_count
+    }
+    view: count_by_project is {
+        group_by: city.name, project_name
+        aggregate: property_count
+        order_by: property_count desc
+        limit: 100
+    }
+
+    view: avg_price_by_project is {
+        group_by: city.name, project_name
+        aggregate: average_price, average_price_1m2
+        order_by: average_price desc
+        limit: 100
+    }
+}
+
+query: t_place is real_estate -> {
+  select:
+    title, price, 
+    project_name, 
+    link
+  where:
+    project_name = 'T-Place'
+}
