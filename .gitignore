@@ -12,3 +12,8 @@ __pycache__/
 data/
 .vscode/
 .gitignore
+publisher.config.json
+publisher.db
+publisher.db.wal
+publisher_data
+

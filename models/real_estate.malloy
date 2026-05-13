@@ -60,12 +60,3 @@ source: real_estate is supabase.table('supabase.re_silver.real_estate') extend {
         limit: 100
     }
 }
-
-query: t_place is real_estate -> {
-  select:
-    title, price, 
-    project_name, 
-    link
-  where:
-    project_name = 'T-Place'
-}
