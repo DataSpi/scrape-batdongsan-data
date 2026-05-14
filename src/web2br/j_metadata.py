@@ -40,13 +40,13 @@ sg_hn = districts.query('cityCode=="SG" or cityCode=="HN"')
 
 wards_all = get_info_by_districts(districts, url_template="https://batdongsan.com.vn/Product/ProductSearch/GetWardsByDistrictIds?districtIds={}")
 streets_all = get_info_by_districts(districts, url_template="https://batdongsan.com.vn/Product/ProductSearch/GetStreetsByDistrictIds?districtIds={}")
-# projects_all = get_info_by_districts(districts, url_template="https://batdongsan.com.vn/Product/ProductSearch/GetProjectsByDistrictIds?districtIds={}")
+projects_all = get_info_by_districts(districts, url_template="https://batdongsan.com.vn/Product/ProductSearch/GetProjectsByDistrictIds?districtIds={}")
 
 
 # write to supabase 
 conn = db.spyno_sb_conn()
-# db.write_df_to_table(conn, cities, schema="re_bronze", table="m_cities", truncate=True)
-# db.write_df_to_table(conn, districts, schema="re_bronze", table="m_districts", truncate=True)
+db.write_df_to_table(conn, cities, schema="re_bronze", table="m_cities", truncate=True)
+db.write_df_to_table(conn, districts, schema="re_bronze", table="m_districts", truncate=True)
 db.write_df_to_table(conn, wards_all, schema="re_bronze", table="m_wards", truncate=True)
 db.write_df_to_table(conn, streets_all, schema="re_bronze", table="m_streets", truncate=True)
-# db.write_df_to_table(conn, projects_all, schema="re_bronze", table="m_projects", truncate=True)
+db.write_df_to_table(conn, projects_all, schema="re_bronze", table="m_projects", truncate=True)
