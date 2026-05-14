@@ -47,16 +47,16 @@ source: real_estate is supabase.table('supabase.re_silver.real_estate') extend {
         aggregate: property_count
     }
     view: count_by_project is {
-        group_by: city.name, project_name
+        group_by: city_name is city.name, projectId, project_name
         aggregate: property_count
-        order_by: property_count desc
+        order_by: city_name, property_count desc
         limit: 100
     }
 
     view: avg_price_by_project is {
-        group_by: city.name, project_name
+        group_by: city_name is city.name, projectId, project_name
         aggregate: average_price, average_price_1m2
-        order_by: average_price desc
+        order_by: city_name, average_price desc
         limit: 100
     }
 }

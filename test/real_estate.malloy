@@ -1,0 +1,8 @@
+source: city is supabase.table('supabase.re_bronze.m_cities') extend {
+    primary_key: code 
+}
+
+-- query: test_query is city -> {
+--     select:
+--         code, name, prefix
+-- }

@@ -1,0 +1,7 @@
+>>>malloy
+import './real_estate.malloy'
+>>>sql
+-- connection: supabase
+create table supabase.re_bronze.test_city as (
+    %{test_query}%
+)

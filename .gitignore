@@ -17,3 +17,7 @@ publisher.db
 publisher.db.wal
 publisher_data
 
+malloy-config.json
+
+*.pyc
+*.pyo

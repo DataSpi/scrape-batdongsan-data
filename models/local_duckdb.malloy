@@ -1,7 +1,0 @@
-source: real_estate is duckdb.table('data/real_estate_listings.csv') extend {
-}
-
-run: real_estate -> { 
-    select: 
-        area, bedrooms, price
-}

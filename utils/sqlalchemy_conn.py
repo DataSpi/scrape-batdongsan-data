@@ -177,25 +177,7 @@ class dbConnector:
             logger.error(f"Unexpected error fetching to DataFrame: {e}")
             raise
 
-    # def write_df_to_table(conn: Union[Engine, Connection], df: pd.DataFrame, schema: str, table: str):
-    #     if df.empty:
-    #         logger.info(f"Write skipped: DataFrame is empty for {schema}.{table}")
-    #         return
-
-    #     engine = conn if isinstance(conn, Engine) else conn.engine
-    #     with engine.begin() as connection:
-    #         connection.exec_driver_sql(f'TRUNCATE TABLE "{schema}"."{table}"')
-    #         df.to_sql(
-    #             name=table,
-    #             con=connection,
-    #             schema=schema,
-    #             if_exists="append",
-    #             index=False,
-    #             method="multi",
-    #             chunksize=1000
-    #         )
-
-    def write_df_to_table(conn: Union[Engine, Connection], df: pd.DataFrame, schema: str, table: str):
+    def write_df_to_table(conn: Union[Engine, Connection], df: pd.DataFrame, schema: str, table: str, truncate: bool = False):
         if df.empty:
             logger.info(f"Write skipped: DataFrame is empty for {schema}.{table}")
             return
@@ -207,11 +189,11 @@ class dbConnector:
         table_exists = inspector.has_table(table, schema=schema)
 
         with engine.begin() as connection:
-            # if table_exists:
-            #     logger.info(f"Table {schema}.{table} exists. Truncating...")
-            #     connection.exec_driver_sql(f'TRUNCATE TABLE "{schema}"."{table}"')
-            # else:
-            #     logger.info(f"Table {schema}.{table} does not exist. It will be created by to_sql.")
+            if table_exists and truncate:
+                logger.info(f"Table {schema}.{table} exists. Truncating...")
+                connection.exec_driver_sql(f'TRUNCATE TABLE "{schema}"."{table}"')
+            else:
+                logger.info(f"Table {schema}.{table} does not exist. It will be created by to_sql.")
 
             df.to_sql(
                 name=table,

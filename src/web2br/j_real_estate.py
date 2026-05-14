@@ -18,9 +18,9 @@ BATCH_DELAY_SECONDS = 10
 # URL = os.getenv("URL", "https://batdongsan.com.vn/ban-can-ho-chung-cu-trellia-cove")
 # URL = os.getenv("URL", "https://batdongsan.com.vn/ban-can-ho-chung-cu-mizuki-park")
 # URL = os.getenv("URL", "https://batdongsan.com.vn/ban-can-ho-chung-cu-mizuki-park?vrs=1")
-# URL = os.getenv("URL", "https://batdongsan.com.vn/ban-can-ho-chung-cu-tp-ho-chi-minh")
+URL = os.getenv("URL", "https://batdongsan.com.vn/ban-can-ho-chung-cu-tp-ho-chi-minh")
 # URL = os.getenv("URL", "")
-URL = os.getenv("URL", "https://batdongsan.com.vn/ban-can-ho-chung-cu-ha-noi")
+# URL = os.getenv("URL", "https://batdongsan.com.vn/ban-can-ho-chung-cu-ha-noi")
 
 
 def custom_request(url):
