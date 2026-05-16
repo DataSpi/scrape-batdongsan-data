@@ -5,6 +5,7 @@ source: city is supabase.table('supabase.re_bronze.m_cities') extend {
 source: district is supabase.table('supabase.re_bronze.m_districts') extend {
      primary_key: districtId
      join_one: city on city.code = cityCode
+     measure: d_count is count()
 }
 
 source: ward is supabase.table('supabase.re_bronze.m_wards') extend {
@@ -28,35 +29,40 @@ source: prj is supabase.table('supabase.re_bronze.m_projects') extend {
 source: real_estate is supabase.table('supabase.re_silver.real_estate') extend {
     primary_key: product_id
 
-    join_one: city on city.code = cityCode
-    join_one: district on district.districtId = districtId
-    join_one: ward on ward.wardId = wardId
-    join_one: street on street.streetId = streetId
-    join_one: prj on prj.projectId = projectId
+    join_one: 
+        city on city.code = cityCode
+        district on district.districtId = ward.districtId --have to join through ward because the district_id for some properties is null
+        ward on ward.wardId = wardId
+        street on street.streetId = streetId
+        prj on prj.projectId = projectId
 
-    dimension: price is price_num
-    dimension: price_1m2 is price_per_m2_recal
-    dimension: project_name is prj.name
+    dimension: 
+        price is price_num
+        price_1m2 is price_per_m2_recal
+        project_name is prj.name    
+        ward_name is ward.name
+        district_name is ward.district.name
+        city_name is ward.district.city.name
 
-    measure: property_count is count()
-    measure: average_price is avg(price)
-    measure: average_price_1m2 is avg(price_1m2)
+    measure: 
+        property_count is count()
+        average_price is avg(price)
+        average_price_1m2 is avg(price_1m2)
 
-    view: count_by_district is {
-        group_by: city.name, d_name is district.name 
+    view: 
+        count_by_district is {
+        group_by: city_name, d_name is district_name 
         aggregate: property_count
     }
-    view: count_by_project is {
-        group_by: city_name is city.name, projectId, project_name
+        count_by_project is {
+        group_by: city_name, projectId, project_name
         aggregate: property_count
         order_by: city_name, property_count desc
-        limit: 100
     }
 
-    view: avg_price_by_project is {
-        group_by: city_name is city.name, projectId, project_name
+        avg_price_by_project is {
+        group_by: city_name, projectId, project_name
         aggregate: average_price, average_price_1m2
         order_by: city_name, average_price desc
-        limit: 100
     }
 }

@@ -1,62 +1,116 @@
 # Overview
 
-This project uses Python for scraping real estate listings from from [batdongsan.com.vn](https://batdongsan.com.vn). The flow of the project:
+This project builds a repeatable real estate data pipeline for [batdongsan.com.vn](https://batdongsan.com.vn):
+
+1. Scrape listings, projects, and location metadata.
+2. Store raw and cleaned data in Supabase/PostgreSQL.
+3. Model data for analytics (Malloy + dbt).
+4. Explore and visualize for market insights (Looker Studio dashboard).
 
 ![Data Pipeline](figs/project-flow2.png)
+![Dashboard Preview](figs/dashboard-preview.png)
 
-* Scraping data from batdongsan.com
-* Storing on Supabase
-* Visualizing & analysing on [Google Locker Studio](https://lookerstudio.google.com/reporting/9e21618f-97dc-4480-b101-cbda26b9b2a5)
-    ![alt text](figs/dashboard-preview.png)
+```mermaid
+subgraph B[Web Scraping Layer]
+    B1[j_real_estate.py<br/>Listings crawler + tracking JSON merge]
+    B2[j_projects.py<br/>Projects crawler]
+    B3[j_metadata.py<br/>Cities, wards, streets, projects metadata APIs]
+end
 
-# Quick Start
+B --> C[(Supabase PostgreSQL<br/>re_bronze)]
 
-## 1. Set Up a Python Environment
+C --> D[br2sil/j_real_estate.py<br/>Cleaning + normalization]
+D --> E[(Supabase PostgreSQL<br/>re_silver.real_estate)]
 
-It is recommended to use a virtual environment:
+E --> F[Malloy Semantic Model<br/>models/real_estate.malloy]
+C --> F
 
-```bash
-python3 -m venv venv
-source venv/bin/activate
+C --> G[dbt Mart Model<br/>dbt/models/marts/fct_real_estate.sql]
+E --> G
+
+F --> H[Analytical Queries<br/>models/materialize.malloysql]
+G --> H
+
+H --> I[Looker Studio Dashboard]
+
+J[APScheduler local jobs] -. schedules .-> B
+K[Airflow DAG scaffold] -. orchestrates .-> B
+K -. orchestrates .-> D
 ```
 
-## 2. Install Dependencies
+# Problems This Project Solves
+
+- Turns unstructured marketplace pages into queryable tabular datasets.
+- Reduces manual market scanning by centralizing listings and project context.
+- Fixes key data quality issues for analysis (price/area parsing, type normalization, location hierarchy joins).
+- Provides an analytics-ready semantic layer so business users can answer pricing and supply questions faster.
+
+# Features Developed
+
+- Asynchronous, batched scraper for listing pages with browser impersonation to improve request success rate.
+- Listing extraction includes core fields plus `verify` flag from listing card HTML.
+- Tracking metadata extraction from embedded `window.pageTrackingData` JSON and merge by `product_id`.
+- Project crawler with project metadata extraction across paginated pages.
+- Metadata ingestion for cities/wards/streets/projects via batdongsan API endpoints.
+- Bronze -> Silver transformation pipeline:
+    - Parse Vietnamese price text into numeric values.
+    - Parse area into numeric square meters.
+    - Normalize property type labels.
+    - Recalculate price per m2.
+    - Add scrape date and duplicate checks.
+- SQLAlchemy-based DB utilities for write/upsert/query workflows.
+- Semantic model in Malloy with joins across city/district/ward/street/project.
+- dbt mart model (`fct_real_estate`) for integrated analytical view.
+- Scheduling/orchestration:
+    - Local APScheduler job runner.
+    - Airflow DAG scaffold for periodic pipelines.
+
+# Technologies Applied
+
+- Language: Python.
+- Scraping: `curl_cffi`, `BeautifulSoup4`, `asyncio`.
+- Data processing: `pandas`, `numpy`.
+- Storage & DB access: Supabase/PostgreSQL, `sqlalchemy`, `psycopg2`.
+- Modeling: Malloy semantic layer, dbt SQL modeling.
+- Orchestration: APScheduler, Apache Airflow.
+- Analytics/visualization: Looker Studio, exploratory scripts with `matplotlib` and `seaborn`.
+
+# Current Run Commands (Windows/Conda)
+
+Install dependencies:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-## 3. Configure Environment Variables
-
-Create a `.env` file in the project root with your Supabase credentials and any other required settings. Example:
+Run listing scraper:
 
 ```bash
-SUPABASE_URL=your_supabase_url
-SUPABASE_KEY=your_supabase_key
+python -m src.web2br.j_real_estate
 ```
 
-## 4. Run the Scraper
+Run project scraper:
 
 ```bash
-python main.py
+python -m src.web2br.j_projects
 ```
 
-# To do
+Run metadata ingestion:
 
-## Getting the verified field
-
-* find in "pr-title js__card-title" the "re__card-image-verified "
-* pros: getting the fuller vision over the market -> avoid overlooking good deals
-* cons: potential information contaminated because of scammed listings
-
-Sample HTML:
-
-```html
-<span class="pr-title js__card-title" product-title="">
-    <span class="re__card-image-verified " data-bds-tooltip-width="220" data-bds-tooltip-position="top" data-bds-tooltip="Tin đăng đã được xác thực thông qua việc kiểm tra sổ đỏ và hình ảnh cung cấp bởi người đăng tin. &lt;a style=&quot;display: flex; justify-content: center; text-align: center; text-decoration: underline; font-size: 13px&quot; class=&quot;js__verified-info-click&quot; href=&quot;javascript:void(0);&quot; onclick=&quot;window.FrontEnd_Product_VerifiedListing.ShowVerifiedListingPopup();&quot; tracking-id=&quot;verified-more-infor-click&quot; tracking-label=&quot;loc=text&quot;&gt; Tìm hiểu thêm&lt;/span&gt;"></span>
-        Vinhome Ba Son 3 phòng ngủ đầu hồi giá tốt nhất định phải mua tháng 09 ( 240tr/m2 còn sót lại )
-        </span>
+```bash
+python -m src.web2br.j_metadata
 ```
+
+Run bronze-to-silver transformation:
+
+```bash
+python -m src.br2sil.j_real_estate
+```
+
+# Notes
+
+- Existing Airflow DAG task script paths reference legacy files that are not present in this repo snapshot.
+- Sensitive credentials should be moved out of tracked config files into environment variables/secrets.
 
 
 

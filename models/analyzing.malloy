@@ -1,6 +1,0 @@
-import './real_estate.malloy' 
-
-run: real_estate -> { 
-    group_by: city.name
-    aggregate: property_count, average_price, average_price_1m2
-}

@@ -16,37 +16,68 @@ def response_to_df(response):
     df = pd.DataFrame(json_data)
     return df
 
-def get_info_by_districts(districts_df: pd.DataFrame, url_template="https://batdongsan.com.vn/Product/ProductSearch/GetWardsByDistrictIds?districtIds={}"):
+def get_children_infos(parents_df: pd.DataFrame, key_column: str, url_template="https://batdongsan.com.vn/Product/ProductSearch/GetWardsByDistrictIds?districtIds={}"):
     df_all = pd.DataFrame()
-    for district in districts_df.itertuples():
-        url = url_template.format(district.districtId)
+    for parent in parents_df.itertuples():
+        url = url_template.format(getattr(parent, key_column))
         response = custom_request(url)
-        wards = response_to_df(response)
-        df_all = pd.concat([df_all, wards], ignore_index=True)
+        infos = response_to_df(response)
+        df_all = pd.concat([df_all, infos], ignore_index=True)
     return df_all
 
 
-url = "https://batdongsan.com.vn/Product/ProductSearch/GetCities"
-response = custom_request(url)
-cities = response_to_df(response)
-# cities.query('name=="Hồ Chí Minh" or name=="Hà Nội"')
+# url = "https://batdongsan.com.vn/Product/ProductSearch/GetCities"
+# response = custom_request(url)
+# cities = response_to_df(response)
+# # cities.query('name=="Hồ Chí Minh" or name=="Hà Nội"')
 
-url = "https://batdongsan.com.vn/Product/ProductSearch/GetDistricts"
-response = custom_request(url)
-districts = response_to_df(response)
-# print(districts.query('cityCode=="SG"'))
+# url = "https://batdongsan.com.vn/Product/ProductSearch/GetDistricts"
+# response = custom_request(url)
+# districts = response_to_df(response)
+# # print(districts.query('cityCode=="SG"'))
 
-sg_hn = districts.query('cityCode=="SG" or cityCode=="HN"')
+# sg_hn = districts.query('cityCode=="SG" or cityCode=="HN"')
 
-wards_all = get_info_by_districts(districts, url_template="https://batdongsan.com.vn/Product/ProductSearch/GetWardsByDistrictIds?districtIds={}")
-streets_all = get_info_by_districts(districts, url_template="https://batdongsan.com.vn/Product/ProductSearch/GetStreetsByDistrictIds?districtIds={}")
-projects_all = get_info_by_districts(districts, url_template="https://batdongsan.com.vn/Product/ProductSearch/GetProjectsByDistrictIds?districtIds={}")
+# wards_all = get_children_infos(districts, key_column="districtId", url_template="https://batdongsan.com.vn/Product/ProductSearch/GetWardsByDistrictIds?districtIds={}")
+
+# streets_all = get_children_infos(districts, key_column="districtId", url_template="https://batdongsan.com.vn/Product/ProductSearch/GetStreetsByDistrictIds?districtIds={}")
+# projects_all = get_children_infos(districts, key_column="districtId", url_template="https://batdongsan.com.vn/Product/ProductSearch/GetProjectsByDistrictIds?districtIds={}")
+
+
+{
+    "GetCities": "/Product/ProductSearch/GetCitiesV2",
+    "GetWardsByCityCode": "/Product/ProductSearch/GetWardsByCityCodeV2",
+    "GetStreetsByWardIdV2": "/Product/ProductSearch/GetStreetsByWardIdV2",
+    "GetProjectsByWardId": "/Product/ProductSearch/GetProjectsByWardIdV2"
+}
+
+ward_sg = response_to_df(custom_request("https://batdongsan.com.vn/Product/ProductSearch/GetWardsByCityCodeV2?cityCode=SG"))
+
+response_to_df(custom_request("https://batdongsan.com.vn/Product/ProductSearch/GetProjectsByWardIdV2?wardId=1036"))
+
+
+
+
+cities_v2 = response_to_df(custom_request("https://batdongsan.com.vn/Product/ProductSearch/GetCitiesV2"))
+wards_v2 = get_children_infos(cities_v2, key_column="code", url_template="https://batdongsan.com.vn/Product/ProductSearch/GetWardsByCityCodeV2?cityCode={}")
+streets_v2 = get_children_infos(wards_v2, key_column="wardId", url_template="https://batdongsan.com.vn/Product/ProductSearch/GetStreetsByWardIdV2?wardId={}")
+projects_v2 = get_children_infos(wards_v2, key_column="wardId", url_template="https://batdongsan.com.vn/Product/ProductSearch/GetProjectsByWardIdV2?wardId={}")
+
+
+
+
 
 
 # write to supabase 
 conn = db.spyno_sb_conn()
-db.write_df_to_table(conn, cities, schema="re_bronze", table="m_cities", truncate=True)
-db.write_df_to_table(conn, districts, schema="re_bronze", table="m_districts", truncate=True)
-db.write_df_to_table(conn, wards_all, schema="re_bronze", table="m_wards", truncate=True)
-db.write_df_to_table(conn, streets_all, schema="re_bronze", table="m_streets", truncate=True)
-db.write_df_to_table(conn, projects_all, schema="re_bronze", table="m_projects", truncate=True)
+# db.write_df_to_table(conn, cities, schema="re_bronze", table="m_cities", truncate=True)
+# db.write_df_to_table(conn, districts, schema="re_bronze", table="m_districts", truncate=True)
+# db.write_df_to_table(conn, wards_all, schema="re_bronze", table="m_wards", truncate=True)
+# db.write_df_to_table(conn, streets_all, schema="re_bronze", table="m_streets", truncate=True)
+# db.write_df_to_table(conn, projects_all, schema="re_bronze", table="m_projects", truncate=True)
+
+
+db.write_df_to_table(conn, cities_v2, schema="re_bronze", table="m_cities_v2", truncate=True)
+db.write_df_to_table(conn, wards_v2, schema="re_bronze", table="m_wards_v2", truncate=True)
+db.write_df_to_table(conn, streets_v2, schema="re_bronze", table="m_streets_v2", truncate=True)
+db.write_df_to_table(conn, projects_v2, schema="re_bronze", table="m_projects_v2", truncate=True)

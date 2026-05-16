@@ -11,4 +11,11 @@ run: real_estate -> {
 }
 >>>malloy
 
-run: real_estate -> count_by_district + { aggregate: average_price_1m2 }
+run: real_estate -> {
+    group_by: city.name, d_name is district.name
+    aggregate: property_count, average_price, average_price_1m2
+    order_by: name, average_price_1m2 desc
+    -- limit: 100
+}
+>>>malloy
+
