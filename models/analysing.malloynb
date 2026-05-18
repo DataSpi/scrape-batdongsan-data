@@ -1,21 +1,31 @@
 >>>malloy
 import './real_estate.malloy'
 >>>markdown
-# Số lượng căn hộ
-
-Số căn hộ được đăng bán của TP HCM nhiều hơn của Hà Nội
+# Theo dự án
+## Số lượng dự án và giá trung bình của từng quận
 >>>malloy
 run: real_estate -> {
-    group_by: city.name
-    aggregate: property_count, average_price, average_price_1m2
+  group_by: cityCode
+  nest:
+    `Nest` is {
+      group_by: district_name
+      aggregate: avg_price
+      nest: general_info + { }
+      order_by: avg_price desc
+    }
+  limit: 1000
 }
+>>>markdown
+## Giá trung bình của từng dự án
 >>>malloy
-
 run: real_estate -> {
-    group_by: city.name, d_name is district.name
-    aggregate: property_count, average_price, average_price_1m2
-    order_by: name, average_price_1m2 desc
-    -- limit: 100
+  group_by: cityCode
+  nest:
+    `Nest` is {
+      group_by: district_name
+      aggregate: avg_price
+      nest: general_info + { group_by: project_name order_by: avg_price desc }
+      order_by: avg_price desc
+    }
+  limit: 1000
 }
->>>malloy
-

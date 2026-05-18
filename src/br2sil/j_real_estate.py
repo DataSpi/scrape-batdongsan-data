@@ -112,6 +112,7 @@ def normalize_real_estate_type(df: pd.DataFrame) -> pd.DataFrame:
 # ----------------------------------------------
 conn = db.spyno_sb_conn()
 df = db.fetch_to_dataframe(conn, query='SELECT * FROM re_bronze.real_estate')
+df.columns
 
 # ----------------------------------------------
 # Clean the DataFrame

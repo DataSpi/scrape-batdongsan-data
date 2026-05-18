@@ -7,8 +7,8 @@ Số căn hộ được đăng bán của TP HCM nhiều hơn của Hà Nội
 >>>malloy
 run: real_estate -> {
     group_by: city.name
-    aggregate: property_count, average_price, average_price_1m2
+    aggregate: property_count, avg_price, avg_price_1m2
 }
 >>>malloy
 
-run: real_estate -> count_by_district + { aggregate: average_price_1m2 }
+run: real_estate -> count_by_district + { aggregate: avg_price_1m2 }

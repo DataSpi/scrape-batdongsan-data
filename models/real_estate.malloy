@@ -18,11 +18,36 @@ source: street is supabase.table('supabase.re_bronze.m_streets') extend {
      join_one: district on district.districtId = districtId
 }
 
+
+
+source: city_v2 is supabase.table('supabase.re_bronze.m_cities_v2') extend {
+    primary_key: code 
+}
+
+source: ward_v2 is supabase.table('supabase.re_bronze.m_wards_v2') extend {
+     primary_key: wardId
+     join_one: city_v2 on city_v2.code = cityCode
+}
+
+source: street_v2 is supabase.table('supabase.re_bronze.m_streets_v2') extend {
+     primary_key: streetId
+     join_one: ward_v2 on ward_v2.wardId = wardId
+}
+
+
+
 source: prj is supabase.table('supabase.re_bronze.m_projects') extend {
      primary_key: projectId
      join_one: district on district.districtId = districtId
 }
 
+source: prj_v2 is supabase.table('supabase.re_bronze.m_projects_v2') extend {
+     primary_key: projectId
+     join_one: 
+        ward_v2 on ward_v2.wardId = wardId
+        prj on prj.projectId = projectId
+
+}
 
 
 
@@ -30,30 +55,53 @@ source: real_estate is supabase.table('supabase.re_silver.real_estate') extend {
     primary_key: product_id
 
     join_one: 
-        city on city.code = cityCode
-        district on district.districtId = ward.districtId --have to join through ward because the district_id for some properties is null
-        ward on ward.wardId = wardId
+        -- city on city.code = cityCode
+        -- district on district.districtId = ward.districtId --have to join through ward because the district_id for some properties is null
+        -- ward on ward.wardId = wardId
         street on street.streetId = streetId
         prj on prj.projectId = projectId
+        
+        -- city_v2 on city_v2.code = cityCode
+        -- ward_v2 on ward_v2.wardId = wardId
+        street_v2 on street_v2.streetId = streetId
+        prj_v2 on prj_v2.projectId = projectId
+    
+
 
     dimension: 
         price is price_num
         price_1m2 is price_per_m2_recal
         project_name is prj.name    
-        ward_name is ward.name
-        district_name is ward.district.name
-        city_name is ward.district.city.name
+        -- ward_name is prj.district.ward.name
+        district_name is prj.district.name
+        city_name is prj.district.city.name
+        street_name is street.name
 
+        street_name_v2 is street_v2.name
+        ward_name_v2 is prj_v2.ward_v2.name
+        city_name_v2 is prj_v2.ward_v2.city_v2.name
     measure: 
         property_count is count()
-        average_price is avg(price)
-        average_price_1m2 is avg(price_1m2)
+        avg_price is avg(price)
+        avg_price_1m2 is avg(price_1m2)
+        avg_area is avg(area_num)
+        
 
     view: 
+        general_info is {
+            aggregate: property_count, avg_price, avg_price_1m2, avg_area
+        }
+
         count_by_district is {
         group_by: city_name, d_name is district_name 
         aggregate: property_count
     }
+
+        count_by_ward_v2 is {
+        group_by: city_name_v2, ward_name_v2
+        aggregate: property_count
+    }
+
         count_by_project is {
         group_by: city_name, projectId, project_name
         aggregate: property_count
@@ -62,7 +110,7 @@ source: real_estate is supabase.table('supabase.re_silver.real_estate') extend {
 
         avg_price_by_project is {
         group_by: city_name, projectId, project_name
-        aggregate: average_price, average_price_1m2
-        order_by: city_name, average_price desc
+        aggregate: avg_price, avg_price_1m2
+        order_by: city_name, avg_price desc
     }
 }
