@@ -123,6 +123,11 @@ def _is_scalar(value: object) -> bool:
     return value is None or isinstance(value, (str, int, float, bool))
 
 
+def _format_number(value: int | float) -> str:
+    """Round to integer and format with thousand separators for readability."""
+    return f"{round(value):,}"
+
+
 def _json_value_to_html(value: object) -> str:
     """Render a JSON-compatible value into nested HTML."""
     if isinstance(value, dict):
@@ -193,6 +198,9 @@ def _json_value_to_html(value: object) -> str:
 
     if isinstance(value, bool):
         return str(value).lower()
+
+    if isinstance(value, (int, float)):
+        return _format_number(value)
 
     return escape(str(value))
 
@@ -278,12 +286,35 @@ def malloy_result_to_html(result: dict | list, title: str = "Malloy Query Result
             color: var(--muted);
             font-style: italic;
         }}
+        .legend {{
+            margin: 0 0 14px;
+            padding: 10px 12px;
+            border: 1px dashed var(--line);
+            border-radius: 10px;
+            background: #f8fcfe;
+            color: var(--header-text);
+        }}
+        .legend p {{
+            margin: 0 0 6px;
+            font-weight: 600;
+        }}
+        .legend ul {{
+            margin: 0;
+            padding-left: 18px;
+        }}
     </style>
 </head>
 <body>
     <div class="wrap">
         <div class="card">
             <h1>{escape(title)}</h1>
+            <div class="legend">
+                <p>Chú thích</p>
+                <ul>
+                    <li>price: triệu VND</li>
+                    <li>area: m2</li>
+                </ul>
+            </div>
             {content}
         </div>
     </div>
@@ -295,7 +326,7 @@ def malloy_result_to_html(result: dict | list, title: str = "Malloy Query Result
 def export_malloy_result_html(
         result: dict | list,
         output_path: str,
-        title: str = "Malloy Query Result",
+        title: str = "Báo cáo giá bất động sản theo dự án tại HN & TPHCM",
 ) -> Path:
         """Write rendered Malloy JSON output to an HTML file."""
         output_file = Path(output_path).resolve()
@@ -307,4 +338,4 @@ def export_malloy_result_html(
 
 # ml_go(args=["run", "sample.malloy", "test_query"])
 result = run_malloy_file(file_path="D:/scrape-batdongsan-data/tmp/test_tmp.malloy")
-export_malloy_result_html(result, output_path="reports/output/malloy_result.html")
+export_malloy_result_html(result, output_path="reports/output/HCM-HN_prj_rp.html")

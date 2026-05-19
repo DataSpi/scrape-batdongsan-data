@@ -1,14 +1,12 @@
 # Scrape Batdongsan Data
 
 Dự án mã nguồn mở cá nhân để thu thập, chuẩn hoá và phân tích dữ liệu bất động sản từ [batdongsan.com.vn](https://batdongsan.com.vn).
+- Báo cáo mẫu: [Báo cáo giá bất động sản theo dự án tại HN & TPHCM](reports\output\HCM-HN_prj_rp.html)
 
 ## Bắt đầu nhanh
 
 - Quickstart: [docs/quickstart.md](docs/quickstart.md)
-- Trung tâm tài liệu: [docs/README.md](docs/README.md)
 - Hướng dẫn kỹ thuật: [docs/technical-guides.md](docs/technical-guides.md)
-- Thư mục báo cáo: [reports/](reports/)
-- Báo cáo HTML mẫu: [reports/output/malloy_result.html](reports/output/malloy_result.html)
 
 ## Tổng quan
 
