@@ -9,6 +9,7 @@ Usage:
 
 Output:
     reports/output/report_YYYY-MM-DD.html
+test 1
 """
 
 import asyncio
