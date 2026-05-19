@@ -19,6 +19,7 @@ from datetime import date
 from pathlib import Path
 
 import nest_asyncio
+import plotly.express as px
 from dotenv import load_dotenv, find_dotenv
 
 load_dotenv(find_dotenv())
@@ -126,7 +127,7 @@ HTML_TEMPLATE = """\
 def _get_pg_connection():
     """Build a PostgresConnection using env vars (same creds as SQLAlchemy)."""
     try:
-        from malloy.data.postgres import PostgresConnection
+        from malloy.data.postgres import PostgresConnection  # type: ignore
     except ImportError:
         print("[ERROR] malloy[postgres] not installed. Run: pip install 'malloy[postgres]'")
         sys.exit(1)

@@ -1,14 +1,27 @@
 >>>malloy
+--connection: supabase
 import './real_estate.malloy'
->>>markdown
-# Số lượng căn hộ
-
-Số căn hộ được đăng bán của TP HCM nhiều hơn của Hà Nội
->>>malloy
-run: real_estate -> {
-    group_by: city.name
-    aggregate: property_count, avg_price, avg_price_1m2
+>>>sql
+CREATE OR REPLACE table supabase.re_silver.general_info_by_district2 AS (
+%{ 
+real_estate -> {
+    group_by: cityCode, district_name
+    aggregate: property_count
+    limit: 1000
 }
->>>malloy
+}%
+)
+>>>markdown
+actually creating table is easier than view because of the error below:
+\> ERROR:  cross-database references are not implemented
 
-run: real_estate -> count_by_district + { aggregate: avg_price_1m2 }
+Tuy nhiên, tạo table cũng không support các nested query quá sâu -> vì nó tạo ra mix-type thì db không chịu. 
+
+Vậy vấn đề là output những nested query đó như thế nào đây? vì thực tế là đọc mấy thứ đó khá thích. 
+Chắc dễ dàng nhất thì cứ: 
+- tạo malloy_cli_runner bằng python rồi lấy cái json out xong biến đổi từ đó
+- chuyển qua pd.df
+- viết job chuyển qua html table -> output ra trang github page? substack thì có vẻ không hỗ trợ html table rồi. 
+
+
+

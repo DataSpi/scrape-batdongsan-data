@@ -29,3 +29,9 @@ run: real_estate -> {
     }
   limit: 1000
 }
+>>>malloy
+run: real_estate -> {
+    group_by: cityCode, district_name
+    aggregate: property_count
+    limit: 1000
+}
