@@ -1,11 +1,23 @@
-# Overview
+# Scrape Batdongsan Data
 
-This project builds a repeatable real estate data pipeline for [batdongsan.com.vn](https://batdongsan.com.vn):
+Du an open source ca nhan de thu thap, chuan hoa va phan tich du lieu bat dong san tu [batdongsan.com.vn](https://batdongsan.com.vn).
 
-1. Scrape listings, projects, and location metadata.
-2. Store raw and cleaned data in Supabase/PostgreSQL.
-3. Model data for analytics (Malloy + dbt).
-4. Explore and visualize for market insights (Looker Studio dashboard).
+## Start Here
+
+- Quickstart: [docs/quickstart.md](docs/quickstart.md)
+- Docs Hub: [docs/README.md](docs/README.md)
+- Technical Guides: [docs/technical-guides.md](docs/technical-guides.md)
+- Reports folder: [reports/](reports/)
+- Report HTML sample: [reports/output/malloy_result.html](reports/output/malloy_result.html)
+
+## Overview
+
+Du an xay dung data pipeline co the lap lai:
+
+1. Scrape listings, projects, va location metadata.
+2. Luu tru va xu ly du lieu tren Supabase/PostgreSQL.
+3. Modeling phuc vu analytics bang Malloy + dbt.
+4. Tao report va dashboard de phan tich thi truong.
 
 ![Data Pipeline](figs/project-flow2.png)
 ![Dashboard Preview](figs/dashboard-preview.png)
@@ -38,79 +50,47 @@ K[Airflow DAG scaffold] -. orchestrates .-> B
 K -. orchestrates .-> D
 ```
 
-# Problems This Project Solves
+## Why This Project
 
-- Turns unstructured marketplace pages into queryable tabular datasets.
-- Reduces manual market scanning by centralizing listings and project context.
-- Fixes key data quality issues for analysis (price/area parsing, type normalization, location hierarchy joins).
-- Provides an analytics-ready semantic layer so business users can answer pricing and supply questions faster.
+- Bien du lieu marketplace phi cau truc thanh du lieu bang co the query.
+- Giam cong quet thu cong nho tap trung listing + thong tin du an.
+- Xu ly cac van de data quality de san sang cho phan tich.
+- Cung cap semantic layer de tra loi nhanh cac cau hoi gia va cung-cau.
 
-# Features Developed
+## Main Features
 
-- Asynchronous, batched scraper for listing pages with browser impersonation to improve request success rate.
-- Listing extraction includes core fields plus `verify` flag from listing card HTML.
-- Tracking metadata extraction from embedded `window.pageTrackingData` JSON and merge by `product_id`.
-- Project crawler with project metadata extraction across paginated pages.
-- Metadata ingestion for cities/wards/streets/projects via batdongsan API endpoints.
-- Bronze -> Silver transformation pipeline:
-    - Parse Vietnamese price text into numeric values.
-    - Parse area into numeric square meters.
-    - Normalize property type labels.
-    - Recalculate price per m2.
-    - Add scrape date and duplicate checks.
-- SQLAlchemy-based DB utilities for write/upsert/query workflows.
-- Semantic model in Malloy with joins across city/district/ward/street/project.
-- dbt mart model (`fct_real_estate`) for integrated analytical view.
-- Scheduling/orchestration:
-    - Local APScheduler job runner.
-    - Airflow DAG scaffold for periodic pipelines.
+- Scraper batched/asynchronous co browser impersonation de tang ti le request thanh cong.
+- Merge listing cards voi `window.pageTrackingData` theo `product_id`.
+- Metadata ingestion cho cities/wards/streets/projects.
+- Pipeline Bronze -> Silver:
+  - Parse gia va dien tich ve so.
+  - Normalize loai hinh bat dong san.
+  - Tinh lai gia theo m2.
+  - Kiem tra duplicate va bo sung ngay scrape.
+- Semantic model bang Malloy va mart model bang dbt.
+- Ho tro orchestration bang APScheduler va Airflow scaffold.
 
-# Technologies Applied
-
-- Language: Python.
-- Scraping: `curl_cffi`, `BeautifulSoup4`, `asyncio`.
-- Data processing: `pandas`, `numpy`.
-- Storage & DB access: Supabase/PostgreSQL, `sqlalchemy`, `psycopg2`.
-- Modeling: Malloy semantic layer, dbt SQL modeling.
-- Orchestration: APScheduler, Apache Airflow.
-- Analytics/visualization: Looker Studio, exploratory scripts with `matplotlib` and `seaborn`.
-
-# Current Run Commands (Windows/Conda)
-
-Install dependencies:
+## Run Commands
 
 ```bash
 pip install -r requirements.txt
-```
-
-Run listing scraper:
-
-```bash
 python -m src.web2br.j_real_estate
-```
-
-Run project scraper:
-
-```bash
 python -m src.web2br.j_projects
-```
-
-Run metadata ingestion:
-
-```bash
 python -m src.web2br.j_metadata
-```
-
-Run bronze-to-silver transformation:
-
-```bash
 python -m src.br2sil.j_real_estate
+python src/reports/generate_report.py
 ```
 
-# Notes
+## Navigation
 
-- Existing Airflow DAG task script paths reference legacy files that are not present in this repo snapshot.
-- Sensitive credentials should be moved out of tracked config files into environment variables/secrets.
+- Neu ban moi vao repo: bat dau tai [docs/quickstart.md](docs/quickstart.md).
+- Neu ban muon dao sau ky thuat: xem [docs/technical-guides.md](docs/technical-guides.md).
+- Neu ban muon xem ket qua phan tich nhanh: mo [reports/](reports/) va [reports/output/malloy_result.html](reports/output/malloy_result.html).
+
+## Notes
+
+- Airflow DAG hien co mot so script path legacy can doi lai theo cau truc repo hien tai.
+- Khuyen nghi tach secrets/credentials ra bien moi truong thay vi luu cung code.
 
 
 
