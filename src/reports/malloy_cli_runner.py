@@ -338,4 +338,4 @@ def export_malloy_result_html(
 
 # ml_go(args=["run", "sample.malloy", "test_query"])
 result = run_malloy_file(file_path="D:/scrape-batdongsan-data/tmp/test_tmp.malloy")
-export_malloy_result_html(result, output_path="reports/output/HCM-HN_prj_rp.html")
+export_malloy_result_html(result, output_path="reports/output/HCM-HN_prj.html")
