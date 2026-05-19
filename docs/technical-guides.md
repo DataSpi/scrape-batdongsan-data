@@ -1,60 +1,60 @@
-# Technical Guides
+# Hướng dẫn kỹ thuật
 
-Trang nay la khung tong hop cac huong dan ky thuat chi tiet. Ban co the bo sung theo tung nhom sau.
+Trang này tổng hợp các hướng dẫn kỹ thuật chi tiết cho từng phần của dự án. Bạn có thể bổ sung hoặc mở rộng theo nhóm chủ đề dưới đây.
 
-## 1) Scraping Layer
+## 1) Lớp thu thập dữ liệu (Scraping Layer)
 
-Noi dung nen co:
-- Kien truc crawler, batching, retry, throttle.
-- Mapping cac script trong `src/web2br/`.
-- Cach cap nhat selector khi website thay doi.
+Nội dung nên có:
+- Kiến trúc crawler, chia batch, retry, throttle.
+- Mapping các script trong `src/web2br/`.
+- Cách cập nhật selector khi website thay đổi.
 
-Goi y file lien quan:
+Gợi ý file liên quan:
 - `src/web2br/j_real_estate.py`
 - `src/web2br/j_projects.py`
 - `src/web2br/j_metadata.py`
 
-## 2) Bronze -> Silver
+## 2) Làm sạch dữ liệu (Bronze -> Silver)
 
-Noi dung nen co:
-- Quy tac clean du lieu (price, area, type normalization).
-- Duplicate checks va quality checks.
-- Cac table output va schema conventions.
+Nội dung nên có:
+- Quy tắc làm sạch dữ liệu (giá, diện tích, chuẩn hoá loại hình).
+- Kiểm tra trùng lặp và chất lượng dữ liệu.
+- Các bảng output và quy ước schema.
 
-Goi y file lien quan:
+Gợi ý file liên quan:
 - `src/br2sil/j_real_estate.py`
 
-## 3) Semantic Modeling va Analytics
+## 3) Semantic Modeling và Analytics
 
-Noi dung nen co:
-- Mo hinh Malloy trong `models/real_estate.malloy`.
+Nội dung nên có:
+- Mô hình Malloy trong `models/real_estate.malloy`.
 - dbt mart model trong `dbt/models/marts/`.
-- Nguyen tac dat ten dimensions va joins.
+- Nguyên tắc đặt tên dimensions và joins.
 
-## 4) Reports va Visualization
+## 4) Báo cáo và trực quan hoá (Reports & Visualization)
 
-Noi dung nen co:
-- Script tao report HTML.
-- Cac chi so KPI va y nghia.
-- Quy trinh export/chia se ket qua.
+Nội dung nên có:
+- Script tạo báo cáo HTML.
+- Các chỉ số KPI và ý nghĩa.
+- Quy trình xuất/chia sẻ kết quả.
 
-Goi y file lien quan:
+Gợi ý file liên quan:
 - `src/reports/generate_report.py`
 - `reports/output/malloy_result.html`
 
 ## 5) Orchestration
 
-Noi dung nen co:
-- Lich chay jobs.
+Nội dung nên có:
+- Lịch chạy jobs.
 - Workflow CI/CD ingestion.
-- Cach debug task fail.
+- Cách debug khi task bị lỗi.
 
-Goi y file lien quan:
+Gợi ý file liên quan:
 - `.github/workflows/d_ingest_main.yml`
 - `dags/real_estate_dag.py`
 
-## Dieu huong
+## Điều hướng
 
-- Ve [Docs Hub](README.md)
+- Về [Trung tâm tài liệu](README.md)
 - Sang [Quickstart](quickstart.md)
-- Ve [Trang chu du an](../readme.md)
+- Về [Trang chủ dự án](../index.md)

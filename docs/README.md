@@ -1,18 +1,17 @@
-# Docs Hub
+# Trung tâm tài liệu
 
-Tai lieu cho du an scrape-batdongsan-data duoc to chuc theo huong de doc, de dong gop, de bao tri.
+Tài liệu dự án scrape-batdongsan-data được tổ chức để dễ đọc, dễ đóng góp, dễ bảo trì.
 
-## Bat dau nhanh
+## Bắt đầu nhanh
 
-- [Quickstart](quickstart.md): Cai dat va chay pipeline co ban tu A toi Z.
+- [Quickstart](quickstart.md): Cài đặt và chạy pipeline cơ bản từ A đến Z.
 
-## Huong dan ky thuat
+## Hướng dẫn kỹ thuật
 
-- [Technical Guides](technical-guides.md): Khung huong dan theo tung module (scraper, modeling, reporting, deployment).
+- [Hướng dẫn kỹ thuật](technical-guides.md): Tổng hợp hướng dẫn chi tiết cho từng module (scraper, modeling, báo cáo, triển khai).
 
-## Lien ket nhanh
+## Liên kết nhanh
 
-- [Trang chu du an](../readme.md)
-- [GitHub Pages Landing](../index.md)
-- [Reports folder](../reports/)
-- [Report HTML sample](../reports/output/malloy_result.html)
+- [Trang chủ dự án](../index.md)
+- [Thư mục báo cáo](../reports/)
+- [Báo cáo HTML mẫu](../reports/output/malloy_result.html)

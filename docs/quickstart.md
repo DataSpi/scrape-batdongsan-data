@@ -1,25 +1,25 @@
 # Quickstart
 
-Tai lieu nay giup ban chay du an nhanh tren may local.
+Tài liệu này giúp bạn chạy dự án nhanh trên máy cá nhân.
 
-## 1) Prerequisites
+## 1) Yêu cầu trước khi bắt đầu
 
-- Python 3.10+ (khuyen nghi dung conda env rieng).
-- Truy cap database Supabase/PostgreSQL.
-- Tao file `.env` (hoac bien moi truong) voi cac bien toi thieu:
+- Python 3.10 trở lên (nên dùng môi trường conda riêng).
+- Có quyền truy cập database Supabase/PostgreSQL.
+- Tạo file `.env` (hoặc thiết lập biến môi trường) với các biến tối thiểu:
   - `DB_HOST`
   - `DB_PORT`
   - `DB_DB_NAME`
   - `DB_USER`
   - `DB_PASSWORD`
 
-## 2) Cai dat
+## 2) Cài đặt
 
 ```bash
 pip install -r requirements.txt
 ```
 
-Neu ban dung conda:
+Nếu dùng conda:
 
 ```bash
 conda create -n bds_scraper python=3.10 -y
@@ -27,54 +27,54 @@ conda activate bds_scraper
 pip install -r requirements.txt
 ```
 
-## 3) Chay pipeline co ban
+## 3) Chạy pipeline cơ bản
 
-### 3.1 Scrape listings
+### 3.1 Thu thập listings
 
 ```bash
 python -m src.web2br.j_real_estate
 ```
 
-### 3.2 Scrape projects
+### 3.2 Thu thập dự án
 
 ```bash
 python -m src.web2br.j_projects
 ```
 
-### 3.3 Lay metadata
+### 3.3 Lấy metadata
 
 ```bash
 python -m src.web2br.j_metadata
 ```
 
-### 3.4 Bronze -> Silver
+### 3.4 Làm sạch dữ liệu (Bronze -> Silver)
 
 ```bash
 python -m src.br2sil.j_real_estate
 ```
 
-## 4) Tao report
+## 4) Tạo báo cáo
 
 ```bash
 python src/reports/generate_report.py
 ```
 
-Output report duoc luu trong thu muc `reports/output/`.
+Báo cáo sẽ được lưu trong thư mục `reports/output/`.
 
-## 5) Kiem tra nhanh
+## 5) Kiểm tra nhanh
 
-- Co du lieu trong schema Bronze/Silver tren database.
-- Co file HTML report moi trong `reports/output/`.
-- Doc report mau: [malloy_result.html](../reports/output/malloy_result.html)
+- Có dữ liệu trong schema Bronze/Silver trên database.
+- Có file HTML báo cáo mới trong `reports/output/`.
+- Xem báo cáo mẫu: [malloy_result.html](../reports/output/malloy_result.html)
 
-## 6) Troubleshooting
+## 6) Xử lý lỗi thường gặp
 
-- Loi ket noi DB: kiem tra lai `.env` va quyen truy cap Supabase.
-- Loi package: chay lai `pip install -r requirements.txt` trong dung environment.
-- Khong co listing: website nguon co the doi structure, can cap nhat scraper selectors.
+- Lỗi kết nối DB: kiểm tra lại `.env` và quyền truy cập Supabase.
+- Lỗi package: chạy lại `pip install -r requirements.txt` trong đúng environment.
+- Không có listing: website nguồn có thể đã đổi cấu trúc, cần cập nhật lại selector scraper.
 
-## Dieu huong
+## Điều hướng
 
-- Ve [Trang chu du an](../readme.md)
-- Ve [Docs Hub](README.md)
-- Sang [Technical Guides](technical-guides.md)
+- Về [Trang chủ dự án](../index.md)
+- Về [Trung tâm tài liệu](README.md)
+- Sang [Hướng dẫn kỹ thuật](technical-guides.md)
