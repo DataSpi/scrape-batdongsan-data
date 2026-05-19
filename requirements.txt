@@ -4,7 +4,9 @@ numpy
 curl_cffi
 beautifulsoup4
 sqlalchemy
-# Add any specific DB drivers you use, for example:
-psycopg2-binary # (if using PostgreSQL)
-# pymysql          (if using MySQL)
+psycopg2-binary
 apscheduler
+# Report generation
+malloy[postgres]
+plotly
+jinja2
