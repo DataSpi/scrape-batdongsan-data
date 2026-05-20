@@ -18,39 +18,22 @@ Dự án thu thập dữ liệu, chuẩn hóa dữ liệu để thực hiện ph
 
 
 ```mermaid
-graph TD;
-    A-->B;
-    A-->C;
-    B-->D;
-    C-->D;
-```
+graph TD
+  A[Web Scraping scripts] --> B[(Supabase re_bronze)]
+  B --> C[Clean and normalize: br2sil/j_real_estate.py]
+  C --> D[(Supabase re_silver.real_estate)]
 
+  B --> E[Malloy model: models/real_estate.malloy]
+  D --> E
+  B --> F[dbt mart: dbt/models/marts/fct_real_estate.sql]
+  D --> F
 
-```mermaid
-subgraph B[Lớp Web Scraping]
-  B1[j_real_estate.py<br/>Crawler listings + merge tracking JSON]
-  B2[j_projects.py<br/>Crawler dự án]
-  B3[j_metadata.py<br/>API metadata thành phố, phường, đường, dự án]
-end
+  E --> G[Analysis query: models/materialize.malloysql]
+  F --> G
+  G --> H[Looker Studio dashboard]
 
-B --> C[(Supabase PostgreSQL<br/>re_bronze)]
-
-C --> D[br2sil/j_real_estate.py<br/>Làm sạch + chuẩn hoá]
-D --> E[(Supabase PostgreSQL<br/>re_silver.real_estate)]
-
-E --> F[Malloy Semantic Model<br/>models/real_estate.malloy]
-C --> F
-
-C --> G[dbt Mart Model<br/>dbt/models/marts/fct_real_estate.sql]
-E --> G
-
-F --> H[Truy vấn phân tích<br/>models/materialize.malloysql]
-G --> H
-
-H --> I[Looker Studio Dashboard]
-
-J[APScheduler local jobs] -. lên lịch .-> B
-K[Airflow DAG scaffold] -. điều phối .-> B
-K -. điều phối .-> D
+  J[APScheduler] -. schedule .-> A
+  K[Airflow DAG] -. orchestrate .-> A
+  K -. orchestrate .-> C
 ```
 
