@@ -3,12 +3,11 @@
 Dự án thu thập dữ liệu, chuẩn hóa dữ liệu để thực hiện phân tích về thị trường bất động sản tại Việt Nam với nguồn dữ liệu từ [batdongsan.com.vn](https://batdongsan.com.vn)
 
 
-### Báo cáo tĩnh
+### Reports 
 - [Báo cáo giá bất động sản theo dự án tại HN & TPHCM](reports/output/HCM-HN_prj.html)
 - [Báo cáo giá bất động sản theo quận (cũ) tại HN & TPHCM](reports/output/HCM-HN_districts.html)
 
-### Dashboard minh họa
-
+### Dashboard 
 - Dashboard: [Google Locker Studio](https://lookerstudio.google.com/reporting/9e21618f-97dc-4480-b101-cbda26b9b2a5)
 
 ![Dashboard minh hoạ](figs/dashboard-preview.png)
