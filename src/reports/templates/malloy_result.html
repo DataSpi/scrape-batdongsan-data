@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>$title</title>
+    <style>
+        :root {
+            --bg: #f2f5f9;
+            --card: #ffffff;
+            --line: #b8c3d1;
+            --text: #0f172a;
+            --muted: #475569;
+            --accent: #0b7285;
+            --header-bg: #dff1f6;
+            --header-text: #073642;
+            --cell-bg: #ffffff;
+            --nested-bg: #f4f8fb;
+            --nested-border: #c9d9e8;
+            --sticky-top: 64px; /* height of the sticky title bar */
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: "Segoe UI", Tahoma, sans-serif;
+            background: linear-gradient(180deg, #e8eef5 0%, var(--bg) 100%);
+            color: var(--text);
+        }
+
+        /* ── Sticky title bar ─────────────────────────────── */
+        .title-bar {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: var(--accent);
+            color: #fff;
+            padding: 14px 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+        }
+        .title-bar h1 {
+            margin: 0;
+            font-size: 20px;
+            font-weight: 700;
+            letter-spacing: 0.01em;
+        }
+
+        .wrap {
+            max-width: 1400px;
+            margin: 24px auto;
+            padding: 0 20px 60px;
+        }
+        .card {
+            background: var(--card);
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            padding: 20px;
+            box-shadow: 0 10px 25px rgba(15, 23, 42, 0.08);
+            overflow-x: auto; /* horizontal scroll on the card itself */
+        }
+
+        /* ── Tables ───────────────────────────────────────── */
+        /* No max-height / overflow here — page scrolls naturally */
+        .table-scroll {
+            margin: 6px 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: auto;
+        }
+        th, td {
+            border: 1px solid var(--line);
+            padding: 7px 10px;
+            vertical-align: top;
+            text-align: left;
+            word-break: break-word;
+            background: var(--cell-bg);
+            color: var(--text);
+        }
+
+        /* Sticky header — works at window scroll because no overflow on ancestors */
+        thead th {
+            position: sticky;
+            top: var(--sticky-top);
+            z-index: 10;
+            background: var(--header-bg);
+            box-shadow: 0 2px 0 var(--line);
+            white-space: nowrap;
+        }
+        th {
+            background: var(--header-bg);
+            color: var(--header-text);
+            font-weight: 600;
+        }
+
+        /* ── Nested table visual hierarchy ───────────────── */
+        /* Each table inside a td gets a lighter shade + indent */
+        td > table,
+        td > .table-scroll > table {
+            background: var(--nested-bg);
+            border: 1px solid var(--nested-border);
+            border-radius: 6px;
+            font-size: 0.93em;
+            width: 100%;
+        }
+        td > table th,
+        td > .table-scroll > table th,
+        td > table thead th,
+        td > .table-scroll > table thead th {
+            background: #e6f0f7;
+            top: 0;          /* nested headers: sticky inside their own stacking context only */
+            position: static; /* avoid z-index fights in deeply nested tables */
+        }
+        td > table td,
+        td > .table-scroll > table td {
+            background: #f9fcff;
+        }
+
+        .kv-table th {
+            width: 180px;
+            min-width: 160px;
+        }
+        .json-list {
+            margin: 0;
+            padding-left: 18px;
+        }
+        .null, .empty {
+            color: var(--muted);
+            font-style: italic;
+        }
+        .legend {
+            margin: 0 0 16px;
+            padding: 10px 14px;
+            border: 1px dashed var(--line);
+            border-radius: 10px;
+            background: #f8fcfe;
+            color: var(--header-text);
+        }
+        .legend p {
+            margin: 0 0 6px;
+            font-weight: 600;
+        }
+        .legend ul {
+            margin: 0;
+            padding-left: 18px;
+        }
+
+        /* ── Zebra rows on top-level list-table ──────────── */
+        .list-table > tbody > tr:nth-child(even) > td {
+            background: #f0f6fb;
+        }
+        .list-table > tbody > tr:hover > td {
+            background: #e4f0f9;
+            transition: background 0.1s;
+        }
+    </style>
+</head>
+<body>
+    <div class="title-bar">
+        <h1>$title</h1>
+    </div>
+    <div class="wrap">
+        <div class="card">
+            <div class="legend">
+                <p>Chú thích</p>
+                <ul>
+                    <li>price: triệu VND / m²</li>
+                    <li>area: m²</li>
+                </ul>
+            </div>
+            $content
+        </div>
+    </div>
+</body>
+</html>

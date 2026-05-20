@@ -2,26 +2,26 @@ import "../real_estate.malloy"
 
 
 query: general_info_by_district is real_estate -> {
-  group_by: cityCode
+  group_by: TP is cityCode
   nest:
-    `By District` is {
+    `Theo Quận` is {
       group_by: tên_quận
-      aggregate: giá_trung_bình
+      aggregate: giá_tb
       nest: general_info + { }
-      order_by: giá_trung_bình desc
+      order_by: giá_tb desc
     }
   limit: 1000
 }
 
 
 query: general_info_by_project is real_estate -> {
-  group_by: cityCode
+  group_by: TP is cityCode
   nest:
-    `By Project` is {
+    `Theo Dự Án` is {
       group_by: tên_quận
-      aggregate: giá_trung_bình
-      nest: general_info + { group_by: tên_dự_án order_by: giá_trung_bình desc }
-      order_by: giá_trung_bình desc
+      aggregate: giá_tb
+      nest: general_info + { group_by: tên_dự_án order_by: giá_tb desc }
+      order_by: giá_tb desc
     }
   limit: 1000
 }

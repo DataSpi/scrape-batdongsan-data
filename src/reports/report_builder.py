@@ -1,6 +1,8 @@
 import sys
+from functools import lru_cache
 from html import escape
 from pathlib import Path
+from string import Template
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -10,6 +12,14 @@ if str(PROJECT_ROOT) not in sys.path:
 from utils.malloy_cli_runner import run_malloy_file
 
 DEFAULT_REPORT_TITLE = "Bao cao gia bat dong san theo du an tai HN & TPHCM"
+HTML_TEMPLATE_PATH = Path(__file__).resolve().parent / "templates" / "malloy_result.html"
+
+
+@lru_cache(maxsize=1)
+def _load_html_template() -> Template:
+    """Load and cache the report HTML template from disk."""
+    raw_template = HTML_TEMPLATE_PATH.read_text(encoding="utf-8")
+    return Template(raw_template)
 
 
 def _is_scalar(value: object) -> bool:
@@ -73,10 +83,12 @@ def _json_value_to_html(value: object) -> str:
                 body_rows.append(f"<tr>{cells}</tr>")
 
             return (
+                '<div class="table-scroll">'
                 '<table class="list-table">'
                 f"<thead><tr>{header}</tr></thead>"
                 f"<tbody>{''.join(body_rows)}</tbody>"
                 "</table>"
+                "</div>"
             )
 
         items = "".join(f"<li>{_json_value_to_html(item)}</li>" for item in value)
@@ -96,119 +108,8 @@ def _json_value_to_html(value: object) -> str:
 def malloy_result_to_html(result: dict | list, title: str = "Malloy Query Result") -> str:
     """Convert Malloy JSON output into a styled HTML document."""
     content = _json_value_to_html(result)
-    return f"""<!doctype html>
-<html lang=\"en\">
-<head>
-    <meta charset=\"utf-8\" />
-    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />
-    <title>{escape(title)}</title>
-    <style>
-        :root {{
-            --bg: #f2f5f9;
-            --card: #ffffff;
-            --line: #b8c3d1;
-            --text: #0f172a;
-            --muted: #475569;
-            --accent: #0b7285;
-            --header-bg: #dff1f6;
-            --header-text: #073642;
-            --cell-bg: #ffffff;
-        }}
-        body {{
-            margin: 0;
-            font-family: \"Segoe UI\", Tahoma, sans-serif;
-            background: linear-gradient(180deg, #e8eef5 0%, var(--bg) 100%);
-            color: var(--text);
-        }}
-        .wrap {{
-            max-width: 1100px;
-            margin: 32px auto;
-            padding: 0 16px;
-        }}
-        .card {{
-            background: var(--card);
-            border: 1px solid var(--line);
-            border-radius: 14px;
-            padding: 16px;
-            box-shadow: 0 10px 25px rgba(15, 23, 42, 0.08);
-            overflow-x: auto;
-        }}
-        h1 {{
-            margin: 0 0 14px;
-            font-size: 24px;
-            color: var(--accent);
-        }}
-        table {{
-            width: 100%;
-            border-collapse: collapse;
-            margin: 8px 0;
-            table-layout: auto;
-        }}
-        th, td {{
-            border: 1px solid var(--line);
-            padding: 8px 10px;
-            vertical-align: top;
-            text-align: left;
-            word-break: break-word;
-            background: var(--cell-bg);
-            color: var(--text);
-        }}
-        th {{
-            background: var(--header-bg);
-            color: var(--header-text);
-            font-weight: 600;
-        }}
-        .kv-table th {{
-            width: 180px;
-            min-width: 180px;
-        }}
-        .leaf-table td,
-        .list-table td {{
-            background: #fbfdff;
-        }}
-        .json-list {{
-            margin: 0;
-            padding-left: 18px;
-        }}
-        .null, .empty {{
-            color: var(--muted);
-            font-style: italic;
-        }}
-        .legend {{
-            margin: 0 0 14px;
-            padding: 10px 12px;
-            border: 1px dashed var(--line);
-            border-radius: 10px;
-            background: #f8fcfe;
-            color: var(--header-text);
-        }}
-        .legend p {{
-            margin: 0 0 6px;
-            font-weight: 600;
-        }}
-        .legend ul {{
-            margin: 0;
-            padding-left: 18px;
-        }}
-    </style>
-</head>
-<body>
-    <div class=\"wrap\">
-        <div class=\"card\">
-            <h1>{escape(title)}</h1>
-            <div class=\"legend\">
-                <p>Chu thich</p>
-                <ul>
-                    <li>price: trieu VND</li>
-                    <li>area: m2</li>
-                </ul>
-            </div>
-            {content}
-        </div>
-    </div>
-</body>
-</html>
-"""
+    template = _load_html_template()
+    return template.safe_substitute(title=escape(title), content=content)
 
 def export_malloy_result_html(
     result: dict | list,

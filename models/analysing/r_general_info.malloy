@@ -6,9 +6,9 @@ run: real_estate -> {
   nest:
     `By District` is {
       group_by: tên_quận
-      aggregate: giá_trung_bình
+      aggregate: giá_tb
       nest: general_info + { }
-      order_by: giá_trung_bình desc
+      order_by: giá_tb desc
     }
   limit: 1000
 }
@@ -19,9 +19,9 @@ run: real_estate -> {
 --   nest:
 --     `Nest` is {
 --       group_by: tên_quận
---       aggregate: giá_trung_bình
---       nest: general_info + { group_by: tên_dự_án order_by: giá_trung_bình desc }
---       order_by: giá_trung_bình desc
+--       aggregate: giá_tb
+--       nest: general_info + { group_by: tên_dự_án order_by: giá_tb desc }
+--       order_by: giá_tb desc
 --     }
 --   limit: 1000
 -- }

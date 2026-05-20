@@ -82,14 +82,14 @@ source: real_estate is supabase.table('supabase.re_silver.real_estate') extend {
         tên_thành_phố_v2 is prj_v2.ward_v2.city_v2.name
     measure: 
         số_bài_đăng is count()
-        giá_trung_bình is avg(giá)
-        giá_m2_trung_bình is avg(giá_m2)
-        diện_tích_trung_bình is avg(area_num)
+        giá_tb is avg(giá)
+        giá_1m2 is avg(giá_m2)
+        diện_tích_tb is avg(area_num)
         
 
     view: 
         general_info is {
-            aggregate: số_bài_đăng, giá_trung_bình, giá_m2_trung_bình, diện_tích_trung_bình
+            aggregate: số_bài_đăng, giá_tb, giá_1m2, diện_tích_tb
         }
 
         count_by_district is {
@@ -110,7 +110,7 @@ source: real_estate is supabase.table('supabase.re_silver.real_estate') extend {
 
         avg_price_by_project is {
         group_by: tên_thành_phố, projectId, tên_dự_án
-        aggregate: giá_trung_bình, giá_m2_trung_bình
-        order_by: tên_thành_phố, giá_trung_bình desc
+        aggregate: giá_tb, giá_1m2
+        order_by: tên_thành_phố, giá_tb desc
     }
 }
