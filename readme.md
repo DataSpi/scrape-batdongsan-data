@@ -34,7 +34,7 @@ graph TD
 ```
 
 
-## Bắt đầu nhanh
+## Quickstart
 
 - Quickstart: [docs/quickstart.md](docs/quickstart.md)
 - Hướng dẫn kỹ thuật: [docs/technical-guides.md](docs/technical-guides.md)
