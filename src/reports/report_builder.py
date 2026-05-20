@@ -9,7 +9,6 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from utils.malloy_cli_runner import run_malloy_file
 
-
 DEFAULT_REPORT_TITLE = "Bao cao gia bat dong san theo du an tai HN & TPHCM"
 
 
@@ -231,7 +230,6 @@ def build_report(
     """Execute a Malloy file and export the result into an HTML report."""
     result = run_malloy_file(model_path=malloy_file_path, query_name=query_name)
     return export_malloy_result_html(result=result, output_path=output_path, title=title)
-
 
 if __name__ == "__main__":
     by_project_rp = build_report(

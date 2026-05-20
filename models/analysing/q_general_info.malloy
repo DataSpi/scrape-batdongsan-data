@@ -5,10 +5,10 @@ query: general_info_by_district is real_estate -> {
   group_by: cityCode
   nest:
     `By District` is {
-      group_by: district_name
-      aggregate: avg_price
+      group_by: tên_quận
+      aggregate: giá_trung_bình
       nest: general_info + { }
-      order_by: avg_price desc
+      order_by: giá_trung_bình desc
     }
   limit: 1000
 }
@@ -18,10 +18,10 @@ query: general_info_by_project is real_estate -> {
   group_by: cityCode
   nest:
     `By Project` is {
-      group_by: district_name
-      aggregate: avg_price
-      nest: general_info + { group_by: project_name order_by: avg_price desc }
-      order_by: avg_price desc
+      group_by: tên_quận
+      aggregate: giá_trung_bình
+      nest: general_info + { group_by: tên_dự_án order_by: giá_trung_bình desc }
+      order_by: giá_trung_bình desc
     }
   limit: 1000
 }

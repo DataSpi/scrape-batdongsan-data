@@ -5,7 +5,7 @@ source: city is supabase.table('supabase.re_bronze.m_cities') extend {
 source: district is supabase.table('supabase.re_bronze.m_districts') extend {
      primary_key: districtId
      join_one: city on city.code = cityCode
-     measure: d_count is count()
+    measure: số_quận_huyện is count()
 }
 
 source: ward is supabase.table('supabase.re_bronze.m_wards') extend {
@@ -69,48 +69,48 @@ source: real_estate is supabase.table('supabase.re_silver.real_estate') extend {
 
 
     dimension: 
-        price is price_num
-        price_1m2 is price_per_m2_recal
-        project_name is prj.name    
+        giá is price_num
+        giá_m2 is price_per_m2_recal
+        tên_dự_án is prj.name    
         -- ward_name is prj.district.ward.name
-        district_name is prj.district.name
-        city_name is prj.district.city.name
-        street_name is street.name
+        tên_quận is prj.district.name
+        tên_thành_phố is prj.district.city.name
+        tên_đường is street.name
 
-        street_name_v2 is street_v2.name
-        ward_name_v2 is prj_v2.ward_v2.name
-        city_name_v2 is prj_v2.ward_v2.city_v2.name
+        tên_đường_v2 is street_v2.name
+        tên_phường_v2 is prj_v2.ward_v2.name
+        tên_thành_phố_v2 is prj_v2.ward_v2.city_v2.name
     measure: 
-        property_count is count()
-        avg_price is avg(price)
-        avg_price_1m2 is avg(price_1m2)
-        avg_area is avg(area_num)
+        số_bài_đăng is count()
+        giá_trung_bình is avg(giá)
+        giá_m2_trung_bình is avg(giá_m2)
+        diện_tích_trung_bình is avg(area_num)
         
 
     view: 
         general_info is {
-            aggregate: property_count, avg_price, avg_price_1m2, avg_area
+            aggregate: số_bài_đăng, giá_trung_bình, giá_m2_trung_bình, diện_tích_trung_bình
         }
 
         count_by_district is {
-        group_by: city_name, d_name is district_name 
-        aggregate: property_count
+        group_by: tên_thành_phố, tên_quận
+        aggregate: số_bài_đăng
     }
 
         count_by_ward_v2 is {
-        group_by: city_name_v2, ward_name_v2
-        aggregate: property_count
+        group_by: tên_thành_phố_v2, tên_phường_v2
+        aggregate: số_bài_đăng
     }
 
         count_by_project is {
-        group_by: city_name, projectId, project_name
-        aggregate: property_count
-        order_by: city_name, property_count desc
+        group_by: tên_thành_phố, projectId, tên_dự_án
+        aggregate: số_bài_đăng
+        order_by: tên_thành_phố, số_bài_đăng desc
     }
 
         avg_price_by_project is {
-        group_by: city_name, projectId, project_name
-        aggregate: avg_price, avg_price_1m2
-        order_by: city_name, avg_price desc
+        group_by: tên_thành_phố, projectId, tên_dự_án
+        aggregate: giá_trung_bình, giá_m2_trung_bình
+        order_by: tên_thành_phố, giá_trung_bình desc
     }
 }

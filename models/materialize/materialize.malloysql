@@ -6,12 +6,12 @@ import '../real_estate.malloy'
 CREATE OR REPLACE table supabase.re_silver.general_info_by_district2 AS (
 %{ 
 real_estate -> {
-    group_by: cityCode, district_name
-    aggregate: property_count
+    group_by: cityCode, tên_quận
+    aggregate: số_bài_đăng
     limit: 1000
 }
-}%
-)
+}%)
+
 >>>markdown
 
 actually creating table is easier than view because of the error below:
