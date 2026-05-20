@@ -1,6 +1,7 @@
 >>>malloy
+
 --connection: supabase
-import './real_estate.malloy'
+import '../real_estate.malloy'
 >>>sql
 CREATE OR REPLACE table supabase.re_silver.general_info_by_district2 AS (
 %{ 
@@ -12,6 +13,7 @@ real_estate -> {
 }%
 )
 >>>markdown
+
 actually creating table is easier than view because of the error below:
 \> ERROR:  cross-database references are not implemented
 

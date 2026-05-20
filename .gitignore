@@ -9,6 +9,7 @@ tmp/
 .project
 .dbeaver/
 __pycache__/
+pycache/
 data/
 .vscode/
 .gitignore
@@ -21,3 +22,6 @@ malloy-config.json
 
 *.pyc
 *.pyo
+
+dags/
+dbt/
