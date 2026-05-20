@@ -18,6 +18,15 @@ Dự án thu thập dữ liệu, chuẩn hóa dữ liệu để thực hiện ph
 
 
 ```mermaid
+graph TD;
+    A-->B;
+    A-->C;
+    B-->D;
+    C-->D;
+```
+
+
+```mermaid
 subgraph B[Lớp Web Scraping]
   B1[j_real_estate.py<br/>Crawler listings + merge tracking JSON]
   B2[j_projects.py<br/>Crawler dự án]
