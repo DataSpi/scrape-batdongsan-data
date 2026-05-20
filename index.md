@@ -1,6 +1,4 @@
-# Dữ liệu bất động sản
-
-{% include readme-content.md %}
+{% include_relative readme.md %}
 
 <script type="module">
 	import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";

@@ -1,9 +1,12 @@
 >>>malloy
+
 import './real_estate.malloy'
 >>>markdown
+
 # Theo dự án
 ## Số lượng dự án và giá trung bình của từng quận
 >>>malloy
+
 run: real_estate -> {
   group_by: cityCode
   nest:
@@ -16,8 +19,10 @@ run: real_estate -> {
   limit: 1000
 }
 >>>markdown
+
 ## Giá trung bình của từng dự án
 >>>malloy
+
 run: real_estate -> {
   group_by: cityCode
   nest:
@@ -30,8 +35,9 @@ run: real_estate -> {
   limit: 1000
 }
 >>>malloy
-run: real_estate -> {
-    group_by: cityCode, district_name
-    aggregate: property_count
-    limit: 1000
-}
+
+-- run: real_estate -> {
+--     group_by: cityCode, district_name
+--     aggregate: property_count
+--     limit: 1000
+-- }
