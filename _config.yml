@@ -1,0 +1,14 @@
+title: Scrape Batdongsan Data
+description: Real estate data scraping, cleaning, and analysis from batdongsan.com.vn
+theme: jekyll-theme-minimal
+
+# Markdown processor
+markdown: kramdown
+
+# Exclude files from being processed
+exclude:
+  - .git
+  - .gitignore
+  - Gemfile
+  - Gemfile.lock
+  - node_modules
