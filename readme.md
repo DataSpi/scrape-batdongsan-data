@@ -7,6 +7,8 @@ Dự án thu thập dữ liệu, chuẩn hóa dữ liệu để thực hiện ph
 *(Updated: 2026-05-20)*
 - [Báo cáo giá bất động sản theo quận (cũ) tại HN & TPHCM](reports/output/HCM-HN_districts.html)
 - [Báo cáo giá bất động sản theo dự án tại HN & TPHCM](reports/output/HCM-HN_prj.html)
+- Bài viết: [Đi xem nhà cùng Data Analyst - P1](https://spyno.substack.com/p/i-xem-nha-cung-data-analyst-p1)
+  - Tháng 9-2025
 
 ### Dashboard 
 *(Updated: 2026-02-16)*
