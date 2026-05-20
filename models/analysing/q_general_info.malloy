@@ -17,7 +17,7 @@ query: general_info_by_district is real_estate -> {
 query: general_info_by_project is real_estate -> {
   group_by: cityCode
   nest:
-    `Nest` is {
+    `By Project` is {
       group_by: district_name
       aggregate: avg_price
       nest: general_info + { group_by: project_name order_by: avg_price desc }

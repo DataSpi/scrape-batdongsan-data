@@ -6,7 +6,7 @@ for report generation orchestration.
 
 from report_builder import (
     build_report_from_direct_query,
-    build_report_from_malloy_file,
+    build_report,
     export_malloy_result_html,
     malloy_result_to_html,
 )
@@ -20,13 +20,13 @@ __all__ = [
     "run_direct_query",
     "malloy_result_to_html",
     "export_malloy_result_html",
-    "build_report_from_malloy_file",
+    "build_report",
     "build_report_from_direct_query",
 ]
 
 
 if __name__ == "__main__":
-    report_path = build_report_from_malloy_file(
+    report_path = build_report(
         malloy_file_path="D:/scrape-batdongsan-data/tmp/test_tmp.malloy",
         output_path="reports/output/HCM-HN_prj.html",
     )

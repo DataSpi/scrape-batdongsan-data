@@ -1,0 +1,29 @@
+import "../real_estate.malloy"
+
+
+run: real_estate -> {
+  group_by: cityCode
+  nest:
+    `By District` is {
+      group_by: district_name
+      aggregate: avg_price
+      nest: general_info + { }
+      order_by: avg_price desc
+    }
+  limit: 1000
+}
+
+
+-- query: general_info_by_project is real_estate -> {
+--   group_by: cityCode
+--   nest:
+--     `Nest` is {
+--       group_by: district_name
+--       aggregate: avg_price
+--       nest: general_info + { group_by: project_name order_by: avg_price desc }
+--       order_by: avg_price desc
+--     }
+--   limit: 1000
+-- }
+
+

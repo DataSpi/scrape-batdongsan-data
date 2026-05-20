@@ -7,7 +7,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from utils.malloy_cli_runner import run_direct_query, run_malloy_file
+from utils.malloy_cli_runner import run_malloy_file
 
 
 DEFAULT_REPORT_TITLE = "Bao cao gia bat dong san theo du an tai HN & TPHCM"
@@ -16,11 +16,9 @@ DEFAULT_REPORT_TITLE = "Bao cao gia bat dong san theo du an tai HN & TPHCM"
 def _is_scalar(value: object) -> bool:
     return value is None or isinstance(value, (str, int, float, bool))
 
-
 def _format_number(value: int | float) -> str:
     """Round to integer and format with thousand separators for readability."""
     return f"{round(value):,}"
-
 
 def _json_value_to_html(value: object) -> str:
     """Render a JSON-compatible value into nested HTML."""
@@ -95,7 +93,6 @@ def _json_value_to_html(value: object) -> str:
         return _format_number(value)
 
     return escape(str(value))
-
 
 def malloy_result_to_html(result: dict | list, title: str = "Malloy Query Result") -> str:
     """Convert Malloy JSON output into a styled HTML document."""
@@ -214,7 +211,6 @@ def malloy_result_to_html(result: dict | list, title: str = "Malloy Query Result
 </html>
 """
 
-
 def export_malloy_result_html(
     result: dict | list,
     output_path: str,
@@ -226,32 +222,30 @@ def export_malloy_result_html(
     output_file.write_text(malloy_result_to_html(result, title=title), encoding="utf-8")
     return output_file
 
-
-def build_report_from_malloy_file(
+def build_report(
     malloy_file_path: str,
     output_path: str,
     query_name: str | None = None,
     title: str = DEFAULT_REPORT_TITLE,
 ) -> Path:
     """Execute a Malloy file and export the result into an HTML report."""
-    result = run_malloy_file(file_path=malloy_file_path, query_name=query_name)
-    return export_malloy_result_html(result=result, output_path=output_path, title=title)
-
-
-def build_report_from_direct_query(
-    model_path: str,
-    query: str,
-    output_path: str,
-    title: str = DEFAULT_REPORT_TITLE,
-) -> Path:
-    """Execute an inline Malloy query and export the result into an HTML report."""
-    result = run_direct_query(model_path=model_path, query=query)
+    result = run_malloy_file(model_path=malloy_file_path, query_name=query_name)
     return export_malloy_result_html(result=result, output_path=output_path, title=title)
 
 
 if __name__ == "__main__":
-    report_path = build_report_from_malloy_file(
-        malloy_file_path="D:/scrape-batdongsan-data/tmp/test_tmp.malloy",
+    by_project_rp = build_report(
+        malloy_file_path="models/analysing/q_general_info.malloy",
+        query_name="general_info_by_project",
+        title="Báo cáo giá bất động sản theo dự án tại HN & TPHCM",
         output_path="reports/output/HCM-HN_prj.html",
     )
-    print(f"Report generated: {report_path}")
+    print(f"Report generated: {by_project_rp}")
+    
+    by_district_rp = build_report(
+        malloy_file_path="models/analysing/q_general_info.malloy",
+        query_name="general_info_by_district",
+        title="Báo cáo giá bất động sản theo quận tại HN & TPHCM",
+        output_path="reports/output/HCM-HN_districts.html",
+    )
+    print(f"Report generated: {by_district_rp}")

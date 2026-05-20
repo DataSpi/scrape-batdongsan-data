@@ -46,51 +46,12 @@ def ml_go(args: list[str], config_path: Path = DEFAULT_CONFIG) -> int:
     if completed.stderr:
         print(completed.stderr, end="", file=sys.stderr)
 
-    return completed.returncode
-
-
-
-def _run_malloy_json(args: list[str], config_path: Path = DEFAULT_CONFIG) -> dict | list:
-    """Run malloy-cli with JSON output and return parsed JSON."""
-    malloy_cli = _resolve_malloy_cli()
-    cmd = [malloy_cli, "--config", str(config_path), *args]
-
-    if malloy_cli.lower().endswith((".cmd", ".bat")):
-        cmd = ["cmd", "/c", *cmd]
-
-    completed = subprocess.run(
-        cmd,
-        check=False,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-    )
-
-    if completed.stderr:
-        print(completed.stderr, end="", file=sys.stderr)
-
-    if completed.returncode != 0:
-        raise RuntimeError(f"Malloy CLI exited with code {completed.returncode}.")
-
+    # return completed.returncode
     return json.loads(completed.stdout)
 
-
-def run_malloy_file(file_path: str, query_name: str | None = None) -> dict | list:
-    """
-    Run an existing Malloy file and return the result as parsed JSON.
-
-    Args:
-        file_path: Path to the .malloy file to run.
-        query_name: Optional named query inside the file to execute.
-            If omitted, malloy-cli runs the default (last) query.
-    """
-    args = ["run", str(Path(file_path).resolve())]
-
-    if query_name:
-        args.append(query_name)
-
-    return _run_malloy_json(args)
+def run_malloy_file(model_path: str, query_name: str | None = None) -> dict | list:
+    results=ml_go(args = ["run", model_path, query_name] if query_name else ["run", model_path])
+    return results
 
 def run_direct_query(model_path: str, query: str) -> dict | list:
     """
@@ -111,6 +72,6 @@ def run_direct_query(model_path: str, query: str) -> dict | list:
         with os.fdopen(tmp_fd, "w", encoding="utf-8") as tmp:
             tmp.write(tmp_content)
 
-        return _run_malloy_json(["run", tmp_path])
+        return run_malloy_file(tmp_path)
     finally:
         os.unlink(tmp_path)
