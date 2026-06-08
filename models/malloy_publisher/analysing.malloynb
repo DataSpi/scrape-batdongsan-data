@@ -19,14 +19,13 @@ run: real_estate -> {
     }
   limit: 1000
 }
->>>sql
+>>>markdown
 ta có thể thấy giá nhà ở HN cao hơn hẳn của HCM. Đặc biệt các quận trung tâm như Ba Đình, Hoàn Kiếm, Tây Hồ có giá TB cao ngất ngường. Trong khi đó mặc dù mức giá cũng tương đối trên trời ở các quận trung tâm HCM, tuy nhiên vẫn thấp hơn so với Hà Nội. 
 
 Số trung bình của HCM thấp hơn, một phần cũng là do bộ số phía trên đã được thêm vào dữ liệu của các quận mới xác nhập như Vũng Tàu, Phú Mỹ. 
 Chi tiết xem thêm bên dưới. 
 
 Bước tiếp theo có lẽ nên làm sạch các làm sạch, remove các quận mới xác nhập. 
-
 >>>malloy
 
 run: real_estate -> {
@@ -87,5 +86,5 @@ run: real_estate -> {
     cityCode desc,
   limit: 100
 }
->>>malloy
-
+>>>markdown
+I want to know if adding markdown work? 
