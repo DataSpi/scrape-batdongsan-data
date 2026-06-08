@@ -85,8 +85,15 @@ source: real_estate is supabase.table('supabase2.re_silver.real_estate') extend 
         tên_phường_v2 is prj_v2.ward_v2.name
         tên_thành_phố_v2 is prj_v2.ward_v2.city_v2.name
 
-        quận_sáp_nhập is tên_quận ?
-            'Vũng Tàu' | 'Phú Mỹ' | 'Bà Rịa' | 'Cần Giờ' | 'Đất Đỏ' | 'Long Điền' | 'Xuyên Mộc' | 'Châu Đức' | 'Côn Đảo'
+        -- quận_sáp_nhập is tên_quận ?
+        --     'Vũng Tàu' | 'Phú Mỹ' | 'Bà Rịa' | 'Cần Giờ' | 'Đất Đỏ' | 'Long Điền' | 'Xuyên Mộc' | 'Châu Đức' | 'Côn Đảo' | 'Phú Mỹ' | 'Tân Uyên'
+        quận_hcm_trước_sát_nhập is tên_quận ? 
+            'Quận 1' |'Quận 2' | 'Quận 3' | 'Quận 4' | 'Quận 5' | 
+            'Quận 6' | 'Quận 7' | 'Quận 8' | 'Quận 9' | 'Quận 10' | 
+            'Quận 11' | 'Quận 12' | 'Bình Tân' |  'Bình Thạnh' | 
+            'Gò Vấp' | 'Phú Nhuận' | 'Tân Bình' | 
+            'Tân Phú' | 'Thủ Đức' | 'Bình Chánh' | 
+            'Cần Giờ' | 'Củ Chi' | 'Hóc Môn' | 'Nhà Bè'
     measure: 
         số_bài_đăng is count()
         giá_tb is avg(giá)
@@ -155,17 +162,3 @@ source: real_estate is supabase.table('supabase2.re_silver.real_estate') extend 
         order_by: tên_thành_phố, giá_tb desc
     }
 }
-
-
-query: general_info_by_project is real_estate -> {
-  group_by: cityCode
-  nest:
-    `Nest` is {
-      group_by: tên_quận
-      aggregate: giá_tb
-      nest: general_info + { group_by: tên_dự_án order_by: giá_tb desc }
-      order_by: giá_tb desc
-    }
-  limit: 1000
-}
-
