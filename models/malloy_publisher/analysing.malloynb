@@ -1,94 +1,230 @@
+>>>markdown
+
+# Phân tích giá bất động sản — Hà Nội & TP.HCM
+
+Notebook phân tích chi tiết thị trường bất động sản dựa trên dữ liệu scrape từ [batdongsan.com.vn](https://batdongsan.com.vn).
+
+**Phạm vi:** Căn hộ, nhà riêng, nhà mặt phố và các loại hình tương tự tại Hà Nội (`HN`) và TP.HCM (`SG`).
+
+**Đơn vị giá:** Triệu VNĐ (cột `price_num` sau khi chuẩn hóa).
+
+**Đơn vị giá/m²:** Triệu VNĐ/m² (`price_per_m2_recal`).
+
+---
 >>>malloy
 
 import './real_estate.malloy'
 >>>markdown
 
-# Theo dự án
-## Số lượng dự án và giá trung bình của từng quận
+## 1. Tổng quan dữ liệu
+
+Số lượng bài đăng và thống kê giá cơ bản theo từng thành phố.
+>>>malloy
+
+# dashboard
+run: real_estate -> price_summary + {
+  group_by: `thành phố` is cityCode
+  order_by: cityCode
+}
+>>>markdown
+
+## 2. So sánh giá theo quận
+
+Giá trung bình và giá/m² trung bình của từng quận, sắp xếp từ cao xuống thấp.
 >>>malloy
 
 # dashboard
 run: real_estate -> {
   group_by: `thành phố` is cityCode
-  aggregate: `giá TB` is `giá_tb`
   nest:
     # bar_chart
     `giá TB theo quận` is {
       group_by: `tên_quận`
-      aggregate: `giá_tb`
+      aggregate: `giá_tb`, `giá_1m2`, `số_bài_đăng`
+      order_by: `giá_tb` desc
     }
   limit: 1000
 }
+>>>markdown
+
+### Nhận xét — HN vs HCM
+
+Giá nhà ở Hà Nội cao hơn đáng kể so với TP.HCM ở mức trung bình toàn thành phố. Các quận trung tâm Hà Nội như **Ba Đình**, **Hoàn Kiếm**, **Tây Hồ** có giá TB rất cao. TP.HCM cũng có mức giá cao ở **Quận 1**, **Quận 3**, **Phú Nhuận**, nhưng vẫn thấp hơn so với trung tâm Hà Nội.
+
+Một phần kéo giá trung bình TP.HCM xuống là do dữ liệu bao gồm các **quận/huyện mới sáp nhập** (Vũng Tàu, Phú Mỹ, Bà Rịa, …) — xem mục 3 bên dưới.
+
+---
+>>>markdown
+
+## 3. Loại bỏ quận mới sáp nhập (TP.HCM)
+
+Sau sáp nhập hành chính 2025, một số địa phương (Vũng Tàu, Phú Mỹ, Bà Rịa, …) được gộp vào TP.HCM. Phần này so sánh giá **trước và sau** khi loại các quận này.
 >>>malloy
+
+# dashboard
+run: real_estate -> price_summary + {
+  where: cityCode = 'SG'
+}
+
+# dashboard
+run: real_estate -> price_summary + {
+  where: cityCode = 'SG' and not quận_sáp_nhập
+}
+>>>malloy
+
 # dashboard
 run: real_estate -> {
-    group_by: `thành phố` is cityCode
-    aggregate: `giá TB` is `giá_tb`
+  where: cityCode = 'SG' and not quận_sáp_nhập
+  group_by: `tên_quận`
+  aggregate: `giá_tb`, `giá_1m2`, `số_bài_đăng`
+  order_by: `giá_tb` desc
+  limit: 50
 }
 >>>markdown
-ta có thể thấy giá nhà ở HN cao hơn hẳn của HCM. Đặc biệt các quận trung tâm như Ba Đình, Hoàn Kiếm, Tây Hồ có giá TB cao ngất ngường. Trong khi đó mặc dù mức giá cũng tương đối trên trời ở các quận trung tâm HCM, tuy nhiên vẫn thấp hơn so với Hà Nội. 
 
-Số trung bình của HCM thấp hơn, một phần cũng là do bộ số phía trên đã được thêm vào dữ liệu của các quận mới xác nhập như Vũng Tàu, Phú Mỹ. 
-Chi tiết xem thêm bên dưới. 
+## 4. Giá theo dự án
 
-Bước tiếp theo có lẽ nên làm sạch các làm sạch, remove các quận mới xác nhập. 
+Top dự án có giá trung bình cao nhất trong từng quận.
 >>>malloy
 
 run: real_estate -> {
+  where: giá is not null and tên_dự_án is not null
   group_by: `thành phố` is cityCode
   nest:
-    `giá trung bình` is {
+    `theo quận` is {
       group_by: `tên_quận`
-      aggregate: `giá_tb`
-      nest: `tổng quan` is general_info + { }
+      aggregate: `giá_tb`, `số_bài_đăng`
+      nest: `top dự án` is {
+        group_by: `tên_dự_án`
+        aggregate: `giá_tb`, `giá_1m2`, `số_bài_đăng`
+        order_by: `giá_tb` desc
+        limit: 10
+      }
       order_by: `giá_tb` desc
     }
   limit: 1000
 }
 >>>markdown
 
-## Giá trung bình của từng dự án
+## 5. Giá theo loại hình bất động sản
+
+Phân tích theo `real_estate_type`: căn hộ chung cư, nhà riêng, nhà mặt phố, shophouse, …
 >>>malloy
 
-run: real_estate -> {
-  group_by:  `thành phố` is cityCode
-  nest:
-    `giá trung bình` is {
-      group_by: `tên_quận`
-      aggregate: `giá_tb`
-      nest: `tổng quan` is general_info + { group_by: `tên_dự_án` order_by: `giá_tb` desc }
-      order_by: `giá_tb` desc
-    }
-  limit: 1000
-}
->>>markdown
-# Bedrooms
->>>malloy
 # dashboard
 run: real_estate -> {
-  where: bedrooms is not null and bedrooms != '58'
-  group_by:
-    cityCode
-  nest: 
+  where: loại_bds is not null
+  group_by: `thành phố` is cityCode
+  nest:
     # bar_chart
-    `giá TB` is {
-      group_by: bedrooms
-      aggregate: `giá_tb`
-      order_by: `bedrooms` desc
-    }
+    `theo loại hình` is avg_price_by_type
+  order_by: cityCode
+}
+>>>markdown
+
+## 6. Giá theo số phòng ngủ
+
+Mối quan hệ giữa số phòng ngủ với giá tổng, giá/m² và số lượng tin đăng. Loại bỏ giá trị ngoại lai (`bedrooms = '58'` là lỗi parse).
+>>>malloy
+
+# dashboard
+run: real_estate -> {
+  where: số_phòng_ngủ is not null and số_phòng_ngủ != '58'
+  group_by: `thành phố` is cityCode
+  nest:
     # bar_chart
-    `số lượng` is {
-      group_by: bedrooms
-      aggregate: `số lượng` is `số_bài_đăng`
-      order_by: `bedrooms` desc
-    }
+    `giá TB` is avg_price_by_bedroom
     # bar_chart
-    `giá TB 1m2` is {
-      group_by: bedrooms
-      aggregate: `giá_1m2`
-      order_by: `bedrooms` desc
+    `số lượng tin` is {
+      group_by: số_phòng_ngủ
+      aggregate: `số_bài_đăng`
+      order_by: số_phòng_ngủ
     }
-  order_by:
-    cityCode desc,
+  order_by: cityCode desc
   limit: 100
 }
+>>>markdown
+
+### Nhận xét — Số phòng ngủ
+
+- **Căn 1–2PN** chiếm phần lớn tin đăng, đặc biệt ở TP.HCM — phản ánh nhu cầu đầu tư và an cư phổ thông.
+- **Giá/m²** thường cao hơn ở căn nhỏ (1–2PN) do diện tích nhỏ nhưng vị trí/dự án vẫn quyết định giá.
+- **Căn 3–4PN trở lên** có giá tổng cao hơn nhưng giá/m² có thể thấp hơn do diện tích lớn hơn.
+
+---
+>>>markdown
+
+## 7. Phân tích giá/m²
+
+Giá trên từng mét vuông phản ánh giá trị vị trí và loại hình tốt hơn giá tổng (vì đã chuẩn hóa theo diện tích).
+>>>malloy
+
+# dashboard
+run: real_estate -> {
+  where: giá_m2 is not null and giá_m2 > 0 and giá_m2 < 1000
+  group_by: `thành phố` is cityCode
+  nest:
+    # bar_chart
+    `giá/m² theo quận` is {
+      group_by: `tên_quận`
+      aggregate: `giá_1m2`, `số_bài_đăng`
+      order_by: `giá_1m2` desc
+    }
+  limit: 1000
+}
+>>>markdown
+
+## 8. Phân tích diện tích
+
+Diện tích trung bình theo quận — giúp hiểu sự khác biệt loại hình (căn hộ vs nhà phố) giữa các khu vực.
+>>>malloy
+
+# dashboard
+run: real_estate -> {
+  where: diện_tích is not null and diện_tích > 10 and diện_tích < 1000
+  group_by: `thành phố` is cityCode
+  nest:
+    # bar_chart
+    `diện tích TB theo quận` is {
+      group_by: `tên_quận`
+      aggregate: `diện_tích_tb`, `số_bài_đăng`
+      order_by: `diện_tích_tb` desc
+    }
+  limit: 1000
+}
+>>>markdown
+
+## 9. Phân tích theo phường (schema v2)
+
+Dữ liệu địa giới hành chính mới (sau sáp nhập) — dùng bảng `m_wards_v2`, `m_streets_v2`.
+>>>malloy
+
+run: real_estate -> {
+  where: tên_phường_v2 is not null
+  group_by: `thành phố` is tên_thành_phố_v2
+  nest:
+    `theo phường` is {
+      group_by: `tên_phường_v2`
+      aggregate: `giá_tb`, `giá_1m2`, `số_bài_đăng`
+      order_by: `giá_tb` desc
+      limit: 20
+    }
+  limit: 100
+}
+>>>markdown
+
+## 10. Tóm tắt & hướng phân tích tiếp
+
+| Chủ đề | Phát hiện chính |
+|--------|-----------------|
+| **HN vs HCM** | HN cao hơn ở mức TB; quận trung tâm HN dẫn đầu cả nước |
+| **Quận sáp nhập** | Làm giảm giá TB TP.HCM — nên lọc khi so sánh |
+| **Loại hình** | Nhà mặt phố / shophouse có giá/m² cao; căn hộ chiếm đa số tin |
+| **Phòng ngủ** | 1–2PN chiếm ưu thế; giá/m² cao hơn ở căn nhỏ |
+| **Giá/m²** | Chỉ số tốt hơn để so sánh vị trí giữa các quận |
+
+**Hướng mở rộng:**
+- Theo dõi xu hướng giá theo thời gian (`date_scraped`)
+- Phân tích theo đường phố (`tên_đường`)
+- Lọc tin `verified` / `vipType` để đánh giá độ tin cậy
+- Thêm phân vị (percentile) bằng SQL tùy chỉnh trên Supabase
