@@ -1,4 +1,4 @@
-import "../real_estate.malloy"
+import "../malloy_publisher/real_estate.malloy"
 
 
 query: general_info_by_district is real_estate -> {
@@ -14,16 +14,16 @@ query: general_info_by_district is real_estate -> {
 }
 
 
-query: general_info_by_project is real_estate -> {
-  group_by: TP is cityCode
-  nest:
-    `Theo Dự Án` is {
-      group_by: tên_quận
-      aggregate: giá_tb
-      nest: general_info + { group_by: tên_dự_án order_by: giá_tb desc }
-      order_by: giá_tb desc
-    }
-  limit: 1000
-}
+-- query: general_info_by_project is real_estate -> {
+--   group_by: TP is cityCode
+--   nest:
+--     `Theo Dự Án` is {
+--       group_by: tên_quận
+--       aggregate: giá_tb
+--       nest: general_info + { group_by: tên_dự_án order_by: giá_tb desc }
+--       order_by: giá_tb desc
+--     }
+--   limit: 1000
+-- }
 
 

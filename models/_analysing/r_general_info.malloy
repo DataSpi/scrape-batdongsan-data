@@ -1,4 +1,4 @@
-import "../real_estate.malloy"
+import "../malloy_publisher/real_estate.malloy"
 
 
 run: real_estate -> {

@@ -27,3 +27,4 @@ dags/
 dbt/
 
 .DS_Store
+my_local_db.duckdb
