@@ -19,6 +19,12 @@ run: real_estate -> {
     }
   limit: 1000
 }
+>>>malloy
+# dashboard
+run: real_estate -> {
+    group_by: `thành phố` is cityCode
+    aggregate: `giá TB` is `giá_tb`
+}
 >>>markdown
 ta có thể thấy giá nhà ở HN cao hơn hẳn của HCM. Đặc biệt các quận trung tâm như Ba Đình, Hoàn Kiếm, Tây Hồ có giá TB cao ngất ngường. Trong khi đó mặc dù mức giá cũng tương đối trên trời ở các quận trung tâm HCM, tuy nhiên vẫn thấp hơn so với Hà Nội. 
 
@@ -86,5 +92,3 @@ run: real_estate -> {
     cityCode desc,
   limit: 100
 }
->>>markdown
-I want to know if adding markdown work? 
