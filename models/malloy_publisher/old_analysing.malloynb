@@ -1,0 +1,120 @@
+>>>malloy
+
+import './real_estate.malloy'
+>>>markdown
+
+# Theo dự án
+## Số lượng dự án và giá trung bình của từng quận
+>>>malloy
+
+# dashboard
+run: real_estate -> {
+  where: cityCode = 'HN' or prj.district.city.code ~ f`SG`  
+  group_by: `thành phố` is cityCode
+  aggregate: `giá TB` is `giá_tb`
+  nest:
+    # bar_chart
+    `giá TB theo quận` is {
+      group_by: `tên_quận`
+      aggregate: `giá_tb`
+    }
+  limit: 1000
+}
+>>>sql
+ta có thể thấy giá nhà ở HN cao hơn hẳn của HCM. Đặc biệt các quận trung tâm như Ba Đình, Hoàn Kiếm, Tây Hồ có giá TB cao ngất ngường. Trong khi đó mặc dù mức giá cũng tương đối trên trời ở các quận trung tâm HCM, tuy nhiên vẫn thấp hơn so với Hà Nội. 
+
+*Chi tiết xem thêm bên dưới.*
+>>>malloy
+
+run: real_estate -> {
+  where: cityCode = 'HN' or prj.district.city.code ~ f`SG`  
+  group_by: `thành phố` is cityCode
+  nest:
+    `giá trung bình` is {
+      group_by: `tên_quận`
+      aggregate: `giá_tb`
+      nest: `tổng quan` is general_info + { }
+      order_by: `giá_tb` desc
+    }
+  limit: 1000
+}
+>>>markdown
+
+## Giá trung bình của từng dự án
+>>>malloy
+
+run: real_estate -> {
+  where: cityCode = 'HN' or prj.district.city.code ~ f`SG`  
+  group_by:  `thành phố` is cityCode
+  nest:
+    `giá trung bình` is {
+      group_by: `tên_quận`
+      aggregate: `giá_tb`
+      nest: `tổng quan` is general_info + { group_by: `tên_dự_án` order_by: `giá_tb` desc }
+      order_by: `giá_tb` desc
+    }
+  limit: 1000
+}
+>>>markdown
+# Bedrooms
+## Giá trung bình, số lượng từng loại phòng ngủ
+>>>malloy
+# dashboard
+run: real_estate -> {
+  where: 
+    bedrooms is not null and bedrooms != '58'
+    and (cityCode = 'HN' or prj.district.city.code ~ f`SG`)  
+  group_by:
+    cityCode
+  nest: 
+    # bar_chart
+    `giá TB` is {
+      group_by: bedrooms
+      aggregate: `giá_tb`
+      order_by: `bedrooms` desc
+    }
+    # bar_chart
+    `số lượng` is {
+      group_by: bedrooms
+      aggregate: `số lượng` is `số_bài_đăng`
+      order_by: `bedrooms` desc
+    }
+    # bar_chart
+    `giá TB 1m2` is {
+      group_by: bedrooms
+      aggregate: `giá_1m2`
+      order_by: `bedrooms` desc
+    }
+  order_by:
+    cityCode desc,
+  limit: 100
+}
+>>>malloy
+-- Giá theo loại hình bds
+run: real_estate -> {
+  where: real_estate_type is not null
+  group_by: `thành phố` is cityCode
+  aggregate: 
+    `giá TB` is `giá_tb`
+    `giá 1m2` is `giá_1m2`
+  order_by: `thành phố` desc
+}
+
+>>>markdown
+
+## 8. Phân tích diện tích
+
+Diện tích trung bình theo quận — giúp hiểu sự khác biệt loại hình (căn hộ vs nhà phố) giữa các khu vực.
+>>>malloy
+
+run: real_estate -> {
+  group_by: 
+    `thành phố` is cityCode
+    `tên_quận`, bedrooms
+  aggregate: `diện_tích_tb`, `số_bài_đăng`
+  order_by: `thành phố`, `tên_quận`, bedrooms desc
+  limit: 1000
+}
+  
+>>>malloy
+

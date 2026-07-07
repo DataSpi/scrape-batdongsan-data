@@ -66,15 +66,17 @@ source: real_estate is supabase.table('supabase2.re_silver.real_estate') extend 
         street_v2 on street_v2.streetId = streetId
         prj_v2 on prj_v2.projectId = projectId
     
-
+        -- quận_hcm_trước_sát_nhập is tên_quận ? 
+        --     'Quận 1' |'Quận 2' | 'Quận 3' | 'Quận 4' | 'Quận 5' | 
+        --     'Quận 6' | 'Quận 7' | 'Quận 8' | 'Quận 9' | 'Quận 10' | 
+        --     'Quận 11' | 'Quận 12' | 'Bình Tân' |  'Bình Thạnh' | 
+        --     'Gò Vấp' | 'Phú Nhuận' | 'Tân Bình' | 
+        --     'Tân Phú' | 'Thủ Đức' | 'Bình Chánh' | 
+        --     'Cần Giờ' | 'Củ Chi' | 'Hóc Môn' | 'Nhà Bè'
 
     dimension: 
         giá is price_num
         giá_m2 is price_per_m2_recal
-        diện_tích is area_num
-        loại_bds is real_estate_type
-        số_phòng_ngủ is bedrooms
-        số_toilet is toilets
         tên_dự_án is prj.name    
         -- ward_name is prj.district.ward.name
         tên_quận is prj.district.name
@@ -84,60 +86,16 @@ source: real_estate is supabase.table('supabase2.re_silver.real_estate') extend 
         tên_đường_v2 is street_v2.name
         tên_phường_v2 is prj_v2.ward_v2.name
         tên_thành_phố_v2 is prj_v2.ward_v2.city_v2.name
-
-        -- quận_sáp_nhập is tên_quận ?
-        --     'Vũng Tàu' | 'Phú Mỹ' | 'Bà Rịa' | 'Cần Giờ' | 'Đất Đỏ' | 'Long Điền' | 'Xuyên Mộc' | 'Châu Đức' | 'Côn Đảo' | 'Phú Mỹ' | 'Tân Uyên'
-        quận_hcm_trước_sát_nhập is tên_quận ? 
-            'Quận 1' |'Quận 2' | 'Quận 3' | 'Quận 4' | 'Quận 5' | 
-            'Quận 6' | 'Quận 7' | 'Quận 8' | 'Quận 9' | 'Quận 10' | 
-            'Quận 11' | 'Quận 12' | 'Bình Tân' |  'Bình Thạnh' | 
-            'Gò Vấp' | 'Phú Nhuận' | 'Tân Bình' | 
-            'Tân Phú' | 'Thủ Đức' | 'Bình Chánh' | 
-            'Cần Giờ' | 'Củ Chi' | 'Hóc Môn' | 'Nhà Bè'
     measure: 
         số_bài_đăng is count()
         giá_tb is avg(giá)
-        giá_min is min(giá)
-        giá_max is max(giá)
-        giá_đlc is stddev(giá)
         giá_1m2 is avg(giá_m2)
-        giá_1m2_min is min(giá_m2)
-        giá_1m2_max is max(giá_m2)
-        diện_tích_tb is avg(diện_tích)
-        diện_tích_min is min(diện_tích)
-        diện_tích_max is max(diện_tích)
+        diện_tích_tb is avg(area_num)
         
 
     view: 
         general_info is {
             aggregate: số_bài_đăng, giá_tb, giá_1m2, diện_tích_tb
-        }
-
-        price_summary is {
-            aggregate:
-                số_bài_đăng,
-                giá_min,
-                giá_max,
-                giá_tb,
-                giá_đlc,
-                giá_1m2,
-                giá_1m2_min,
-                giá_1m2_max,
-                diện_tích_tb,
-                diện_tích_min,
-                diện_tích_max
-        }
-
-        avg_price_by_type is {
-            group_by: loại_bds
-            aggregate: số_bài_đăng, giá_tb, giá_1m2, diện_tích_tb
-            order_by: số_bài_đăng desc
-        }
-
-        avg_price_by_bedroom is {
-            group_by: số_phòng_ngủ
-            aggregate: số_bài_đăng, giá_tb, giá_1m2, diện_tích_tb
-            order_by: số_phòng_ngủ
         }
 
         count_by_district is {

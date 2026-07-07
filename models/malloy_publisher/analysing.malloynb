@@ -20,11 +20,12 @@ import './real_estate.malloy'
 
 Số lượng bài đăng và thống kê giá cơ bản theo từng thành phố.
 >>>malloy
-# dashboard
 run: real_estate -> {
-  group_by:  cityCode
-  # currency
-  nest: price_summary   
+  group_by:  cityCode, `tên_quận`
+  aggregate: giá_tb
+  where: cityCode = 'HN' or prj.district.city.code ~ f`SG`
+  order_by: cityCode, giá_tb desc
+  limit: 100
 }
 >>>markdown
 
@@ -35,7 +36,7 @@ Giá trung bình và giá/m² trung bình của từng quận, sắp xếp từ 
 
 # dashboard
 run: real_estate -> {
-  where: cityCode = 'HN' or (cityCode = 'HCM' and quận_hcm_trước_sát_nhập)
+  where: cityCode = 'HN' or prj.district.city.code ~ f`SG`  
   group_by: `thành phố` is cityCode
   nest:
     # bar_chart
