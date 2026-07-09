@@ -1,3 +1,4 @@
+import argparse
 import asyncio
 from curl_cffi import requests
 from curl_cffi.requests import AsyncSession
@@ -6,6 +7,7 @@ import pandas as pd
 import os
 import re
 import json
+import unicodedata
 
 from utils.sqlalchemy_conn import dbConnector as db
 from utils.common_tools import setup_logging
@@ -15,12 +17,15 @@ logger = setup_logging()
 MAX_CONCURRENCY = 5
 BATCH_SIZE = 100
 BATCH_DELAY_SECONDS = 10
+CATEGORY_URL = "https://batdongsan.com.vn/ban-can-ho-chung-cu"
 # URL = os.getenv("URL", "https://batdongsan.com.vn/ban-can-ho-chung-cu-trellia-cove")
 # URL = os.getenv("URL", "https://batdongsan.com.vn/ban-can-ho-chung-cu-mizuki-park")
 # URL = os.getenv("URL", "https://batdongsan.com.vn/ban-can-ho-chung-cu-mizuki-park?vrs=1")
-URL = os.getenv("URL", "https://batdongsan.com.vn/ban-can-ho-chung-cu-tp-ho-chi-minh")
+URL = os.getenv("URL", f"{CATEGORY_URL}-tp-ho-chi-minh")
 # URL = os.getenv("URL", "")
-# URL = os.getenv("URL", "https://batdongsan.com.vn/ban-can-ho-chung-cu-ha-noi")
+# URL = os.getenv("URL", f"{CATEGORY_URL}-ha-noi")
+CRAWL_MODE = os.getenv("CRAWL_MODE", "city")  # "city" | "district"
+CITY_CODE = os.getenv("CITY_CODE", "SG")
 
 
 def custom_request(url):
@@ -141,6 +146,57 @@ def get_urls_list(html_content, base_url):
     logger.info(f"Total pages to fetch: {page_num}")
     return urls
 
+def slugify_district(name: str, prefix: str) -> str:
+    """
+    Build the batdongsan.com.vn URL slug for a district.
+
+    Verified against live requests: numbered "Quận N" keeps the "quan-" word
+    (quan-1, quan-2, ...); every other district (named, regardless of prefix
+    Quận/Huyện/Thành phố/Thị xã) drops the prefix word entirely and is just the
+    ASCII-transliterated name (binh-thanh, thu-duc, cau-giay, ...).
+    """
+    name = name.strip()
+    if prefix == "Quận" and name.isdigit():
+        return f"quan-{name}"
+    # Đ/đ has its own codepoint and doesn't decompose under NFKD like other
+    # accented Latin letters, so it must be swapped out before ascii-folding.
+    name = name.replace("Đ", "D").replace("đ", "d")
+    ascii_name = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode("ascii")
+    return re.sub(r"[^a-zA-Z0-9]+", "-", ascii_name).strip("-").lower()
+
+async def resolve_district_url(session, district_row):
+    """
+    Build and validate the listing URL for one district row (districtId, name,
+    cityCode, prefix). Crawling at district-level URL (instead of city-level)
+    is what makes batdongsan.com.vn resolve IsDisplayNewAddress=false and
+    return real districtId/wardId values instead of a forced-new-address,
+    districtId=0 response (only reproducible at city-level URLs).
+
+    Returns the validated URL, or None if the derived slug doesn't resolve
+    cleanly (redirects to a generic catch-all page, e.g. /nha-dat-ban) so the
+    caller can skip it instead of silently crawling the wrong data.
+    """
+    slug = slugify_district(district_row["name"], district_row["prefix"])
+    url = f"{CATEGORY_URL}-{slug}"
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+    }
+    try:
+        response = await session.get(url, headers=headers, impersonate="chrome124")
+    except Exception as e:
+        logger.warning(f"District '{district_row['name']}' (id={district_row['districtId']}) slug '{slug}' failed: {e}")
+        return None
+
+    if response.status_code != 200 or str(response.url) != url:
+        logger.warning(
+            f"District '{district_row['name']}' (id={district_row['districtId']}) slug '{slug}' "
+            f"did not resolve cleanly (status={response.status_code}, final_url={response.url}). Skipping."
+        )
+        return None
+    return url
+
 async def fetch_and_parse(url, session, semaphore):
     """Fetch HTML content from URL and parse it into a DataFrame."""
     async with semaphore:
@@ -215,10 +271,67 @@ async def main(url=URL):
     
     return df_total
 
-if __name__ == "__main__":
+async def crawl_city_by_district(city_code: str) -> pd.DataFrame:
+    """
+    Crawl every district of a city individually instead of the single
+    city-level aggregate URL. batdongsan.com.vn forces IsDisplayNewAddress=true
+    (districtId=0) only on city-level URLs for some cities (e.g. HCM) - scoping
+    the URL down to a specific district resolves the old-address IDs correctly
+    for every listing, land included (not just projects with a projectId).
+
+    Districts come from re_bronze.m_districts, filtered by cityCode. Districts
+    whose derived slug doesn't resolve to a clean district page are skipped
+    (logged as a warning) rather than silently mixing in wrong data.
+    """
     conn = db.spyno_sb_conn()
-    df_final = asyncio.run(main())
-    # df_final.to_csv("data/real_estate_listings.csv", index=False)
-    db.write_df_to_table(conn, df_final, schema="re_bronze", table="real_estate")
+    districts = db.fetch_to_dataframe(
+        conn, 'SELECT * FROM re_bronze.m_districts WHERE "cityCode" = %(city_code)s',
+        params={"city_code": city_code},
+    )
+    logger.info(f"Found {len(districts)} districts for cityCode={city_code}")
+
+    all_dfs = []
+    async with AsyncSession() as session:
+        for _, district_row in districts.iterrows():
+            url = await resolve_district_url(session, district_row)
+            if url is None:
+                continue
+
+            logger.info(f"Crawling district '{district_row['name']}' (id={district_row['districtId']}) at {url}")
+            try:
+                df_district = await main(url=url)
+            except AssertionError as e:
+                logger.warning(f"Skipping district '{district_row['name']}': {e}")
+                continue
+
+            df_district["crawled_district_id"] = district_row["districtId"]
+            all_dfs.append(df_district)
+
+    if not all_dfs:
+        return pd.DataFrame()
+    return pd.concat(all_dfs, ignore_index=True)
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Crawl batdongsan.com.vn real estate listings.")
+    parser.add_argument(
+        "--mode", choices=["city", "district"], default=CRAWL_MODE,
+        help="'city': crawl a single city-level URL (--url). "
+             "'district': loop over every district of a city (re_bronze.m_districts, --city-code) "
+             "for correct old-address districtId/wardId. Default: %(default)s",
+    )
+    parser.add_argument("--url", default=URL, help="City-level URL to crawl (mode=city). Default: %(default)s")
+    parser.add_argument("--city-code", default=CITY_CODE, help="City code, e.g. SG, HN (mode=district). Default: %(default)s")
+    parser.add_argument("--output", default="data/real_estate_listings.csv", help="CSV output path. Default: %(default)s")
+    return parser.parse_args()
+
+if __name__ == "__main__":
+    args = parse_args()
+    conn = db.spyno_sb_conn()
+    if args.mode == "district":
+        df_final = asyncio.run(crawl_city_by_district(args.city_code))
+    else:
+        df_final = asyncio.run(main(url=args.url))
+    df_final.to_csv(args.output, index=False)
+    # db.write_df_to_table(conn, df_final, schema="re_bronze", table="real_estate")
 
 
