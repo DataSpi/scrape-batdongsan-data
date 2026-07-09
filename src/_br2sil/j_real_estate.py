@@ -6,8 +6,7 @@ load_dotenv()
 import numpy as np
 import logging
 
-from utils.common_tools import dbConnector as db
-from utils.sqlalchemy_conn import dbConnector as db
+from utils.gcp_conn import get_bigquery_client, query_to_df, upload_df_to_bigquery
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -110,8 +109,8 @@ def normalize_real_estate_type(df: pd.DataFrame) -> pd.DataFrame:
 # ----------------------------------------------
 # Read raw DataFrame
 # ----------------------------------------------
-conn = db.spyno_sb_conn()
-df = db.fetch_to_dataframe(conn, query='SELECT * FROM re_bronze.real_estate')
+client = get_bigquery_client()
+df = query_to_df(client, "SELECT * FROM re_bronze.real_estate")
 df.columns
 
 # ----------------------------------------------
@@ -148,7 +147,6 @@ else:
     logger.info("No duplicated unique_id found.")
     
 # ----------------------------------------------
-# Write to Supabase
+# Write to BigQuery
 # ----------------------------------------------
-# db.execute_query(conn, "drop table if exists re_silver.real_estate cascade", fetch=False)
-db.write_df_to_table(conn, df, schema="re_silver", table="real_estate")
+upload_df_to_bigquery(client, df, f"{client.project}.re_silver.real_estate", write_disposition="WRITE_APPEND")

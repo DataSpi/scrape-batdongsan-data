@@ -5,7 +5,7 @@ from bs4 import BeautifulSoup
 import pandas as pd
 import os
 
-from utils.sqlalchemy_conn import dbConnector as db
+from utils.gcp_conn import get_bigquery_client, upload_df_to_bigquery
 from utils.common_tools import setup_logging
 logger = setup_logging()
 
@@ -141,8 +141,8 @@ async def main(url=URL):
     return df_total
 
 if __name__ == "__main__":
-    conn = db.spyno_sb_conn()
+    bq_client = get_bigquery_client()
     df_final = asyncio.run(main())
-    db.write_df_to_table(conn, df_final, schema="re_bronze", table="projects")
+    upload_df_to_bigquery(bq_client, df_final, f"{bq_client.project}.re_bronze.projects", write_disposition="WRITE_APPEND")
 
 

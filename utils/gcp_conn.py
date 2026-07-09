@@ -27,8 +27,21 @@ def get_bigquery_client():
         print(f"Kết nối thành công! Đã thấy dataset: {datasets[0].dataset_id}")
     return client
 
-def query_to_df(client, query):
-    return client.query(query).to_dataframe()
+_BQ_PARAM_TYPES = {str: "STRING", int: "INT64", float: "FLOAT64", bool: "BOOL"}
+
+
+def query_to_df(client, query, params=None):
+    """
+    params: optional dict of named parameters referenced in `query` as @name
+    (BigQuery's parameter syntax, analogous to psycopg2's %(name)s).
+    """
+    job_config = None
+    if params:
+        job_config = bigquery.QueryJobConfig(query_parameters=[
+            bigquery.ScalarQueryParameter(name, _BQ_PARAM_TYPES[type(value)], value)
+            for name, value in params.items()
+        ])
+    return client.query(query, job_config=job_config).to_dataframe()
 
 def execute_query(client, query):
     query_job = client.query(query)

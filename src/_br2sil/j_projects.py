@@ -1,11 +1,11 @@
 import pandas as pd
-from utils.sqlalchemy_conn import dbConnector as db
+from utils.gcp_conn import get_bigquery_client, query_to_df, upload_df_to_bigquery
 
 
-conn = db.spyno_sb_conn()
+client = get_bigquery_client()
 
-p1 = db.fetch_to_dataframe(conn, "select * from re_bronze.m_projects")
-p2 = db.fetch_to_dataframe(conn, "select * from re_bronze.m_projects_v2")
+p1 = query_to_df(client, "select * from re_bronze.m_projects")
+p2 = query_to_df(client, "select * from re_bronze.m_projects_v2")
 
 p_merge = pd.merge(p1, p2[['projectId', 'wardId']], how="outer", on="projectId", suffixes=("_v1", "_v2"))
 p_merge.rename(columns={
@@ -13,5 +13,5 @@ p_merge.rename(columns={
 }, inplace=True)
 
 
-db.write_df_to_table(conn, p_merge, schema="re_silver", table="projects", truncate=True)
+upload_df_to_bigquery(client, p_merge, f"{client.project}.re_silver.projects", write_disposition="WRITE_TRUNCATE")
 

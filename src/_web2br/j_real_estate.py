@@ -9,7 +9,7 @@ import re
 import json
 import unicodedata
 
-from utils.sqlalchemy_conn import dbConnector as db
+from utils.gcp_conn import get_bigquery_client, query_to_df, upload_df_to_bigquery
 from utils.common_tools import setup_logging
 logger = setup_logging()
 
@@ -146,18 +146,17 @@ def get_urls_list(html_content, base_url):
     logger.info(f"Total pages to fetch: {page_num}")
     return urls
 
-def slugify_district(name: str, prefix: str) -> str:
+def slugify_district(name: str) -> str:
     """
     Build the batdongsan.com.vn URL slug for a district.
 
-    Verified against live requests: numbered "Quận N" keeps the "quan-" word
-    (quan-1, quan-2, ...); every other district (named, regardless of prefix
-    Quận/Huyện/Thành phố/Thị xã) drops the prefix word entirely and is just the
-    ASCII-transliterated name (binh-thanh, thu-duc, cau-giay, ...).
+    m_districts.name already contains the full label as batdongsan shows it
+    ("Quận 1", "Bình Thạnh", "Thủ Đức", ...) - prefix is a separate column but
+    isn't needed here, ASCII-transliterating name alone reproduces the real
+    site slugs (verified live: quan-1, quan-2, binh-thanh, thu-duc, binh-chanh,
+    cau-giay, go-vap).
     """
     name = name.strip()
-    if prefix == "Quận" and name.isdigit():
-        return f"quan-{name}"
     # Đ/đ has its own codepoint and doesn't decompose under NFKD like other
     # accented Latin letters, so it must be swapped out before ascii-folding.
     name = name.replace("Đ", "D").replace("đ", "d")
@@ -176,7 +175,7 @@ async def resolve_district_url(session, district_row):
     cleanly (redirects to a generic catch-all page, e.g. /nha-dat-ban) so the
     caller can skip it instead of silently crawling the wrong data.
     """
-    slug = slugify_district(district_row["name"], district_row["prefix"])
+    slug = slugify_district(district_row["name"])
     url = f"{CATEGORY_URL}-{slug}"
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
@@ -283,9 +282,9 @@ async def crawl_city_by_district(city_code: str) -> pd.DataFrame:
     whose derived slug doesn't resolve to a clean district page are skipped
     (logged as a warning) rather than silently mixing in wrong data.
     """
-    conn = db.spyno_sb_conn()
-    districts = db.fetch_to_dataframe(
-        conn, 'SELECT * FROM re_bronze.m_districts WHERE "cityCode" = %(city_code)s',
+    bq_client = get_bigquery_client()
+    districts = query_to_df(
+        bq_client, "SELECT * FROM re_bronze.m_districts WHERE cityCode = @city_code",
         params={"city_code": city_code},
     )
     logger.info(f"Found {len(districts)} districts for cityCode={city_code}")
@@ -326,12 +325,12 @@ def parse_args():
 
 if __name__ == "__main__":
     args = parse_args()
-    conn = db.spyno_sb_conn()
+    bq_client = get_bigquery_client()
     if args.mode == "district":
         df_final = asyncio.run(crawl_city_by_district(args.city_code))
     else:
         df_final = asyncio.run(main(url=args.url))
     df_final.to_csv(args.output, index=False)
-    # db.write_df_to_table(conn, df_final, schema="re_bronze", table="real_estate")
+    upload_df_to_bigquery(bq_client, df_final, f"{bq_client.project}.re_bronze.real_estate", write_disposition="WRITE_APPEND")
 
 

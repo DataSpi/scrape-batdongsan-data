@@ -1,6 +1,6 @@
 import pandas as pd
 from curl_cffi import requests
-from utils.sqlalchemy_conn import dbConnector as db
+from utils.gcp_conn import get_bigquery_client, upload_df_to_bigquery
 
 def custom_request(url):
     headers = {
@@ -68,16 +68,16 @@ projects_v2 = get_children_infos(wards_v2, key_column="wardId", url_template="ht
 
 
 
-# write to supabase 
-conn = db.spyno_sb_conn()
-# db.write_df_to_table(conn, cities, schema="re_bronze", table="m_cities", truncate=True)
-# db.write_df_to_table(conn, districts, schema="re_bronze", table="m_districts", truncate=True)
-# db.write_df_to_table(conn, wards_all, schema="re_bronze", table="m_wards", truncate=True)
-# db.write_df_to_table(conn, streets_all, schema="re_bronze", table="m_streets", truncate=True)
-# db.write_df_to_table(conn, projects_all, schema="re_bronze", table="m_projects", truncate=True)
+# write to BigQuery
+bq_client = get_bigquery_client()
+# upload_df_to_bigquery(bq_client, cities, f"{bq_client.project}.re_bronze.m_cities", write_disposition="WRITE_TRUNCATE")
+# upload_df_to_bigquery(bq_client, districts, f"{bq_client.project}.re_bronze.m_districts", write_disposition="WRITE_TRUNCATE")
+# upload_df_to_bigquery(bq_client, wards_all, f"{bq_client.project}.re_bronze.m_wards", write_disposition="WRITE_TRUNCATE")
+# upload_df_to_bigquery(bq_client, streets_all, f"{bq_client.project}.re_bronze.m_streets", write_disposition="WRITE_TRUNCATE")
+# upload_df_to_bigquery(bq_client, projects_all, f"{bq_client.project}.re_bronze.m_projects", write_disposition="WRITE_TRUNCATE")
 
 
-db.write_df_to_table(conn, cities_v2, schema="re_bronze", table="m_cities_v2", truncate=True)
-db.write_df_to_table(conn, wards_v2, schema="re_bronze", table="m_wards_v2", truncate=True)
-db.write_df_to_table(conn, streets_v2, schema="re_bronze", table="m_streets_v2", truncate=True)
-db.write_df_to_table(conn, projects_v2, schema="re_bronze", table="m_projects_v2", truncate=True)
+upload_df_to_bigquery(bq_client, cities_v2, f"{bq_client.project}.re_bronze.m_cities_v2", write_disposition="WRITE_TRUNCATE")
+upload_df_to_bigquery(bq_client, wards_v2, f"{bq_client.project}.re_bronze.m_wards_v2", write_disposition="WRITE_TRUNCATE")
+upload_df_to_bigquery(bq_client, streets_v2, f"{bq_client.project}.re_bronze.m_streets_v2", write_disposition="WRITE_TRUNCATE")
+upload_df_to_bigquery(bq_client, projects_v2, f"{bq_client.project}.re_bronze.m_projects_v2", write_disposition="WRITE_TRUNCATE")
