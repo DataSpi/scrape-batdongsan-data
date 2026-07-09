@@ -251,7 +251,7 @@ class dbConnector:
         DB_USER        = os.getenv("DB_USER")
         DB_PORT        = os.getenv("DB_PORT")
         DB_HOST        = os.getenv("DB_HOST")
-        DB_DB_NAME     = os.getenv("DB_DB_NAME")
+        DB_DB_NAME     = os.getenv("DB_NAME")
         sb_conn = dbConnector.connect_to_database(
             host=DB_HOST,
             port=DB_PORT,
@@ -260,4 +260,3 @@ class dbConnector:
             password=DB_PASSWORD
         )
         return sb_conn
-        
