@@ -1,0 +1,65 @@
+version: 2
+
+seeds:
+  - name: real_estate_type_mapping
+    description: >
+      Lookup for normalizing the real_estate_type slug matched out of a listing's link
+      into a canonical Vietnamese label. Ported from the `whitelist` + `type_mapping`
+      dict in src/_br2sil/j_real_estate.py. Two whitelist entries (`ban-nha-rieng`,
+      `ban-can-ho-chung-cu`) were intentionally dropped: in the legacy Python loop they
+      were always shadowed by an earlier, broader substring match (`nha-rieng` /
+      `can-ho-chung-cu` respectively) and could never actually be returned, so keeping
+      them would just be dead rows.
+    columns:
+      - name: raw_token
+        data_tests:
+          - unique
+          - not_null
+      - name: real_estate_type
+        data_tests:
+          - not_null
+
+models:
+  - name: stg_real_estate
+    description: >
+      One row per listing (deduped by unique_id, keeping the most recent scraped_at).
+      Replaces src/_br2sil/j_real_estate.py, which appended every run's full re-read of
+      re_bronze.real_estate to re_silver.real_estate with no real dedup — only a log
+      line — so re_silver.real_estate has been accumulating duplicate rows on every run.
+    columns:
+      - name: unique_id
+        description: Last 10 characters of the cleaned listing link. Legacy dedup key.
+        data_tests:
+          - not_null
+          - unique
+      - name: product_id
+        description: Native listing id from batdongsan.com.vn.
+        data_tests:
+          - not_null
+      - name: link
+        data_tests:
+          - not_null
+
+  - name: stg_locations_v1
+    description: Legacy (old-address) district+city join. Source tables are frozen.
+    columns:
+      - name: districtId
+        data_tests:
+          - unique
+          - not_null
+
+  - name: stg_locations_v2
+    description: Active (post-address-reform) ward+city join.
+    columns:
+      - name: wardId
+        data_tests:
+          - unique
+          - not_null
+
+  - name: stg_projects
+    description: Full outer join of legacy and active project reference tables.
+    columns:
+      - name: projectId
+        data_tests:
+          - unique
+          - not_null

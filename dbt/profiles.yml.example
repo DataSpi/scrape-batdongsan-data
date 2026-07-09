@@ -1,0 +1,13 @@
+# Copy this file to dbt/profiles.yml (gitignored) and adjust if needed.
+# Reuses the same service account file already used by utils/gcp_conn.py.
+batdongsan:
+  target: dev
+  outputs:
+    dev:
+      type: bigquery
+      method: service-account
+      project: your-gcp-project-id
+      dataset: re_silver # fallback only; every model sets its own +schema
+      location: asia-southeast1
+      keyfile: ../gcp_service_account.json
+      threads: 4

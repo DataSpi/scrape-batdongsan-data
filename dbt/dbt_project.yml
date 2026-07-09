@@ -1,0 +1,28 @@
+name: batdongsan
+version: "1.0.0"
+config-version: 2
+
+profile: batdongsan
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+test-paths: ["tests"]
+
+target-path: "target"
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+models:
+  batdongsan:
+    staging:
+      +schema: re_silver
+      +materialized: table
+    marts:
+      +schema: re_gold
+      +materialized: table
+
+seeds:
+  batdongsan:
+    +schema: re_silver

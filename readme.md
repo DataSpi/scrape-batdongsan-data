@@ -20,17 +20,20 @@ Dự án thu thập dữ liệu, chuẩn hóa dữ liệu để thực hiện ph
 
 ```mermaid
 graph TD
-  A[Web Scraping scripts] --> B[(Supabase re_bronze)]
-  B --> C[Clean and normalize: br2sil/j_real_estate.py]
-  C --> D[(Supabase re_silver.real_estate)]
+  A[Web Scraping scripts: src/_web2br] --> B[(BigQuery re_bronze)]
+  B --> C[dbt staging models: dbt/models/staging]
+  C --> D[(BigQuery re_silver)]
+  D --> K[dbt mart: dbt/models/marts]
+  K --> L[(BigQuery re_gold)]
 
-  B --> E[Malloy model: models/real_estate.malloy]
-  D --> E
-  E --> G[Analysis query: models/materialize.malloysql]
+  D --> E[Malloy model: models/malloy_publisher/real_estate.malloy]
+  E --> G[Analysis query: models/_materialize/materialize.malloysql]
   G --> H[Looker Studio dashboard]
   G --> I[Static HTML reports]
 
-  J[APScheduler] -. schedule .-> A
+  J[crontab] -. schedule .-> M[src/orchestrator/run_pipeline.py]
+  M -. runs .-> A
+  M -. then .-> C
 ```
 
 

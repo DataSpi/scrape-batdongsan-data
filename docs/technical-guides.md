@@ -27,8 +27,8 @@ Gợi ý file liên quan:
 ## 3) Semantic Modeling và Analytics
 
 Nội dung nên có:
-- Mô hình Malloy trong `models/real_estate.malloy`.
-- dbt mart model trong `dbt/models/marts/`.
+- Mô hình Malloy trong `models/malloy_publisher/real_estate.malloy` (hiện vẫn trỏ vào Supabase, chưa migrate theo BigQuery — xem ghi chú trong plan đánh giá kiến trúc).
+- dbt staging models trong `dbt/models/staging/` (bronze -> silver, thay `src/_br2sil/*.py`) và mart trong `dbt/models/marts/` (gold).
 - Nguyên tắc đặt tên dimensions và joins.
 
 ## 4) Báo cáo và trực quan hoá (Reports & Visualization)
@@ -44,14 +44,21 @@ Gợi ý file liên quan:
 
 ## 5) Orchestration
 
-Nội dung nên có:
-- Lịch chạy jobs.
-- Workflow CI/CD ingestion.
-- Cách debug khi task bị lỗi.
+Pipeline chạy hoàn toàn trên máy local qua `src/orchestrator/run_pipeline.py`
+(scrape -> `dbt seed` -> `dbt run` -> `dbt test`, dừng ngay khi 1 bước lỗi), kích hoạt
+bằng crontab — không dùng GitHub Actions/Airflow, vì batdongsan.com.vn chặn IP của các
+cloud runner nên bước scrape bắt buộc phải chạy local.
+
+Ví dụ crontab (`crontab -e`):
+```
+0 9 * * 1 cd /path/to/scrape-batdongsan-data && ./venv/bin/python -m src.orchestrator.run_pipeline >> logs/pipeline_cron.log 2>&1
+```
+
+Debug khi task lỗi: xem log tương ứng (stdout/stderr của bước lỗi được in ra trong log
+trên), pipeline dừng lại ngay tại bước đó nên không cần đoán bước nào đã chạy.
 
 Gợi ý file liên quan:
-- `.github/workflows/d_ingest_main.yml`
-- `dags/real_estate_dag.py`
+- `src/orchestrator/run_pipeline.py`
 
 ## Điều hướng
 

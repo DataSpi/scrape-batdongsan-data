@@ -29,29 +29,39 @@ pip install -r requirements.txt
 
 ## 3) Chạy pipeline cơ bản
 
+Chạy toàn bộ pipeline (scrape -> dbt seed/run/test) bằng một lệnh:
+
+```bash
+python -m src.orchestrator.run_pipeline
+```
+
+Hoặc chạy từng bước riêng lẻ khi cần debug:
+
 ### 3.1 Thu thập listings
 
 ```bash
-python -m src.web2br.j_real_estate
+python -m src._web2br.j_real_estate
 ```
 
 ### 3.2 Thu thập dự án
 
 ```bash
-python -m src.web2br.j_projects
+python -m src._web2br.j_projects
 ```
 
 ### 3.3 Lấy metadata
 
 ```bash
-python -m src.web2br.j_metadata
+python -m src._web2br.j_metadata
 ```
 
-### 3.4 Làm sạch dữ liệu (Bronze -> Silver)
+### 3.4 Làm sạch dữ liệu (Bronze -> Silver -> Gold, dbt)
 
 ```bash
-python -m src.br2sil.j_real_estate
+cd dbt && dbt seed && dbt run && dbt test
 ```
+
+Copy `dbt/profiles.yml.example` thành `dbt/profiles.yml` (đã gitignore) trước khi chạy lần đầu.
 
 ## 4) Tạo báo cáo
 

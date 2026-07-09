@@ -1,0 +1,43 @@
+version: 2
+
+sources:
+  - name: bronze
+    database: braided-haiku-465415-k5
+    schema: re_bronze
+    tables:
+      - name: real_estate
+        description: >
+          Raw scraped listings, appended on every scrape run (src/_web2br/j_real_estate.py).
+          No natural dedup key enforced at write time — multiple rows per listing
+          accumulate across runs; dedup happens in stg_real_estate.
+        columns:
+          - name: product_id
+            description: Native listing id from batdongsan.com.vn.
+          - name: link
+            description: Relative or absolute URL of the listing.
+          - name: scraped_at
+            description: >
+              UTC timestamp of the scrape run that wrote this row. Added alongside the
+              dbt migration so stg_real_estate can dedupe to the most recent scrape per
+              listing instead of accumulating duplicates forever. Rows scraped before
+              this column existed will have it NULL.
+      - name: projects
+        description: Raw scraped project pages (src/_web2br/j_projects.py). Not yet consumed downstream.
+      - name: m_cities
+        description: "Legacy (v1/old address scheme) city reference table. Frozen — no longer refreshed by src/_web2br/j_metadata.py."
+      - name: m_districts
+        description: "Legacy (v1) district reference table. Frozen — no longer refreshed."
+      - name: m_wards
+        description: "Legacy (v1) ward reference table. Frozen — no longer refreshed."
+      - name: m_streets
+        description: "Legacy (v1) street reference table. Frozen — no longer refreshed."
+      - name: m_projects
+        description: "Legacy (v1) project reference table. Frozen — no longer refreshed."
+      - name: m_cities_v2
+        description: Active (post-address-reform) city reference table, refreshed by src/_web2br/j_metadata.py.
+      - name: m_wards_v2
+        description: Active (v2) ward reference table, refreshed by src/_web2br/j_metadata.py.
+      - name: m_streets_v2
+        description: Active (v2) street reference table, refreshed by src/_web2br/j_metadata.py.
+      - name: m_projects_v2
+        description: Active (v2) project reference table, refreshed by src/_web2br/j_metadata.py.

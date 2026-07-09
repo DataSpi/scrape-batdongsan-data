@@ -10,6 +10,7 @@ google-cloud-bigquery
 pyarrow
 db-dtypes
 pandas-gbq
+dbt-bigquery
 # Report generation
 malloy[postgres]
 plotly

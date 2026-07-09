@@ -1,0 +1,21 @@
+version: 2
+
+models:
+  - name: mart_real_estate
+    description: >
+      Gold layer for reporting: one row per listing with location names resolved via
+      the listing's project (see model SQL comment for why). Replaces the ad hoc, never
+      migrated re_silver.v_apartment_analysis Postgres view (sql/Scripts/apartment_analysis.sql).
+    columns:
+      - name: unique_id
+        data_tests:
+          - not_null
+          - unique
+      - name: projectId
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_projects')
+                field: projectId
+              config:
+                severity: warn

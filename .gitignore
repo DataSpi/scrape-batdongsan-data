@@ -24,7 +24,13 @@ malloy-config.json
 *.pyo
 
 dags/
-dbt/
+
+# dbt project is version-controlled; only ignore its local/generated state
+dbt/target/
+dbt/logs/
+dbt/dbt_packages/
+dbt/.user.yml
+dbt/profiles.yml
 
 .DS_Store
 my_local_db.duckdb
