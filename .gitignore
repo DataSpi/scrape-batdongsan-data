@@ -28,3 +28,4 @@ dbt/
 
 .DS_Store
 my_local_db.duckdb
+gcp_service_account.json
