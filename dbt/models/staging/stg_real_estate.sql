@@ -118,6 +118,40 @@ deduped as (
     where unique_id is not null
 )
 
-select * except (rn)
+select 
+product_id
+, title
+, verify
+-- , verified
+, link
+, real_estate_type
+, price_num
+, price_per_m2_recal
+, area_num
+, bedrooms
+, toilets
+-- , location
+-- , description
+-- , agent_name
+-- , phone
+, intent
+-- , pageType
+-- , productId
+, projectId
+, vipType
+, expired
+, cateId
+, cityCode
+, districtId
+, wardId
+, streetId
+-- , pageId
+-- , createByUser
+, productType
+-- , IsDisplayNewAddress
+, date_scraped
+-- , unique_id
+-- , scraped_at
+-- except (rn)
 from deduped
 where rn = 1

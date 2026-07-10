@@ -1,64 +1,172 @@
-# Hướng dẫn kỹ thuật
+# Hướng dẫn kỹ thuật — Vận hành pipeline
 
-Trang này tổng hợp các hướng dẫn kỹ thuật chi tiết cho từng phần của dự án. Bạn có thể bổ sung hoặc mở rộng theo nhóm chủ đề dưới đây.
+Tài liệu này dành cho dev đã setup xong môi trường (xem [Quickstart](quickstart.md)) và cần biết
+**chạy gì, khi nào, và tại sao** để vận hành pipeline hằng ngày.
 
-## 1) Lớp thu thập dữ liệu (Scraping Layer)
+## 1) Kiến trúc & luồng dữ liệu
 
-Nội dung nên có:
-- Kiến trúc crawler, chia batch, retry, throttle.
-- Mapping các script trong `src/_web2br/`.
-- Cách cập nhật selector khi website thay đổi.
+```
+batdongsan.com.vn --(src/_web2br)--> BigQuery re_bronze
+                                          |
+                                   dbt staging (src/_br2sil ported to SQL)
+                                          v
+                                    BigQuery re_silver
+                                          |
+                                     dbt marts
+                                          v
+                                    BigQuery re_gold
+                                          |
+                    +---------------------+---------------------+
+                    v                                           v
+        Malloy (malloy/malloy_publisher)              src/reports/report_builder.py
+                    |                                           |
+             Looker Studio dashboard                   docs/reports/*.html (GitHub Pages)
+```
 
-Gợi ý file liên quan:
-- `src/_web2br/j_real_estate.py`
-- `src/_web2br/j_projects.py`
-- `src/_web2br/j_metadata.py`
+Ba schema BigQuery: `re_bronze` (raw scrape) → `re_silver` (dbt staging, deduped/cleaned) →
+`re_gold` (dbt marts, sẵn sàng cho báo cáo). `src/_br2sil/*.py` là bản Python gốc, đã được
+port sang dbt staging models — không dùng nữa cho luồng chính, giữ lại để tham chiếu.
 
-## 2) Làm sạch dữ liệu (Bronze -> Silver)
+## 2) Vận hành định kỳ (weekly, tự động qua crontab)
 
-Nội dung nên có:
-- Quy tắc làm sạch dữ liệu (giá, diện tích, chuẩn hoá loại hình).
-- Kiểm tra trùng lặp và chất lượng dữ liệu.
-- Các bảng output và quy ước schema.
+Toàn bộ pipeline chạy trên máy local (không dùng GitHub Actions/Airflow) vì
+batdongsan.com.vn chặn IP của cloud runner — bước scrape bắt buộc phải chạy từ máy cá nhân.
 
-Gợi ý file liên quan:
-- `src/_br2sil/j_real_estate.py`
+```bash
+python -m src.orchestrator.run_pipeline
+```
 
-## 3) Semantic Modeling và Analytics
+Các bước chạy tuần tự, **dừng ngay khi có bước lỗi** (xem `src/orchestrator/run_pipeline.py`):
 
-Nội dung nên có:
-- Mô hình Malloy trong `malloy/malloy_publisher/real_estate.malloy` (hiện vẫn trỏ vào Supabase, chưa migrate theo BigQuery — xem ghi chú trong plan đánh giá kiến trúc).
-- dbt staging models trong `dbt/models/staging/` (bronze -> silver, thay `src/_br2sil/*.py`) và mart trong `dbt/models/marts/` (gold).
-- Nguyên tắc đặt tên dimensions và joins.
+1. `scrape_real_estate` — `src/_web2br/j_real_estate.py`
+2. `scrape_projects` — `src/_web2br/j_projects.py`
+3. `scrape_metadata` — `src/_web2br/j_metadata.py`
+4. `dbt run --select stg_real_estate+` — rebuild `stg_real_estate` và mọi model downstream
+   (bao gồm `mart_real_estate`)
+5. `dbt test --select stg_real_estate+`
 
-## 4) Báo cáo và trực quan hoá (Reports & Visualization)
+Pipeline **không** rebuild `stg_locations_v1/v2` hay `stg_projects` mỗi tuần — đó là dữ liệu
+tham chiếu gần như tĩnh (city/district/ward/project + lat/lng geocode), chỉ cần rebuild thủ
+công khi nó thực sự thay đổi (xem mục 3).
 
-Nội dung nên có:
-- Script tạo báo cáo HTML.
-- Các chỉ số KPI và ý nghĩa.
-- Quy trình xuất/chia sẻ kết quả.
+Crontab mẫu (`crontab -e`):
 
-Gợi ý file liên quan:
-- `src/reports/report_builder.py`
-- `docs/reports/HCM-HN_prj.html`
-
-## 5) Orchestration
-
-Pipeline chạy hoàn toàn trên máy local qua `src/orchestrator/run_pipeline.py`
-(scrape -> `dbt seed` -> `dbt run` -> `dbt test`, dừng ngay khi 1 bước lỗi), kích hoạt
-bằng crontab — không dùng GitHub Actions/Airflow, vì batdongsan.com.vn chặn IP của các
-cloud runner nên bước scrape bắt buộc phải chạy local.
-
-Ví dụ crontab (`crontab -e`):
 ```
 0 9 * * 1 cd /path/to/scrape-batdongsan-data && ./venv/bin/python -m src.orchestrator.run_pipeline >> logs/pipeline_cron.log 2>&1
 ```
 
-Debug khi task lỗi: xem log tương ứng (stdout/stderr của bước lỗi được in ra trong log
-trên), pipeline dừng lại ngay tại bước đó nên không cần đoán bước nào đã chạy.
+Debug khi có bước lỗi: đọc `logs/pipeline_cron.log` — stdout/stderr của đúng bước lỗi được in
+ra, pipeline dừng ngay tại đó nên không cần đoán bước nào đã chạy.
 
-Gợi ý file liên quan:
-- `src/orchestrator/run_pipeline.py`
+## 3) Vận hành thủ công: rebuild location lineage
+
+**Khi nào cần chạy mục này:** có quận/phường mới xuất hiện (VD: sáp nhập hành chính), hoặc
+vừa geocode lại lat/lng cho `district_geo_v1` / `ward_geo_v2`.
+
+### 3.1 Geocode district/ward mới (nếu cần)
+
+```bash
+python -m src._geocode.geocode_locations
+```
+
+- Cần `GOOGLE_MAPS_API_KEY` trong `.env` (khóa riêng cho Geocoding API, **không** dùng chung
+  service account của `src/utils/gcp_conn.py`).
+- Đọc toàn bộ district (v1) và ward (v2) hiện có trên BigQuery `re_bronze`, geocode qua Google
+  Geocoding API, ghi kết quả đè lên `dbt/seeds/district_geo_v1.csv` và `dbt/seeds/ward_geo_v2.csv`.
+- Địa chỉ không geocode được sẽ có `lat`/`lng` để trống (NULL sau khi seed) — không phải lỗi
+  script, cần kiểm tra thủ công nếu tỷ lệ trống cao.
+
+### 3.2 Nạp seed & rebuild lineage
+
+```bash
+cd dbt
+dbt seed --select district_geo_v1 ward_geo_v2
+dbt run --select stg_locations_v1+ stg_locations_v2+ stg_projects+
+dbt test --select stg_locations_v1+ stg_locations_v2+ stg_projects+
+```
+
+`stg_locations_v1+`/`stg_locations_v2+` kéo theo cả `mart_real_estate` vì mart join trực tiếp
+vào hai model này để lấy tên quận/phường + lat/lng — không cần chạy thêm lệnh riêng cho mart.
+
+Nếu chỉ seed lat/lng thay đổi (không có district/ward mới), có thể bỏ qua bước 3.1 và chạy
+thẳng bước 3.2.
+
+## 4) Data tests
+
+- **Schema tests** (`dbt/models/staging/_staging.yml`): `unique`/`not_null` trên khóa chính
+  của từng model và seed (`unique_id`, `product_id`, `districtId`, `wardId`, `projectId`,
+  `raw_token`...).
+- **Custom tests** (`dbt/tests/`):
+  - `assert_known_real_estate_type.sql` — fail nếu xuất hiện `real_estate_type` không khớp
+    seed `real_estate_type_mapping` (dấu hiệu site đổi slug loại BĐS).
+  - `assert_no_negative_price_or_area.sql` — fail nếu `price_num`/`area_num` âm (bug parse).
+
+Chạy toàn bộ test:
+
+```bash
+cd dbt && dbt test
+```
+
+Chạy test cho riêng một nhánh (khớp với phạm vi `dbt run` tương ứng):
+
+```bash
+dbt test --select stg_real_estate+
+```
+
+## 5) dbt docs (xem lineage & catalog)
+
+```bash
+cd dbt
+dbt docs generate --project-dir . --profiles-dir .
+dbt docs serve --project-dir . --profiles-dir . --port 8080
+```
+
+Mở `http://localhost:8080`. Nếu `mart_real_estate` chưa từng được `dbt run`, bước `generate`
+sẽ cảnh báo "Dataset re_gold not found" khi build catalog — không chặn việc serve, chỉ thiếu
+sample data/column stats cho model đó.
+
+## 6) Semantic modeling (Malloy) & Reports
+
+- Model Malloy: `malloy/malloy_publisher/real_estate.malloy` — **lưu ý: hiện vẫn trỏ vào
+  Supabase, chưa migrate theo BigQuery** sau lần đổi pipeline sang BigQuery. Cần cập nhật
+  connection trước khi dùng lại các query trong `malloy/_analysing/` và
+  `malloy/_materialize/materialize.malloysql`.
+- Sinh báo cáo HTML tĩnh:
+
+  ```bash
+  python src/reports/report_builder.py
+  ```
+
+  Ghi ra `docs/reports/HCM-HN_prj.html` và `docs/reports/HCM-HN_districts.html` — nằm luôn
+  trong thư mục publish của GitHub Pages, không cần copy thủ công.
+
+## 7) Publish lên GitHub Pages
+
+`docs/` là source của GitHub Pages (Settings → Pages → `main` / `docs`), publish dưới dạng
+HTML tĩnh, **không dùng Jekyll** (`docs/.nojekyll`) — không có build step, push lên `main` là
+lên site ngay.
+
+- `docs/index.html` — trang portal chính (giới thiệu, sơ đồ pipeline, link báo cáo/dashboard).
+- `docs/reports/` — báo cáo HTML do `report_builder.py` sinh ra.
+- `docs/figs/` — ảnh minh hoạ.
+- `docs/quickstart.md`, `docs/technical-guides.md` — tài liệu kỹ thuật, đọc trực tiếp trên
+  GitHub (không render qua Pages), `docs/index.html` link thẳng ra GitHub blob view.
+
+Sau khi có báo cáo mới trong `docs/reports/`, thêm một card link trong phần `#reports` của
+`docs/index.html` rồi commit/push như bình thường.
+
+## 8) Troubleshooting
+
+- **Lỗi kết nối BigQuery**: kiểm tra `gcp_service_account.json` tồn tại ở root và
+  `dbt/profiles.yml` (copy từ `dbt/profiles.yml.example`) trỏ đúng file.
+- **`dbt run` báo thiếu source table**: bước scrape (`src/_web2br/*.py`) chưa chạy hoặc chạy
+  lỗi — kiểm tra log của đúng bước đó trước khi rerun dbt.
+- **Geocode script báo `GOOGLE_MAPS_API_KEY not set`**: thêm key vào `.env`, khóa này tách
+  biệt với service account BigQuery.
+- **Không có listing mới sau khi scrape**: website nguồn có thể đã đổi cấu trúc HTML, cần cập
+  nhật lại selector trong `src/_web2br/`.
+- **`assert_known_real_estate_type` fail**: site có loại BĐS mới chưa map — thêm dòng vào
+  `dbt/seeds/real_estate_type_mapping.csv` rồi `dbt seed --select real_estate_type_mapping`.
 
 ## Điều hướng
 

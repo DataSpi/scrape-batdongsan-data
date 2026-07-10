@@ -1,4 +1,6 @@
+import argparse
 import asyncio
+import json
 from curl_cffi.requests import AsyncSession
 from curl_cffi import requests
 from bs4 import BeautifulSoup
@@ -46,7 +48,10 @@ def soup_to_df(html_soup):
             
         results.append({
             "title"             : title,
-            "additional_info"   : configs,
+            # Serialized to JSON, not a native list: re_bronze.projects.additional_info
+            # is a STRING column, and WRITE_APPEND loads use the existing table schema
+            # (no autodetect) -- a raw list column fails pyarrow conversion on upload.
+            "additional_info"   : json.dumps(configs, ensure_ascii=False),
             "location"          : location,
             "description"       : description,    
             "link"              : prj_link,
@@ -140,9 +145,15 @@ async def main(url=URL):
     
     return df_total
 
+def parse_args():
+    parser = argparse.ArgumentParser(description="Crawl batdongsan.com.vn project listings.")
+    parser.add_argument("--url", default=URL, help="Project listing URL to crawl. Default: %(default)s")
+    return parser.parse_args()
+
 if __name__ == "__main__":
+    args = parse_args()
     bq_client = get_bigquery_client()
-    df_final = asyncio.run(main())
+    df_final = asyncio.run(main(url=args.url))
     upload_df_to_bigquery(bq_client, df_final, f"{bq_client.project}.re_bronze.projects", write_disposition="WRITE_APPEND")
 
 

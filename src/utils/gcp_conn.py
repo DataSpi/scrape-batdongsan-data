@@ -3,6 +3,7 @@ import os
 import pandas as pd
 
 import json
+from pathlib import Path
 from google.oauth2 import service_account
 
 def get_bigquery_client():
@@ -18,8 +19,8 @@ def get_bigquery_client():
         client = bigquery.Client(credentials=credentials, project=credentials_info["project_id"])
     else:
         # Local: use service account file
-        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = os.path.join(base_dir, "gcp_service_account.json")
+        base_dir = Path(__file__).resolve().parents[2]
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = str(base_dir / "gcp_service_account.json")
         client = bigquery.Client()
     
     datasets = list(client.list_datasets())

@@ -1,6 +1,13 @@
+import time
+
 import pandas as pd
 from curl_cffi import requests
 from src.utils.gcp_conn import get_bigquery_client, upload_df_to_bigquery
+from src.utils.common_tools import setup_logging
+logger = setup_logging()
+
+MAX_ATTEMPTS = 3
+RETRY_BACKOFF_SECONDS = 2
 
 def custom_request(url):
     headers = {
@@ -19,10 +26,28 @@ def response_to_df(response):
 def get_children_infos(parents_df: pd.DataFrame, key_column: str, url_template="https://batdongsan.com.vn/Product/ProductSearch/GetWardsByDistrictIds?districtIds={}"):
     df_all = pd.DataFrame()
     for parent in parents_df.itertuples():
-        url = url_template.format(getattr(parent, key_column))
-        response = custom_request(url)
-        infos = response_to_df(response)
-        df_all = pd.concat([df_all, infos], ignore_index=True)
+        parent_id = getattr(parent, key_column)
+        url = url_template.format(parent_id)
+
+        # A single bad request (timeout, transient rate-limit, malformed body) used to
+        # raise and crash the whole script, losing every row fetched so far (everything
+        # is only uploaded at the very end). Retry a few times, then skip just this one
+        # parent instead of aborting the run.
+        infos = None
+        for attempt in range(1, MAX_ATTEMPTS + 1):
+            try:
+                response = custom_request(url)
+                infos = response_to_df(response)
+                break
+            except Exception as e:
+                if attempt < MAX_ATTEMPTS:
+                    logger.warning(f"{key_column}={parent_id} attempt {attempt}/{MAX_ATTEMPTS} failed ({e}), retrying...")
+                    time.sleep(RETRY_BACKOFF_SECONDS)
+                else:
+                    logger.error(f"{key_column}={parent_id} failed after {MAX_ATTEMPTS} attempts ({e}), skipping.")
+
+        if infos is not None:
+            df_all = pd.concat([df_all, infos], ignore_index=True)
     return df_all
 
 

@@ -30,9 +30,17 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DBT_PROJECT_DIR = PROJECT_ROOT / "dbt"
 DBT_FLAGS = ["--project-dir", str(DBT_PROJECT_DIR), "--profiles-dir", str(DBT_PROJECT_DIR)]
 
+# j_real_estate.py defaults to HCM (--url) when no override is passed; j_projects.py
+# same. HN needs an explicit --url since neither script derives a city-level URL from
+# --city-code (--city-code on j_real_estate.py only drives district-mode crawling).
+HN_REAL_ESTATE_URL = "https://batdongsan.com.vn/ban-can-ho-chung-cu-ha-noi"
+HN_PROJECTS_URL = "https://batdongsan.com.vn/du-an-bat-dong-san-ha-noi"
+
 STEPS = [
-    ("scrape_real_estate", [sys.executable, "-m", "src._web2br.j_real_estate"]),
-    ("scrape_projects", [sys.executable, "-m", "src._web2br.j_projects"]),
+    ("scrape_real_estate_hcm", [sys.executable, "-m", "src._web2br.j_real_estate", "--mode", "district"]),
+    ("scrape_real_estate_hn", [sys.executable, "-m", "src._web2br.j_real_estate", "--url", HN_REAL_ESTATE_URL]),
+    ("scrape_projects_hcm", [sys.executable, "-m", "src._web2br.j_projects"]),
+    ("scrape_projects_hn", [sys.executable, "-m", "src._web2br.j_projects", "--url", HN_PROJECTS_URL]),
     ("scrape_metadata", [sys.executable, "-m", "src._web2br.j_metadata"]),
     ("dbt_run", ["dbt", "run", *DBT_FLAGS, "--select", "stg_real_estate+"]),
     ("dbt_test", ["dbt", "test", *DBT_FLAGS, "--select", "stg_real_estate+"]),
@@ -41,13 +49,16 @@ STEPS = [
 
 def run_step(name: str, cmd: list[str]) -> bool:
     logger.info(f"=== Start: {name} ({' '.join(cmd)}) ===")
-    result = subprocess.run(cmd, cwd=PROJECT_ROOT, capture_output=True, text=True)
-    if result.stdout:
-        logger.info(result.stdout)
-    if result.returncode != 0:
-        logger.error(f"=== Failed: {name} (exit code {result.returncode}) ===")
-        if result.stderr:
-            logger.error(result.stderr)
+    process = subprocess.Popen(
+        cmd, cwd=PROJECT_ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+        text=True, bufsize=1,
+    )
+    for line in process.stdout:
+        logger.info(f"[{name}] {line.rstrip()}")
+    process.wait()
+
+    if process.returncode != 0:
+        logger.error(f"=== Failed: {name} (exit code {process.returncode}) ===")
         return False
     logger.info(f"=== Done: {name} ===")
     return True

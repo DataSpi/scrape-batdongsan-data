@@ -1,5 +1,5 @@
 # Copy this file to dbt/profiles.yml (gitignored) and adjust if needed.
-# Reuses the same service account file already used by utils/gcp_conn.py.
+# Reuses the same service account file already used by src/utils/gcp_conn.py.
 batdongsan:
   target: dev
   outputs:
@@ -9,5 +9,9 @@ batdongsan:
       project: your-gcp-project-id
       dataset: re_silver # fallback only; every model sets its own +schema
       location: asia-southeast1
-      keyfile: ../gcp_service_account.json
+      # dbt resolves relative paths against the current working directory at
+      # invocation time (not against this file's location), which differs
+      # between `python -m src.orchestrator.run_pipeline` (repo root) and
+      # running `dbt` directly from dbt/ -- use an absolute path to avoid that.
+      keyfile: /absolute/path/to/scrape-batdongsan-data/gcp_service_account.json
       threads: 4
