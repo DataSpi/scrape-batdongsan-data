@@ -47,7 +47,7 @@ async def main():
   with malloy.Runtime() as runtime:
     runtime.add_connection(duck_conn)
 
-    data = await runtime.load_file(home_dir + "models/malloy_publisher/real_estate.malloy").run(
+    data = await runtime.load_file(home_dir + "malloy/malloy_publisher/real_estate.malloy").run(
         named_query="general_info_by_project")
 
     if data is None:

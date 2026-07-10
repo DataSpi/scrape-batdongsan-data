@@ -1,5 +1,5 @@
 import pandas as pd
-from utils.gcp_conn import get_bigquery_client, query_to_df, upload_df_to_bigquery
+from src.utils.gcp_conn import get_bigquery_client, query_to_df, upload_df_to_bigquery
 
 client = get_bigquery_client()
 

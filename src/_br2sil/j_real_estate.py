@@ -6,7 +6,7 @@ load_dotenv()
 import numpy as np
 import logging
 
-from utils.gcp_conn import get_bigquery_client, query_to_df, upload_df_to_bigquery
+from src.utils.gcp_conn import get_bigquery_client, query_to_df, upload_df_to_bigquery
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))

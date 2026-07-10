@@ -9,7 +9,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from utils.malloy_cli_runner import run_malloy_file
+from src.utils.malloy_cli_runner import run_malloy_file
 
 DEFAULT_REPORT_TITLE = "Bao cao gia bat dong san theo du an tai HN & TPHCM"
 HTML_TEMPLATE_PATH = Path(__file__).resolve().parent / "templates" / "malloy_result.html"
@@ -134,17 +134,17 @@ def build_report(
 
 if __name__ == "__main__":
     by_project_rp = build_report(
-        malloy_file_path="models/analysing/q_general_info.malloy",
+        malloy_file_path="malloy/_analysing/q_general_info.malloy",
         query_name="general_info_by_project",
         title="Báo cáo giá bất động sản theo dự án tại HN & TPHCM",
-        output_path="reports/output/HCM-HN_prj.html",
+        output_path="docs/reports/HCM-HN_prj.html",
     )
     print(f"Report generated: {by_project_rp}")
-    
+
     by_district_rp = build_report(
-        malloy_file_path="models/analysing/q_general_info.malloy",
+        malloy_file_path="malloy/_analysing/q_general_info.malloy",
         query_name="general_info_by_district",
         title="Báo cáo giá bất động sản theo quận tại HN & TPHCM",
-        output_path="reports/output/HCM-HN_districts.html",
+        output_path="docs/reports/HCM-HN_districts.html",
     )
     print(f"Report generated: {by_district_rp}")

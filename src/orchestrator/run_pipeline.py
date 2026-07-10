@@ -8,25 +8,34 @@ the pipeline across two machines/schedulers).
 
 Steps run strictly in order and the pipeline stops at the first failure -- dbt models
 depend on bronze data existing, and dbt test depends on dbt run having completed.
+
+dbt run/test are scoped to `stg_real_estate+` on purpose: stg_locations_v1/v2 and
+stg_projects are built from near-static reference data (city/district/ward/project
+lookups, plus geocoded lat/lng seeds -- see src/_geocode/geocode_locations.py) that
+doesn't need rebuilding every week. Rebuild that lineage manually when it actually
+changes:
+
+    dbt seed --project-dir dbt --profiles-dir dbt
+    dbt run --project-dir dbt --profiles-dir dbt --select stg_locations_v1+ stg_locations_v2+ stg_projects+
 """
 import subprocess
 import sys
 from pathlib import Path
 
-from utils.common_tools import setup_logging
+from src.utils.common_tools import setup_logging
 
 logger = setup_logging()
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DBT_PROJECT_DIR = PROJECT_ROOT / "dbt"
+DBT_FLAGS = ["--project-dir", str(DBT_PROJECT_DIR), "--profiles-dir", str(DBT_PROJECT_DIR)]
 
 STEPS = [
     ("scrape_real_estate", [sys.executable, "-m", "src._web2br.j_real_estate"]),
     ("scrape_projects", [sys.executable, "-m", "src._web2br.j_projects"]),
     ("scrape_metadata", [sys.executable, "-m", "src._web2br.j_metadata"]),
-    ("dbt_seed", ["dbt", "seed", "--project-dir", str(DBT_PROJECT_DIR)]),
-    ("dbt_run", ["dbt", "run", "--project-dir", str(DBT_PROJECT_DIR)]),
-    ("dbt_test", ["dbt", "test", "--project-dir", str(DBT_PROJECT_DIR)]),
+    ("dbt_run", ["dbt", "run", *DBT_FLAGS, "--select", "stg_real_estate+"]),
+    ("dbt_test", ["dbt", "test", *DBT_FLAGS, "--select", "stg_real_estate+"]),
 ]
 
 

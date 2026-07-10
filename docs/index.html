@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Scrape Batdongsan Data</title>
+  <meta name="description" content="Dữ liệu bất động sản Việt Nam: thu thập, chuẩn hóa và phân tích từ batdongsan.com.vn">
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+
+  <header class="hero">
+    <div class="container">
+      <h1>Scrape Batdongsan Data</h1>
+      <p class="tagline">
+        Thu thập, chuẩn hóa và phân tích dữ liệu thị trường bất động sản Việt Nam
+        từ <a href="https://batdongsan.com.vn" target="_blank" rel="noopener">batdongsan.com.vn</a>.
+      </p>
+      <div class="hero-links">
+        <a class="btn primary" href="https://lookerstudio.google.com/reporting/9e21618f-97dc-4480-b101-cbda26b9b2a5" target="_blank" rel="noopener">Xem Dashboard</a>
+        <a class="btn" href="#reports">Báo cáo</a>
+        <a class="btn" href="https://github.com/DataSpi/scrape-batdongsan-data" target="_blank" rel="noopener">GitHub</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <section id="pipeline">
+      <h2>Quy trình xử lý dữ liệu</h2>
+      <p class="section-sub">Từ scraping đến báo cáo, chạy theo lịch trên máy local (crontab).</p>
+      <pre class="mermaid">
+graph TD
+  A[Web Scraping: src/_web2br] --> B[(BigQuery re_bronze)]
+  B --> C[dbt staging: dbt/models/staging]
+  C --> D[(BigQuery re_silver)]
+  D --> K[dbt mart: dbt/models/marts]
+  K --> L[(BigQuery re_gold)]
+
+  D --> E[Malloy model: malloy/malloy_publisher/real_estate.malloy]
+  E --> G[Analysis query: malloy/_materialize/materialize.malloysql]
+  G --> H[Looker Studio dashboard]
+  G --> I[Static HTML reports]
+
+  J[crontab] -. schedule .-> M[src/orchestrator/run_pipeline.py]
+  M -. runs .-> A
+  M -. then .-> C
+      </pre>
+    </section>
+
+    <section id="reports">
+      <h2>Báo cáo</h2>
+      <p class="section-sub updated">Cập nhật: 2026-05-20</p>
+      <div class="card-grid">
+        <a class="card" href="reports/HCM-HN_districts.html">
+          <div class="card-title">Giá bất động sản theo quận</div>
+          <div class="card-desc">Hà Nội &amp; TP.HCM, theo quận/huyện (cũ)</div>
+        </a>
+        <a class="card" href="reports/HCM-HN_prj.html">
+          <div class="card-title">Giá bất động sản theo dự án</div>
+          <div class="card-desc">Hà Nội &amp; TP.HCM, theo dự án</div>
+        </a>
+        <a class="card" href="https://spyno.substack.com/p/i-xem-nha-cung-data-analyst-p1" target="_blank" rel="noopener">
+          <div class="card-title">Đi xem nhà cùng Data Analyst - P1</div>
+          <div class="card-desc">Bài viết, tháng 9/2025</div>
+        </a>
+      </div>
+    </section>
+
+    <section id="dashboard">
+      <h2>Dashboard</h2>
+      <p class="section-sub updated">Cập nhật: 2026-02-16</p>
+      <a class="btn primary" href="https://lookerstudio.google.com/reporting/9e21618f-97dc-4480-b101-cbda26b9b2a5" target="_blank" rel="noopener">Mở Google Looker Studio</a>
+      <img class="preview-img" src="figs/dashboard-preview.png" alt="Dashboard minh hoạ">
+    </section>
+
+    <section id="docs">
+      <h2>Tài liệu &amp; mã nguồn</h2>
+      <p class="section-sub">Tài liệu kỹ thuật đọc trực tiếp trên GitHub.</p>
+      <div class="card-grid">
+        <a class="card" href="https://github.com/DataSpi/scrape-batdongsan-data/blob/main/docs/quickstart.md" target="_blank" rel="noopener">
+          <div class="card-title">Quickstart</div>
+          <div class="card-desc">Cài đặt và chạy pipeline từ A đến Z</div>
+        </a>
+        <a class="card" href="https://github.com/DataSpi/scrape-batdongsan-data/blob/main/docs/technical-guides.md" target="_blank" rel="noopener">
+          <div class="card-title">Hướng dẫn kỹ thuật</div>
+          <div class="card-desc">Chi tiết từng module: scraper, modeling, báo cáo</div>
+        </a>
+        <a class="card" href="https://github.com/DataSpi/scrape-batdongsan-data" target="_blank" rel="noopener">
+          <div class="card-title">Mã nguồn trên GitHub</div>
+          <div class="card-desc">README, cấu trúc thư mục, lịch sử commit</div>
+        </a>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="container">
+    <p>Scrape Batdongsan Data &middot; <a href="https://github.com/DataSpi/scrape-batdongsan-data">DataSpi</a></p>
+  </footer>
+
+  <script type="module">
+    import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+    mermaid.initialize({ startOnLoad: false, theme: "neutral" });
+
+    document.querySelectorAll("pre.mermaid").forEach((pre) => {
+      const div = document.createElement("div");
+      div.className = "mermaid";
+      div.textContent = pre.textContent;
+      pre.replaceWith(div);
+    });
+
+    await mermaid.run();
+  </script>
+
+</body>
+</html>

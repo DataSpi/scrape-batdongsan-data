@@ -5,8 +5,8 @@ from bs4 import BeautifulSoup
 import pandas as pd
 import os
 
-from utils.gcp_conn import get_bigquery_client, upload_df_to_bigquery
-from utils.common_tools import setup_logging
+from src.utils.gcp_conn import get_bigquery_client, upload_df_to_bigquery
+from src.utils.common_tools import setup_logging
 logger = setup_logging()
 
 

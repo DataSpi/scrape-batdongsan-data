@@ -7,6 +7,10 @@ with district as (
 
 city as (
     select * from {{ source('bronze', 'm_cities') }}
+),
+
+geo as (
+    select * from {{ ref('district_geo_v1') }}
 )
 
 select
@@ -15,6 +19,9 @@ select
     d.cityCode,
     d.prefix as prefix_district,
     c.name as name_city,
-    c.prefix as prefix_city
+    c.prefix as prefix_city,
+    geo.lat,
+    geo.lng
 from district d
 left join city c on d.cityCode = c.code
+left join geo on d.districtId = geo.districtId

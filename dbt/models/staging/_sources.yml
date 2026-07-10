@@ -10,6 +10,11 @@ sources:
           Raw scraped listings, appended on every scrape run (src/_web2br/j_real_estate.py).
           No natural dedup key enforced at write time — multiple rows per listing
           accumulate across runs; dedup happens in stg_real_estate.
+        config:
+          loaded_at_field: scraped_at
+          freshness:
+            warn_after: {count: 10, period: day}
+            error_after: {count: 21, period: day}
         columns:
           - name: product_id
             description: Native listing id from batdongsan.com.vn.

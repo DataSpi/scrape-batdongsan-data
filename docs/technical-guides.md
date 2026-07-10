@@ -6,13 +6,13 @@ Trang này tổng hợp các hướng dẫn kỹ thuật chi tiết cho từng p
 
 Nội dung nên có:
 - Kiến trúc crawler, chia batch, retry, throttle.
-- Mapping các script trong `src/web2br/`.
+- Mapping các script trong `src/_web2br/`.
 - Cách cập nhật selector khi website thay đổi.
 
 Gợi ý file liên quan:
-- `src/web2br/j_real_estate.py`
-- `src/web2br/j_projects.py`
-- `src/web2br/j_metadata.py`
+- `src/_web2br/j_real_estate.py`
+- `src/_web2br/j_projects.py`
+- `src/_web2br/j_metadata.py`
 
 ## 2) Làm sạch dữ liệu (Bronze -> Silver)
 
@@ -22,12 +22,12 @@ Nội dung nên có:
 - Các bảng output và quy ước schema.
 
 Gợi ý file liên quan:
-- `src/br2sil/j_real_estate.py`
+- `src/_br2sil/j_real_estate.py`
 
 ## 3) Semantic Modeling và Analytics
 
 Nội dung nên có:
-- Mô hình Malloy trong `models/malloy_publisher/real_estate.malloy` (hiện vẫn trỏ vào Supabase, chưa migrate theo BigQuery — xem ghi chú trong plan đánh giá kiến trúc).
+- Mô hình Malloy trong `malloy/malloy_publisher/real_estate.malloy` (hiện vẫn trỏ vào Supabase, chưa migrate theo BigQuery — xem ghi chú trong plan đánh giá kiến trúc).
 - dbt staging models trong `dbt/models/staging/` (bronze -> silver, thay `src/_br2sil/*.py`) và mart trong `dbt/models/marts/` (gold).
 - Nguyên tắc đặt tên dimensions và joins.
 
@@ -39,8 +39,8 @@ Nội dung nên có:
 - Quy trình xuất/chia sẻ kết quả.
 
 Gợi ý file liên quan:
-- `src/reports/generate_report.py`
-- `reports/output/malloy_result.html`
+- `src/reports/report_builder.py`
+- `docs/reports/HCM-HN_prj.html`
 
 ## 5) Orchestration
 
@@ -64,4 +64,4 @@ Gợi ý file liên quan:
 
 - Về [Trung tâm tài liệu](README.md)
 - Sang [Quickstart](quickstart.md)
-- Về [Trang chủ dự án](../index.md)
+- Về [Trang chủ dự án (GitHub Pages)](https://dataspi.github.io/scrape-batdongsan-data/)

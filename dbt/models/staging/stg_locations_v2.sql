@@ -7,6 +7,10 @@ with ward as (
 
 city as (
     select * from {{ source('bronze', 'm_cities_v2') }}
+),
+
+geo as (
+    select * from {{ ref('ward_geo_v2') }}
 )
 
 select
@@ -15,6 +19,9 @@ select
     w.cityCode,
     w.prefix as prefix_ward,
     c.name as name_city,
-    c.prefix as prefix_city
+    c.prefix as prefix_city,
+    geo.lat,
+    geo.lng
 from ward w
 left join city c on w.cityCode = c.code
+left join geo on w.wardId = geo.wardId

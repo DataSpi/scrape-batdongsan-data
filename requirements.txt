@@ -2,6 +2,7 @@ pandas
 python-dotenv
 numpy
 curl_cffi
+requests
 beautifulsoup4
 sqlalchemy
 psycopg2-binary

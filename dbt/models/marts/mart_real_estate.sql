@@ -43,8 +43,12 @@ select
     project.name as project_name,
     loc_v1.name_district as district_name,
     loc_v1.name_city as city_name,
+    loc_v1.lat as lat_v1,
+    loc_v1.lng as lng_v1,
     loc_v2.name_ward as ward_name_v2,
     loc_v2.name_city as city_name_v2,
+    loc_v2.lat as lat_v2,
+    loc_v2.lng as lng_v2,
     street.street_name
 from re
 left join project on re.projectId = project.projectId

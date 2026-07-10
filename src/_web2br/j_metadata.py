@@ -1,6 +1,6 @@
 import pandas as pd
 from curl_cffi import requests
-from utils.gcp_conn import get_bigquery_client, upload_df_to_bigquery
+from src.utils.gcp_conn import get_bigquery_client, upload_df_to_bigquery
 
 def custom_request(url):
     headers = {

@@ -9,8 +9,8 @@ import re
 import json
 import unicodedata
 
-from utils.gcp_conn import get_bigquery_client, query_to_df, upload_df_to_bigquery
-from utils.common_tools import setup_logging
+from src.utils.gcp_conn import get_bigquery_client, query_to_df, upload_df_to_bigquery
+from src.utils.common_tools import setup_logging
 logger = setup_logging()
 
 

@@ -8,7 +8,7 @@ from typing import List
 
 from sqlalchemy import text
 
-from utils.sqlalchemy_conn import dbConnector
+from src.utils.sqlalchemy_conn import dbConnector
 
 
 def get_table_column_names(schema_name: str, table_name: str) -> List[str]:

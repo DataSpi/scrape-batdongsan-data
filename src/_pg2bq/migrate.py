@@ -2,9 +2,9 @@ import argparse
 
 from sqlalchemy import inspect
 
-from utils.sqlalchemy_conn import dbConnector as db
-from utils.gcp_conn import get_bigquery_client, upload_df_to_bigquery
-from utils.common_tools import setup_logging
+from src.utils.sqlalchemy_conn import dbConnector as db
+from src.utils.gcp_conn import get_bigquery_client, upload_df_to_bigquery
+from src.utils.common_tools import setup_logging
 
 logger = setup_logging()
 

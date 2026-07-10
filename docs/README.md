@@ -12,6 +12,6 @@ Tài liệu dự án scrape-batdongsan-data được tổ chức để dễ đ�
 
 ## Liên kết nhanh
 
-- [Trang chủ dự án](../index.md)
-- [Thư mục báo cáo](../reports/)
-- [Báo cáo HTML mẫu](../reports/output/malloy_result.html)
+- [Trang chủ dự án (GitHub Pages)](https://dataspi.github.io/scrape-batdongsan-data/)
+- [Thư mục báo cáo](reports/)
+- [README dự án](../README.md)

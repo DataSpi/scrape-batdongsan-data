@@ -19,6 +19,29 @@ seeds:
         data_tests:
           - not_null
 
+  - name: district_geo_v1
+    description: >
+      Lat/lng for each legacy (v1) district, geocoded once via
+      src/_geocode/geocode_locations.py (Google Geocoding API). Not refreshed on a
+      schedule -- districts are static; re-run the script and `dbt seed` manually if
+      new districts ever show up. lat/lng are blank (NULL after seed) when the API
+      couldn't resolve an address.
+    columns:
+      - name: districtId
+        data_tests:
+          - unique
+          - not_null
+
+  - name: ward_geo_v2
+    description: >
+      Lat/lng for each active (v2) ward, geocoded once via
+      src/_geocode/geocode_locations.py. Same caveats as district_geo_v1.
+    columns:
+      - name: wardId
+        data_tests:
+          - unique
+          - not_null
+
 models:
   - name: stg_real_estate
     description: >
@@ -36,6 +59,7 @@ models:
         description: Native listing id from batdongsan.com.vn.
         data_tests:
           - not_null
+          - unique
       - name: link
         data_tests:
           - not_null
