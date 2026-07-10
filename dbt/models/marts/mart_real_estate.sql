@@ -17,33 +17,20 @@ project as (
 
 loc_v1 as (
     select * from {{ ref('stg_locations_v1') }}
-)
--- ,
+), 
 
--- loc_v2 as (
---     select * from {{ ref('stg_locations_v2') }}
--- ),
-
--- street as (
---     select streetId, name as street_name
---     from {{ source('bronze', 'm_streets_v2') }}
--- )
-
+processed_1 as (
 select
     re.*,
     project.name as project_name,
+    coalesce(re.districtId, project.districtId) as full_districtId
+from re
+left join project on re.projectId = project.projectId
+)
+select processed_1.* except (full_districtId), 
     loc_v1.name_district as district_name,
     loc_v1.name_city as city_name,
     loc_v1.lat as lat_v1,
-    loc_v1.lng as lng_v1
-    -- ,
-    -- loc_v2.name_ward as ward_name_v2,
-    -- loc_v2.name_city as city_name_v2,
-    -- loc_v2.lat as lat_v2,
-    -- loc_v2.lng as lng_v2,
-    -- street.street_name
-from re
-left join project on re.projectId = project.projectId
-left join loc_v1 on project.districtId = loc_v1.districtId
--- left join loc_v2 on project.wardId_v2 = loc_v2.wardId
--- left join street on re.streetId = street.streetId
+    loc_v1.lng as lng_v1 
+from processed_1
+left join loc_v1 on processed_1.full_districtId = loc_v1.districtId
