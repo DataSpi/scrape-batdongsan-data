@@ -68,10 +68,8 @@ models:
         data_type: string
       - name: city_name
         data_type: string
-      - name: lat_v1
-        data_type: float64
-      - name: lng_v1
-        data_type: float64
+      - name: lat_long
+        data_type: string
       # - name: ward_name_v2
       #   data_type: string
       # - name: city_name_v2

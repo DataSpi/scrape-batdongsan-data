@@ -30,7 +30,9 @@ left join project on re.projectId = project.projectId
 select processed_1.* except (full_districtId), 
     loc_v1.name_district as district_name,
     loc_v1.name_city as city_name,
-    loc_v1.lat as lat_v1,
-    loc_v1.lng as lng_v1 
+    case
+        when loc_v1.lat is not null and loc_v1.lng is not null
+        then concat(cast(loc_v1.lat as string), ',', cast(loc_v1.lng as string))
+    end as lat_long
 from processed_1
 left join loc_v1 on processed_1.full_districtId = loc_v1.districtId
