@@ -48,12 +48,12 @@ select processed_1.* except (full_districtId),
     end as bin_price,
     case
         when processed_1.price_num is null then null
-        when processed_1.price_num < 2000 then '1'
-        when processed_1.price_num < 3000 then '2'
-        when processed_1.price_num < 5000 then '3'
-        when processed_1.price_num < 10000 then '4'
-        when processed_1.price_num < 20000 then '5'
-        else '6'
+        when processed_1.price_num < 2000 then 1
+        when processed_1.price_num < 3000 then 2
+        when processed_1.price_num < 5000 then 3
+        when processed_1.price_num < 10000 then 4
+        when processed_1.price_num < 20000 then 5
+        else 6
     end as bin_price_order,
     case
         when processed_1.price_1m2 is null then null
@@ -63,9 +63,9 @@ select processed_1.* except (full_districtId),
     end as bin_price_1m2,
     case
         when processed_1.price_1m2 is null then null
-        when processed_1.price_1m2 < 40 then '1'
-        when processed_1.price_1m2 < 60 then '2'
-        else '3'
+        when processed_1.price_1m2 < 40 then 1
+        when processed_1.price_1m2 < 60 then 2
+        else 3
     end as bin_price_1m2_order
 from processed_1
 left join loc_v1 on processed_1.full_districtId = loc_v1.districtId
