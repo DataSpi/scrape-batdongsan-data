@@ -8,7 +8,7 @@ Tài liệu này dành cho dev đã setup xong môi trường (xem [Quickstart](
 ```
 batdongsan.com.vn --(src/_web2br)--> BigQuery re_bronze
                                           |
-                                   dbt staging (src/_br2sil ported to SQL)
+                                        dbt staging
                                           v
                                     BigQuery re_silver
                                           |
@@ -24,8 +24,7 @@ batdongsan.com.vn --(src/_web2br)--> BigQuery re_bronze
 ```
 
 Ba schema BigQuery: `re_bronze` (raw scrape) → `re_silver` (dbt staging, deduped/cleaned) →
-`re_gold` (dbt marts, sẵn sàng cho báo cáo). `src/_br2sil/*.py` là bản Python gốc, đã được
-port sang dbt staging models — không dùng nữa cho luồng chính, giữ lại để tham chiếu.
+`re_gold` (dbt marts, sẵn sàng cho báo cáo).
 
 ## 2) Vận hành định kỳ (weekly, tự động qua crontab)
 

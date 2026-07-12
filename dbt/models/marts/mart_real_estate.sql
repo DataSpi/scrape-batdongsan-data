@@ -23,7 +23,10 @@ processed_1 as (
 select
     re.*,
     project.name as project_name,
-    coalesce(re.districtId, project.districtId) as full_districtId
+    -- districtId=0 is batdongsan's IsDisplayNewAddress sentinel for "unresolved" (see
+    -- src/_web2br/j_real_estate.py:crawl_city_by_district), not a real district - treat
+    -- it as missing so we fall back to the project's districtId like a NULL would.
+    coalesce(nullif(re.districtId, 0), project.districtId) as full_districtId
 from re
 left join project on re.projectId = project.projectId
 )

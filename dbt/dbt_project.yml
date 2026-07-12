@@ -25,4 +25,4 @@ models:
 
 seeds:
   batdongsan:
-    +schema: re_silver
+    +schema: re_bronze

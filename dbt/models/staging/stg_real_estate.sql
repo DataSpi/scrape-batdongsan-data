@@ -93,7 +93,7 @@ final as (
         p.createByUser,
         p.productType,
         p.IsDisplayNewAddress,
-        current_date() as date_scraped,
+        p.date_scraped,
         substr(p.link_clean, -10) as unique_id,
         p.scraped_at
     from parsed p

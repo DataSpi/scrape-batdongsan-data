@@ -332,6 +332,7 @@ if __name__ == "__main__":
         df_final = asyncio.run(main(url=args.url))
     df_final.to_csv(args.output, index=False)
     df_final["scraped_at"] = pd.Timestamp.now("UTC")
+    df_final["date_scraped"] = df_final["scraped_at"].dt.date
     upload_df_to_bigquery(
         bq_client, df_final, f"{bq_client.project}.re_bronze.real_estate",
         write_disposition="WRITE_APPEND", allow_field_addition=True,
