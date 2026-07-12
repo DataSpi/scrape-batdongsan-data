@@ -30,7 +30,7 @@ select
 from re
 left join project on re.projectId = project.projectId
 )
-select processed_1.* except (full_districtId),
+select processed_1.* except (full_districtId, is_price_outlier),
     loc_v1.name_district as district_name,
     loc_v1.name_city as city_name,
     case
@@ -69,3 +69,6 @@ select processed_1.* except (full_districtId),
     end as bin_price_1m2_order
 from processed_1
 left join loc_v1 on processed_1.full_districtId = loc_v1.districtId
+-- Source-data price/m2 errors (see stg_real_estate.is_price_outlier) are excluded from
+-- the gold layer rather than reported on.
+where not processed_1.is_price_outlier

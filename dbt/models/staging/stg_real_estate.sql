@@ -1,6 +1,11 @@
 -- Ports src/_br2sil/j_real_estate.py to SQL. Two behavior changes vs. the legacy
 -- pandas script (see dbt/models/staging/_staging.yml for details):
---   1. Real dedup by unique_id (legacy script only logged duplicates, kept appending them).
+--   1. Real dedup by product_id (legacy script only logged duplicates, kept appending
+--      them). Originally keyed on substr(link_clean, -10): the source site appends a
+--      "?c=d1"-style tracking query string to the same listing's link on some scrapes
+--      but not others, so that suffix silently produced two "unique" keys for one
+--      listing and let 294 product_ids through as duplicates -- product_id is the
+--      native, stable id and doesn't have this problem.
 --   2. real_estate_type matching only implements the whitelist tokens that were actually
 --      reachable in the legacy code (some whitelist entries were dead due to substring
 --      shadowing by an earlier, broader token in the same priority list).
@@ -94,7 +99,6 @@ final as (
         p.productType,
         p.IsDisplayNewAddress,
         p.date_scraped,
-        substr(p.link_clean, -10) as unique_id,
         p.scraped_at
     from parsed p
     left join {{ ref('real_estate_type_mapping') }} m on p.matched_token = m.raw_token
@@ -110,15 +114,33 @@ with_price_per_m2 as (
     from final
 ),
 
+flagged as (
+    select
+        *,
+        -- Sanity bound on price/m2 (triệu/m2). Checked empirically against this table:
+        -- the priciest named-tower listings actually on the market (Grand Marina Saigon,
+        -- The Opera Metropole, The Grand Hà Nội, Empire City, Landmark 81) top out
+        -- around 930, and nothing in the data sits between there and 1000 -- so 1000 is
+        -- a gap, not a guess. Above it, every row so far has been a source-site
+        -- data-entry error, not a real price (e.g. product_id 45698293: an unedited typo
+        -- in the total-price field inflated price_per_m2_recal to ~8,000 triệu/m2).
+        -- Flag instead of dropping here so the raw row stays inspectable in re_silver;
+        -- mart_real_estate excludes flagged rows from the gold layer.
+        coalesce(price_per_m2_recal <= 0 or price_per_m2_recal > 1000, false) as is_price_outlier
+    from with_price_per_m2
+),
+
 deduped as (
     select
         *,
+        -- link tiebreaks scraped_at (frequently null in the bronze data) so reruns keep
+        -- the same row instead of picking arbitrarily among ties.
         row_number() over (
-            partition by unique_id
-            order by scraped_at desc nulls last
+            partition by product_id
+            order by scraped_at desc nulls last, link asc
         ) as rn
-    from with_price_per_m2
-    where unique_id is not null
+    from flagged
+    where product_id is not null
 )
 
 select 
@@ -130,6 +152,7 @@ product_id
 , real_estate_type
 , price_num
 , price_per_m2_recal as price_1m2
+, is_price_outlier
 , area_num
 , bedrooms
 , toilets
@@ -153,7 +176,6 @@ product_id
 , productType
 -- , IsDisplayNewAddress
 , date_scraped
--- , unique_id
 -- , scraped_at
 -- except (rn)
 from deduped

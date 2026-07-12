@@ -45,16 +45,11 @@ seeds:
 models:
   - name: stg_real_estate
     description: >
-      One row per listing (deduped by unique_id, keeping the most recent scraped_at).
+      One row per listing (deduped by product_id, keeping the most recent scraped_at).
       Replaces src/_br2sil/j_real_estate.py, which appended every run's full re-read of
       re_bronze.real_estate to re_silver.real_estate with no real dedup — only a log
       line — so re_silver.real_estate has been accumulating duplicate rows on every run.
     columns:
-      # - name: unique_id
-      #   description: Last 10 characters of the cleaned listing link. Legacy dedup key.
-      #   data_tests:
-      #     - not_null
-      #     - unique
       - name: product_id
         description: Native listing id from batdongsan.com.vn.
         data_tests:
@@ -63,6 +58,13 @@ models:
       - name: link
         data_tests:
           - not_null
+      - name: is_price_outlier
+        description: >
+          True when price_1m2 is <= 0 or > 1000 triệu/m2 -- above every observed
+          legitimate listing (the priciest named-tower units top out around 930).
+          Catches source-site data-entry errors (e.g. product_id 45698293, where a
+          stray total-price typo produced a ~8,000 triệu/m2 price/m2). mart_real_estate
+          filters these rows out; they stay visible here for manual review.
 
   - name: stg_locations_v1
     description: Legacy (old-address) district+city join. Source tables are frozen.
