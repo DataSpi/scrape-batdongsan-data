@@ -25,7 +25,7 @@ models:
         data_type: string
       - name: price_num
         data_type: float64
-      - name: price_per_m2_recal
+      - name: price_1m2
         data_type: float64
       - name: area_num
         data_type: float64
@@ -70,6 +70,14 @@ models:
         data_type: string
       - name: lat_long
         data_type: string
+      - name: bin_price
+        data_type: string
+      - name: bin_price_order
+        data_type: int64
+      - name: bin_price_1m2
+        data_type: string
+      - name: bin_price_1m2_order
+        data_type: int64
       # - name: ward_name_v2
       #   data_type: string
       # - name: city_name_v2

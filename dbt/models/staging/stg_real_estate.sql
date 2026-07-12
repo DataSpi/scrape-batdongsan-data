@@ -129,7 +129,7 @@ product_id
 , link
 , real_estate_type
 , price_num
-, price_per_m2_recal
+, price_per_m2_recal as price_1m2
 , area_num
 , bedrooms
 , toilets

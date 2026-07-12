@@ -27,12 +27,42 @@ select
 from re
 left join project on re.projectId = project.projectId
 )
-select processed_1.* except (full_districtId), 
+select processed_1.* except (full_districtId),
     loc_v1.name_district as district_name,
     loc_v1.name_city as city_name,
     case
         when loc_v1.lat is not null and loc_v1.lng is not null
         then concat(cast(loc_v1.lat as string), ',', cast(loc_v1.lng as string))
-    end as lat_long
+    end as lat_long,
+    case
+        when processed_1.price_num is null then null
+        when processed_1.price_num < 2000 then '0-2 tỷ'
+        when processed_1.price_num < 3000 then '2-3 tỷ'
+        when processed_1.price_num < 5000 then '3-5 tỷ'
+        when processed_1.price_num < 10000 then '5-10 tỷ'
+        when processed_1.price_num < 20000 then '10-20 tỷ'
+        else '20 tỷ+'
+    end as bin_price,
+    case
+        when processed_1.price_num is null then null
+        when processed_1.price_num < 2000 then '1'
+        when processed_1.price_num < 3000 then '2'
+        when processed_1.price_num < 5000 then '3'
+        when processed_1.price_num < 10000 then '4'
+        when processed_1.price_num < 20000 then '5'
+        else '6'
+    end as bin_price_order,
+    case
+        when processed_1.price_1m2 is null then null
+        when processed_1.price_1m2 < 40 then '0-40'
+        when processed_1.price_1m2 < 60 then '40-60'
+        else '60+'
+    end as bin_price_1m2,
+    case
+        when processed_1.price_1m2 is null then null
+        when processed_1.price_1m2 < 40 then '1'
+        when processed_1.price_1m2 < 60 then '2'
+        else '3'
+    end as bin_price_1m2_order
 from processed_1
 left join loc_v1 on processed_1.full_districtId = loc_v1.districtId
