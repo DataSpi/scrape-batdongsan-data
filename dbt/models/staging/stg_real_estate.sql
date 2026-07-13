@@ -32,6 +32,11 @@ type_matched as (
     select
         *,
         case
+            -- must precede 'can-ho-chung-cu' below: that broader token is a substring
+            -- of every mini-apartment and rental link slug and would shadow these
+            -- matches otherwise
+            when strpos(type_source, 'can-ho-chung-cu-mini') > 0 then 'can-ho-chung-cu-mini'
+            when strpos(type_source, 'cho-thue-can-ho-chung-cu') > 0 then 'cho-thue-can-ho-chung-cu'
             when strpos(type_source, 'can-ho-chung-cu') > 0 then 'can-ho-chung-cu'
             when strpos(type_source, 'ban-nha-biet-thu-lien-ke') > 0 then 'ban-nha-biet-thu-lien-ke'
             when strpos(type_source, 'nha-rieng') > 0 then 'nha-rieng'

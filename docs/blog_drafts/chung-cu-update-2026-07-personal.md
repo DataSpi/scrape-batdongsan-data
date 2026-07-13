@@ -73,7 +73,7 @@ Khi phân tích giá nhà, mình tạm chia người mua chung cư thành 3 nhó
   
 Các mốc ngân sách trên là ước lượng dựa trên kinh nghiệm cá nhân của mình. Mục đích nhằm trả lời được câu hỏi của nhóm người mua điển hình: Với từng túi tiền và nhu cầu, tôi có những lựa chọn nào?.
 
-# 1 ngủ
+# 1 phòng ngủ
 
 > Khách hàng điển hình: 
 > - Người độc thân, hoặc vợ chồng chưa/không có con
@@ -85,7 +85,14 @@ Tháng 7/2026: tỷ lệ 1 ngủ < 2 tỷ:
 - HCM: 198/3.358 ≈ **5.9%**. (đã lọc giá null)![[Pasted image 20260713152336.png]]
 - HN: 39/1122 ≈ **3.5%**.![[Pasted image 20260713152302.png]]
 
-# 2 ngủ
+## Phân bổ
+
+- HCM: nguồn cung 1PN tập trung ở Quận 2, Quận 9, Quận 7 (**57.4%**, 1.916/3.343). Cửa dưới 2 tỷ thì dạt hẳn ra Quận 9 (28.8%), Bình Chánh (13.1%), Bình Tân (12.6%) — ba quận vùng ven này gộp lại đã hơn nửa số tin rẻ.
+- HN: cung 1PN dồn cực mạnh về Gia Lâm (35.8%) và Nam Từ Liêm (20.9%) — hai quận chiếm hơn nửa tổng cung toàn thành phố. Cửa dưới 2 tỷ gần như chỉ còn ở Gia Lâm: **56.4%** (22/39 tin).
+
+[Ảnh: phân bổ quận 1PN HCM & HN]
+
+# 2 phòng ngủ
 
 > Khách hàng điển hình: 
 > - Gia đình nhỏ, vợ chồng và 1–2 con
@@ -100,12 +107,16 @@ Tháng 7/2026:
 
 ## Phân bổ
 
-Cửa dưới 3 tỷ gần như chỉ còn nằm ở vùng ven.
-- HCM: 5 quận Quận 9, Bình Chánh, Quận 8, Bình Tân, Thủ Đức cộng lại đã chiếm **56.5%** tổng số tin dưới 3 tỷ (2.296/4.067) — toàn quận vùng ven, không quận nào trong nhóm này là trung tâm.
-- HN còn lệch hơn: riêng **Gia Lâm** đã chiếm **38.2%** tin dưới 3 tỷ toàn thành phố, cộng thêm Nam Từ Liêm (17.6%) và Hoàng Mai (10.6%) là gần **66%**.
-- Ở chiều ngược lại, các quận trung tâm gần như trắng phân khúc này: Quận 1/Quận 3 (HCM) và Hoàn Kiếm/Tây Hồ/Đống Đa (HN) mỗi nơi chưa tới 0.5% tổng số tin dưới 3 tỷ.
+Tách riêng 2PN thì cửa dưới 3 tỷ vẫn dồn về vùng ven, nhưng dàn trải hơn 1PN/3PN — không quận nào áp đảo tuyệt đối:
+- HCM: 5 quận rẻ nhất — Bình Chánh, Thủ Đức, Quận 9, Bình Tân, Quận 12 — cộng lại chiếm **57.2%** số tin 2PN dưới 3 tỷ (1.407/2.460), nhưng quận cao nhất (Bình Chánh) cũng chỉ chiếm 15.5%.
+- HN: **Hoàng Mai** dẫn đầu với 25.3%, cộng thêm Hà Đông là **41.3%** tin 2PN dưới 3 tỷ.
+- Ngược lại, nguồn cung 2PN nói chung (không lọc giá) vẫn tập trung ở Quận 2/Quận 7/Quận 9 (HCM, 43.7%) và Nam Từ Liêm/Hà Đông/Hoàng Mai (HN, 43.1%) — quận có nhiều 2PN nhất chưa chắc là quận có 2PN rẻ nhất.
 
-# 3 ngủ
+> So với bức tranh gộp cả 3 loại phòng ngủ: HCM 5 quận vùng ven chiếm 56.5% tin dưới 3 tỷ, HN thì Gia Lâm một mình chiếm 38.2%. Khác biệt vì 2PN không đóng góp như nhau vào phân khúc dưới 3 tỷ ở hai thành phố — ở HCM, 2PN chiếm ~60% số tin dưới 3 tỷ (2.460/4.067), còn ở HN, **1PN** mới là loại đóng góp nhiều nhất (372/705 tin, ~53%), 2PN chỉ đứng thứ hai (225/705, ~32%). Đọc riêng "Phân bổ" theo từng loại phòng ngủ (như trên) sẽ chính xác hơn gộp chung.
+
+[Ảnh: phân bổ quận 2PN HCM & HN]
+
+# 3 phòng ngủ
 
 > Khách hàng điển hình: 
 > - Gia đình 3 thế hệ cùng sinh sống
@@ -116,7 +127,19 @@ Cửa dưới 3 tỷ gần như chỉ còn nằm ở vùng ven.
 	- HCM: 1260/6545 ≈ **19,2%**.![[Pasted image 20260713160127.png]]
 	- HN: 292/5822 ≈ **5%**. Tệ hơn HCM rất nhiều.![[Pasted image 20260713155927.png]]
 
+## Phân bổ
+
+- HCM: Quận 7 và Quận 2 gánh gần một nửa tổng cung 3PN (**47.5%**, 3.113/6.545). Nhưng cửa dưới 5 tỷ thì đổi ngôi hẳn — Quận 9 dẫn đầu (25.8%), theo sau là Quận 8 và Tân Phú (~13% mỗi quận); Quận 7/Quận 2 tụt xuống chỉ còn 8.2%/4.2%.
+- HN: Nam Từ Liêm, Cầu Giấy, Thanh Xuân, Hà Đông chiếm hơn nửa cung 3PN toàn thành (52%). Cửa dưới 5 tỷ lại trải khá đều: Gia Lâm (16.4%), Đông Anh & Long Biên (12.3% mỗi quận), Hoàng Mai (11.0%) — không quận nào áp đảo.
+
+[Ảnh: phân bổ quận 3PN HCM & HN]
+
 # Hướng dẫn sử dụng dashboard
+
+Cách dùng nhanh, áp dụng được cho bất kỳ tổ hợp khu vực / loại nhà / ngân sách nào bạn quan tâm:
+1. Filter **Vị trí** → chọn (các) quận muốn xem, để trống nếu muốn xem toàn thành phố.
+2. Filter **Loại** → chọn "Căn hộ chung cư" (hoặc loại hình khác nếu quan tâm).
+3. Bảng xếp hạng theo **Giá 1m²** giúp so sánh nhanh quận nào rẻ/đắt hơn; bảng **Bài đăng** phía dưới cho xem chi tiết từng tin (Giá, Diện tích, # Phòng ngủ) — bấm Link để ra thẳng tin gốc trên batdongsan.
 
 Ví dụ, kiếm nhà dưới 3 tỷ. Làm theo các bước (1), (2), (3) trong hình: 
 
