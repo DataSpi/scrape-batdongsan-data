@@ -17,7 +17,7 @@ logger = setup_logging()
 MAX_CONCURRENCY = 5
 BATCH_SIZE = 100
 BATCH_DELAY_SECONDS = 10
-CATEGORY_URL = "https://batdongsan.com.vn/ban-can-ho-chung-cu"
+CATEGORY_URL = os.getenv("CATEGORY_URL", "https://batdongsan.com.vn/ban-can-ho-chung-cu")
 # URL = os.getenv("URL", "https://batdongsan.com.vn/ban-can-ho-chung-cu-trellia-cove")
 # URL = os.getenv("URL", "https://batdongsan.com.vn/ban-can-ho-chung-cu-mizuki-park")
 # URL = os.getenv("URL", "https://batdongsan.com.vn/ban-can-ho-chung-cu-mizuki-park?vrs=1")
@@ -163,7 +163,7 @@ def slugify_district(name: str) -> str:
     ascii_name = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode("ascii")
     return re.sub(r"[^a-zA-Z0-9]+", "-", ascii_name).strip("-").lower()
 
-async def resolve_district_url(session, district_row):
+async def resolve_district_url(session, district_row, category_url=CATEGORY_URL):
     """
     Build and validate the listing URL for one district row (districtId, name,
     cityCode, prefix). Crawling at district-level URL (instead of city-level)
@@ -176,7 +176,7 @@ async def resolve_district_url(session, district_row):
     caller can skip it instead of silently crawling the wrong data.
     """
     slug = slugify_district(district_row["name"])
-    url = f"{CATEGORY_URL}-{slug}"
+    url = f"{category_url}-{slug}"
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
@@ -270,7 +270,7 @@ async def main(url=URL):
     
     return df_total
 
-async def crawl_city_by_district(city_code: str) -> pd.DataFrame:
+async def crawl_city_by_district(city_code: str, category_url: str = CATEGORY_URL) -> pd.DataFrame:
     """
     Crawl every district of a city individually instead of the single
     city-level aggregate URL. batdongsan.com.vn forces IsDisplayNewAddress=true
@@ -292,7 +292,7 @@ async def crawl_city_by_district(city_code: str) -> pd.DataFrame:
     all_dfs = []
     async with AsyncSession() as session:
         for _, district_row in districts.iterrows():
-            url = await resolve_district_url(session, district_row)
+            url = await resolve_district_url(session, district_row, category_url=category_url)
             if url is None:
                 continue
 
@@ -318,16 +318,24 @@ def parse_args():
              "'district': loop over every district of a city (re_bronze.m_districts, --city-code) "
              "for correct old-address districtId/wardId. Default: %(default)s",
     )
-    parser.add_argument("--url", default=URL, help="City-level URL to crawl (mode=city). Default: %(default)s")
+    parser.add_argument(
+        "--category-url", default=CATEGORY_URL,
+        help="Category base URL, without the city/district suffix, e.g. "
+             "'https://batdongsan.com.vn/ban-can-ho-chung-cu' or '.../ban-nha-dat'. "
+             "Drives district-mode URLs and the --url default. Default: %(default)s",
+    )
+    parser.add_argument("--url", default=None, help="City-level URL to crawl (mode=city). Default: <category-url>-tp-ho-chi-minh")
     parser.add_argument("--city-code", default=CITY_CODE, help="City code, e.g. SG, HN (mode=district). Default: %(default)s")
     parser.add_argument("--output", default="data/real_estate_listings.csv", help="CSV output path. Default: %(default)s")
     return parser.parse_args()
 
 if __name__ == "__main__":
     args = parse_args()
+    if args.url is None:
+        args.url = f"{args.category_url}-tp-ho-chi-minh"
     bq_client = get_bigquery_client()
     if args.mode == "district":
-        df_final = asyncio.run(crawl_city_by_district(args.city_code))
+        df_final = asyncio.run(crawl_city_by_district(args.city_code, category_url=args.category_url))
     else:
         df_final = asyncio.run(main(url=args.url))
     df_final.to_csv(args.output, index=False)
