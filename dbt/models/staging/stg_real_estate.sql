@@ -117,16 +117,22 @@ with_price_per_m2 as (
 flagged as (
     select
         *,
-        -- Sanity bound on price/m2 (triệu/m2). Checked empirically against this table:
-        -- the priciest named-tower listings actually on the market (Grand Marina Saigon,
-        -- The Opera Metropole, The Grand Hà Nội, Empire City, Landmark 81) top out
-        -- around 930, and nothing in the data sits between there and 1000 -- so 1000 is
-        -- a gap, not a guess. Above it, every row so far has been a source-site
-        -- data-entry error, not a real price (e.g. product_id 45698293: an unedited typo
-        -- in the total-price field inflated price_per_m2_recal to ~8,000 triệu/m2).
+        -- Sanity bounds on price/m2 (triệu/m2), both checked empirically against this
+        -- table:
+        --   upper: the priciest named-tower listings actually on the market (Grand
+        --     Marina Saigon, The Opera Metropole, The Grand Hà Nội, Empire City,
+        --     Landmark 81) top out around 930, and nothing in the data sits between
+        --     there and 1000 -- so 1000 is a gap, not a guess. Above it, every row so
+        --     far has been a source-site data-entry error (e.g. product_id 45698293: an
+        --     unedited typo in the total-price field inflated price_per_m2_recal to
+        --     ~8,000 triệu/m2).
+        --   lower: legitimate cheap listings exist (nhà ở xã hội in Bình Dương genuinely
+        --     price around 6.65+), but nothing legitimate sits below that -- rows under
+        --     5 top out at 4.4 and are the same bug mirrored (e.g. "The Magnolia MIK
+        --     CĂN HỘ LUXURY" at 130 triệu total, clearly meant tỷ), so 5 is a gap too.
         -- Flag instead of dropping here so the raw row stays inspectable in re_silver;
         -- mart_real_estate excludes flagged rows from the gold layer.
-        coalesce(price_per_m2_recal <= 0 or price_per_m2_recal > 1000, false) as is_price_outlier
+        coalesce(price_per_m2_recal < 5 or price_per_m2_recal > 1000, false) as is_price_outlier
     from with_price_per_m2
 ),
 

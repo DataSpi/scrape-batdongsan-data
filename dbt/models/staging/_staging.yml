@@ -60,10 +60,11 @@ models:
           - not_null
       - name: is_price_outlier
         description: >
-          True when price_1m2 is <= 0 or > 1000 triệu/m2 -- above every observed
-          legitimate listing (the priciest named-tower units top out around 930).
-          Catches source-site data-entry errors (e.g. product_id 45698293, where a
-          stray total-price typo produced a ~8,000 triệu/m2 price/m2). mart_real_estate
+          True when price_1m2 is < 5 or > 1000 triệu/m2 -- outside every observed
+          legitimate listing (cheapest real nhà ở xã hội listings run ~6.65+, priciest
+          named-tower units top out around 930). Catches source-site data-entry errors,
+          almost always a triệu/tỷ unit mixup (e.g. product_id 45698293, where a stray
+          total-price typo produced a ~8,000 triệu/m2 price/m2). mart_real_estate
           filters these rows out; they stay visible here for manual review.
 
   - name: stg_locations_v1

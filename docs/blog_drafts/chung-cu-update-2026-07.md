@@ -2,7 +2,7 @@
 
 # Chung cư TP.HCM & Hà Nội, 10 tháng sau: cửa giá rẻ đang đóng nhanh hơn tôi nghĩ
 
-105.
+106.
 
 Đó là số tin đăng bán chung cư 3 phòng ngủ có giá dưới 3 tỷ đồng, trên tổng 6.567 tin tôi đang có trong tay ở TP.HCM, tính đến ngày 10/7/2026. Chưa đầy 2%.
 
@@ -23,13 +23,15 @@ Bài này tôi không kể lại từ đầu. Tôi giả định mày đã đọ
 
 Điểm tôi muốn nhấn không phải là "giá tăng" — ai cũng biết giá bất động sản ở Việt Nam chỉ có một chiều. Điểm tôi muốn nhấn là **tốc độ co lại không đều giữa các phân khúc**. 2PN — phân khúc đông tin đăng nhất, cũng là phân khúc phổ thông nhất, thứ mà phần lớn người mua lần đầu nhắm tới — mất tới 13.2 điểm phần trăm thị phần dưới 3 tỷ chỉ trong 10 tháng. Đây không phải trôi dạt tự nhiên theo lạm phát. Đây là một phân khúc đang bị ép ra khỏi tầm với của đúng nhóm người từng mua được nó.
 
-## II. Cung không còn dồn về 4 quận cũ
+## II. Cung không còn dồn về 7 quận cũ
 
-Bài P1 nói 80% tin đăng tập trung ở các quận ngoại vi mới phát triển, và nêu ví dụ: Quận 9, Quận 2, Quận 7, Bình Thạnh. Tôi lấy đúng 4 quận đó, tính lại trên dữ liệu hiện tại:
+Bài P1 viết nguyên văn: *"Số lượng căn hộ chung cư được rao bán nhiều nhất thuộc về các quận: Q9, Q2, Q7, Bình Thạnh, Tân Phú, Bình Tân, Bình Chánh. Tổng số 404/485 bài đăng, chiếm hơn 80%."* — bảy quận, không phải bốn như tôi nhớ nhầm lúc đầu viết bản nháp. (Bộ dữ liệu lúc đó cũng chỉ có 485 tin toàn HCM — giờ là 28.088, gấp gần 60 lần.)
 
-**54.2%.**
+Lấy đúng 7 quận đó, tính lại trên dữ liệu hiện tại:
 
-Không phải 80%. (Cần nói rõ: bài cũ không liệt kê đầy đủ danh sách quận nằm trong 80% đó, 4 quận chỉ là ví dụ minh hoạ — nên đây không phải một phép trừ đơn giản 80 trừ 54.2. Nhưng hướng dịch chuyển thì rõ.) Nhìn bảng đầy đủ theo quận sẽ thấy tại sao:
+**67.4%** (18.933/28.088).
+
+Vẫn là nhóm áp đảo, nhưng không còn áp đảo tuyệt đối như hơn 80% trước đó. Nhìn bảng đầy đủ theo quận sẽ thấy dòng cung đang chảy đi đâu:
 
 | Quận | % tổng tin | Giá/m² TB |
 |---|---|---|
@@ -44,7 +46,9 @@ Không phải 80%. (Cần nói rõ: bài cũ không liệt kê đầy đủ danh
 | Thủ Đức | 3.4% | 56 tr |
 | Bình Tân | 3.3% | 51 tr |
 
-Sáu quận sau Quận 2/7/9 mỗi quận chỉ chiếm 3-5%, nhưng cộng lại đã là một mảng cung đáng kể — Tân Phú, Bình Chánh, Nhà Bè, Thủ Đức, Bình Tân. **Nguồn cung không còn co cụm — nó đang loang ra.** Đây là cơ chế hợp lý hơn nhiều so với việc chỉ nói "giá tăng nên người ta bán chỗ khác": khi 4 quận trung tâm-ngoại-vi ban đầu bão hoà quỹ đất dự án, dòng vốn đầu tư dự án mới buộc phải tìm quận kế tiếp — và người mua đi theo dòng cung đó, không phải ngược lại.
+Nhà Bè và Thủ Đức là hai cái tên mới nổi lên đáng chú ý — không nằm trong danh sách gốc của bài P1, giờ mỗi quận đã chiếm 3-4% tổng tin. **Nguồn cung không còn co cụm ở 7 quận ban đầu — nó đang loang tiếp ra quận kế cận.** Khi quỹ đất dự án ở nhóm quận đầu bão hoà, dòng vốn đầu tư dự án mới buộc phải tìm quận tiếp theo — người mua đi theo dòng cung đó, không phải ngược lại.
+
+Một điểm đối chiếu khác tôi thấy đáng ghi: bài P1 note riêng Quận 1 vì giá/m² cao bất thường so với số tin ít — **174 triệu/m²** lúc đó. Giờ: **233.5 triệu/m²**, tăng gần 34% — và vẫn giữ ngôi quận có giá/m² cao nhất TP.HCM.
 
 ## III. Hà Nội: một câu chuyện khác
 
