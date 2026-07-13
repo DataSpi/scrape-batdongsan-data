@@ -61,7 +61,23 @@ Giá bds & giá/m² tương quan thuận: nhà càng đắt thì đơn giá/m
 
 ![[Pasted image 20260713141600.png]]
 
+# Phương pháp phân tích
+
+Khi phân tích giá nhà, mình tạm chia người mua chung cư thành 3 nhóm với nhu cầu và túi tiền như sau:
+1. Người độc thân, hoặc vợ chồng chưa/không có con → thường tìm căn 1PN.
+	- Ngân sách giả định: dưới 2 tỷ.
+2. Gia đình nhỏ, vợ chồng và 1–2 con → thường tìm căn 2PN.
+	- Ngân sách giả định: 2–3 tỷ.
+3. Gia đình 3 thế hệ cùng sinh sống → thường tìm căn 3PN.
+	- Ngân sách giả định: 3–5 tỷ.
+  
+Các mốc ngân sách trên là ước lượng dựa trên kinh nghiệm cá nhân của mình. Mục đích nhằm trả lời được câu hỏi của nhóm người mua điển hình: Với từng túi tiền và nhu cầu, tôi có những lựa chọn nào?.
+
 # 1 ngủ
+
+> Khách hàng điển hình: 
+> - Người độc thân, hoặc vợ chồng chưa/không có con
+> - Ngân sách: 2 tỷ
 
 Tháng 9/2025: 
 - HCM: khả năng tìm được căn 1PN dưới 2 tỷ là 10/72 ≈ 14% (tổng dữ liệu 1PN lúc đó chỉ có 72 tin).
@@ -71,26 +87,38 @@ Tháng 7/2026: tỷ lệ 1 ngủ < 2 tỷ:
 
 # 2 ngủ
 
+> Khách hàng điển hình: 
+> - Gia đình nhỏ, vợ chồng và 1–2 con
+> - Ngân sách: 2–3 tỷ
+
+## Tỷ lệ kiếm được nhà
+
 Tháng 9/2025:  dưới 2 tỷ là 5.3%, dưới 3 tỷ là 30%.
 Tháng 7/2026:
-- HCM: dưới 2 tỷ ≈ **3.0%** (435/14.622), dưới 3 tỷ ≈ **16.8%** (2.460/14.622) tức mất 13.2 điểm % trong 10 tháng.
-	- Đây là phân khúc mình thấy đáng nói nhất — 2PN là phân khúc phổ thông nhất, đông người mua nhất, và cũng là phân khúc mất thị phần nhiều nhất. ![[Pasted image 20260713151923.png]]
+- HCM: dưới 2 tỷ ≈ **3.0%** (435/14.622), dưới 3 tỷ ≈ **16.8%** (2.460/14.622) tức mất 13.2 điểm % trong 10 tháng.![[Pasted image 20260713151923.png]]
 - HN: dưới 2 tỷ ≈ **0.2%** (16/7475), dưới 3 tỷ ≈ **3%** (225/7475). OMG!![[Pasted image 20260713151959.png]]
-# 3 ngủ
 
-- Tháng 9/2025: dưới 3 tỷ gần như không có.
-- Tháng 7/2026: tỷ lệ 3 ngủ < 3 tỷ:
-	- HCM: 106/6.545 ≈ **1.6%**. Vẫn là tuyệt chủng. ![[Pasted image 20260713160127.png]]
-	- HN: 11/5.822 ≈ **0.2%**. Còn tệ hơn cả HCM.![[Pasted image 20260713155927.png]]
-
-# Nhà dưới 3 tỷ
+## Phân bổ
 
 Cửa dưới 3 tỷ gần như chỉ còn nằm ở vùng ven.
 - HCM: 5 quận Quận 9, Bình Chánh, Quận 8, Bình Tân, Thủ Đức cộng lại đã chiếm **56.5%** tổng số tin dưới 3 tỷ (2.296/4.067) — toàn quận vùng ven, không quận nào trong nhóm này là trung tâm.
 - HN còn lệch hơn: riêng **Gia Lâm** đã chiếm **38.2%** tin dưới 3 tỷ toàn thành phố, cộng thêm Nam Từ Liêm (17.6%) và Hoàng Mai (10.6%) là gần **66%**.
 - Ở chiều ngược lại, các quận trung tâm gần như trắng phân khúc này: Quận 1/Quận 3 (HCM) và Hoàn Kiếm/Tây Hồ/Đống Đa (HN) mỗi nơi chưa tới 0.5% tổng số tin dưới 3 tỷ.
 
-Hướng dẫn sử dụng daskboard kiếm nhà dưới 3 tỷ: 
+# 3 ngủ
+
+> Khách hàng điển hình: 
+> - Gia đình 3 thế hệ cùng sinh sống
+> - Ngân sách: 3–5 tỷ
+
+- Tháng 9/2025: 3 ngủ dưới 5 tỷ 29/134 ≈ **22%** số căn 3PN.
+- Tháng 7/2026: tỷ lệ 3 ngủ <5 tỷ:
+	- HCM: 1260/6545 ≈ **19,2%**.![[Pasted image 20260713160127.png]]
+	- HN: 292/5822 ≈ **5%**. Tệ hơn HCM rất nhiều.![[Pasted image 20260713155927.png]]
+
+# Hướng dẫn sử dụng dashboard
+
+Ví dụ, kiếm nhà dưới 3 tỷ. Làm theo các bước (1), (2), (3) trong hình: 
 
 ![[Pasted image 20260713163627.png]]
 
