@@ -88,3 +88,78 @@ models:
       #   data_type: float64
       # - name: street_name
       #   data_type: string
+
+  - name: mart_real_estate_rent
+    description: >
+      Gold layer for rental ("cho thuê") listings -- rent counterpart to
+      mart_real_estate, built from its own bronze/silver lineage
+      (re_bronze.real_estate_rent -> stg_real_estate_rent) since rental prices are
+      monthly rates, not comparable to sale prices.
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: product_id
+        data_type: string
+        data_tests:
+          - not_null
+          - unique
+      - name: title
+        data_type: string
+      - name: verify
+        data_type: bool
+      - name: link
+        data_type: string
+      - name: real_estate_type
+        data_type: string
+      - name: price_per_month
+        data_type: float64
+      - name: price_per_m2_per_month
+        data_type: float64
+      - name: area_num
+        data_type: float64
+      - name: bedrooms
+        data_type: string
+      - name: toilets
+        data_type: string
+      - name: intent
+        data_type: string
+      - name: projectId
+        data_type: int64
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_projects')
+                field: projectId
+              config:
+                severity: warn
+      - name: vipType
+        data_type: int64
+      - name: expired
+        data_type: bool
+      - name: cateId
+        data_type: int64
+      - name: cityCode
+        data_type: string
+      - name: districtId
+        data_type: int64
+      - name: wardId
+        data_type: int64
+      - name: streetId
+        data_type: int64
+      - name: productType
+        data_type: int64
+      - name: date_scraped
+        data_type: date
+      - name: project_name
+        data_type: string
+      - name: district_name
+        data_type: string
+      - name: city_name
+        data_type: string
+      - name: lat_long
+        data_type: string
+      - name: bin_price_per_month
+        data_type: string
+      - name: bin_price_per_month_order
+        data_type: int64

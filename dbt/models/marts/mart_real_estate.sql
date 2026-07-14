@@ -72,9 +72,3 @@ left join loc_v1 on processed_1.full_districtId = loc_v1.districtId
 -- Source-data price/m2 errors (see stg_real_estate.is_price_outlier) are excluded from
 -- the gold layer rather than reported on.
 where not processed_1.is_price_outlier
--- bin_price/bin_price_1m2 buckets and the is_price_outlier bounds are calibrated for
--- total sale prices (tỷ-scale) -- a "cho thuê" (Rent) listing's price is a monthly
--- rate, not a total, so it reads as a nonsensically cheap sale if it slips past
--- is_price_outlier (e.g. missing area_num skips that check entirely). Keep rentals
--- out of this sale-price gold layer until they get their own mart.
-and coalesce(processed_1.intent, '') != 'Rent'

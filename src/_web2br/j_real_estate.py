@@ -327,6 +327,11 @@ def parse_args():
     parser.add_argument("--url", default=None, help="City-level URL to crawl (mode=city). Default: <category-url>-tp-ho-chi-minh")
     parser.add_argument("--city-code", default=CITY_CODE, help="City code, e.g. SG, HN (mode=district). Default: %(default)s")
     parser.add_argument("--output", default="data/real_estate_listings.csv", help="CSV output path. Default: %(default)s")
+    parser.add_argument(
+        "--bronze-table", default="real_estate",
+        help="Destination table under re_bronze to append scraped rows to, e.g. "
+             "'real_estate' (sale) or 'real_estate_rent' (rent). Default: %(default)s",
+    )
     return parser.parse_args()
 
 if __name__ == "__main__":
@@ -342,7 +347,7 @@ if __name__ == "__main__":
     df_final["scraped_at"] = pd.Timestamp.now("UTC")
     df_final["date_scraped"] = df_final["scraped_at"].dt.date
     upload_df_to_bigquery(
-        bq_client, df_final, f"{bq_client.project}.re_bronze.real_estate",
+        bq_client, df_final, f"{bq_client.project}.re_bronze.{args.bronze_table}",
         write_disposition="WRITE_APPEND", allow_field_addition=True,
     )
 

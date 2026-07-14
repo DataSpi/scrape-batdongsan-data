@@ -26,6 +26,25 @@ sources:
               dbt migration so stg_real_estate can dedupe to the most recent scrape per
               listing instead of accumulating duplicates forever. Rows scraped before
               this column existed will have it NULL.
+      - name: real_estate_rent
+        description: >
+          Raw scraped rental ("cho thuê") listings, written by the same scraper as
+          `real_estate` (src/_web2br/j_real_estate.py --bronze-table real_estate_rent)
+          against the site's "cho-thue-*" category URLs instead of "ban-*". Kept in its
+          own table rather than appended to `real_estate` because rental prices are
+          monthly rates, not comparable to sale prices -- see stg_real_estate_rent.sql.
+        config:
+          loaded_at_field: scraped_at
+          freshness:
+            warn_after: {count: 10, period: day}
+            error_after: {count: 21, period: day}
+        columns:
+          - name: product_id
+            description: Native listing id from batdongsan.com.vn.
+          - name: link
+            description: Relative or absolute URL of the listing.
+          - name: scraped_at
+            description: UTC timestamp of the scrape run that wrote this row.
       - name: projects
         description: Raw scraped project pages (src/_web2br/j_projects.py). Not yet consumed downstream.
       - name: m_cities

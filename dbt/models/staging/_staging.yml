@@ -67,6 +67,22 @@ models:
           total-price typo produced a ~8,000 triệu/m2 price/m2). mart_real_estate
           filters these rows out; they stay visible here for manual review.
 
+  - name: stg_real_estate_rent
+    description: >
+      Rental ("cho thuê") counterpart to stg_real_estate, built from its own bronze
+      table (re_bronze.real_estate_rent) since rental prices are monthly rates, not
+      comparable to sale prices. One row per listing (deduped by product_id, keeping
+      the most recent scraped_at).
+    columns:
+      - name: product_id
+        description: Native listing id from batdongsan.com.vn.
+        data_tests:
+          - not_null
+          - unique
+      - name: link
+        data_tests:
+          - not_null
+
   - name: stg_locations_v1
     description: Legacy (old-address) district+city join. Source tables are frozen.
     columns:
