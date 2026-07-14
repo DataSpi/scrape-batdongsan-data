@@ -28,11 +28,12 @@ sources:
               this column existed will have it NULL.
       - name: real_estate_rent
         description: >
-          Raw scraped rental ("cho thuê") listings, written by the same scraper as
-          `real_estate` (src/_web2br/j_real_estate.py --bronze-table real_estate_rent)
-          against the site's "cho-thue-*" category URLs instead of "ban-*". Kept in its
-          own table rather than appended to `real_estate` because rental prices are
-          monthly rates, not comparable to sale prices -- see stg_real_estate_rent.sql.
+          Raw scraped rental ("cho thuê") listings, written by
+          src/_web2br/j_real_estate_rent.py -- a separate scraper script from the one
+          that writes `real_estate` (src/_web2br/j_real_estate.py), so a bug in one
+          pipeline can't affect the other. Kept in its own table rather than appended to
+          `real_estate` because rental prices are monthly rates, not comparable to sale
+          prices -- see stg_real_estate_rent.sql.
         config:
           loaded_at_field: scraped_at
           freshness:

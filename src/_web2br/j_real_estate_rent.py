@@ -1,6 +1,16 @@
+"""
+Scraper for rental ("cho thuê") listings -- split out from j_real_estate.py so a bug in
+one pipeline (card parsing, tracking-data extraction, district resolution) can't
+silently affect the other, and so each can be run/debugged independently. Writes to its
+own bronze table (re_bronze.real_estate_rent), never re_bronze.real_estate -- rental
+prices are monthly rates, not comparable to sale prices (see
+dbt/models/staging/stg_real_estate_rent.sql).
+
+    python -m src._web2br.j_real_estate_rent --mode district --city-code SG
+    python -m src._web2br.j_real_estate_rent --url https://batdongsan.com.vn/cho-thue-can-ho-chung-cu-ha-noi
+"""
 import argparse
 import asyncio
-from curl_cffi import requests
 from curl_cffi.requests import AsyncSession
 from bs4 import BeautifulSoup
 import pandas as pd
@@ -17,35 +27,22 @@ logger = setup_logging()
 MAX_CONCURRENCY = 5
 BATCH_SIZE = 100
 BATCH_DELAY_SECONDS = 10
-CATEGORY_URL = os.getenv("CATEGORY_URL", "https://batdongsan.com.vn/ban-can-ho-chung-cu")
-# URL = os.getenv("URL", "https://batdongsan.com.vn/ban-can-ho-chung-cu-trellia-cove")
-# URL = os.getenv("URL", "https://batdongsan.com.vn/ban-can-ho-chung-cu-mizuki-park")
-# URL = os.getenv("URL", "https://batdongsan.com.vn/ban-can-ho-chung-cu-mizuki-park?vrs=1")
+CATEGORY_URL = "https://batdongsan.com.vn/cho-thue-can-ho-chung-cu"
 URL = os.getenv("URL", f"{CATEGORY_URL}-tp-ho-chi-minh")
-# URL = os.getenv("URL", "")
-# URL = os.getenv("URL", f"{CATEGORY_URL}-ha-noi")
 CRAWL_MODE = os.getenv("CRAWL_MODE", "city")  # "city" | "district"
 CITY_CODE = os.getenv("CITY_CODE", "SG")
+BRONZE_TABLE = "real_estate_rent"
 
-
-def custom_request(url):
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9',
-    }
-    response = requests.get(url, headers=headers, impersonate="chrome124")
-    return response
 
 def extract_page_tracking_data(html_content):
     for script in html_content.find_all('script'):
         if script.string and 'window.pageTrackingData' in script.string:
             script_content = script.string
-            
+
             # Extract JSON from JSON.parse() call
             pattern = r"JSON\.parse\('({.*?})'\)"
             match = re.search(pattern, script_content, re.DOTALL)
-            
+
             if match:
                 json_str = match.group(1)
                 # Handle escaped quotes and special characters
@@ -61,14 +58,12 @@ def soup_to_df(html_soup):
     cards = html_soup.find_all("div", class_="js__card-full-web")
     results = []
     for card in cards:
-        # card = cards[0]
-        
         id_tag = card.find("a", class_="js__product-link-for-product-id")
         product_id = id_tag['data-product-id']
-        
+
         title_tag = card.find("span", class_="pr-title js__card-title")
         title = title_tag.text.strip() if title_tag else None
-        
+
         verify_tag = card.find("span", class_="re__card-image-verified")
         verify = True if verify_tag else False
 
@@ -102,9 +97,6 @@ def soup_to_df(html_soup):
         phone_tag = card.find("span", class_="js__card-phone-btn")
         phone = phone_tag.find_all("span")[-1].text.strip() if phone_tag else None
 
-        # img_tags = card.find_all("img")
-        # images = [img['src'] for img in img_tags if img.has_attr('src')]
-
         results.append({
             "product_id": product_id,
             "title": title,
@@ -119,7 +111,6 @@ def soup_to_df(html_soup):
             "description": description,
             "agent_name": agent_name,
             "phone": phone,
-            # "images": images
         })
 
     logger.info(f"Extracted {len(results)} listings from the page")
@@ -163,7 +154,7 @@ def slugify_district(name: str) -> str:
     ascii_name = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode("ascii")
     return re.sub(r"[^a-zA-Z0-9]+", "-", ascii_name).strip("-").lower()
 
-async def resolve_district_url(session, district_row, category_url=CATEGORY_URL):
+async def resolve_district_url(session, district_row):
     """
     Build and validate the listing URL for one district row (districtId, name,
     cityCode, prefix). Crawling at district-level URL (instead of city-level)
@@ -172,11 +163,11 @@ async def resolve_district_url(session, district_row, category_url=CATEGORY_URL)
     districtId=0 response (only reproducible at city-level URLs).
 
     Returns the validated URL, or None if the derived slug doesn't resolve
-    cleanly (redirects to a generic catch-all page, e.g. /nha-dat-ban) so the
-    caller can skip it instead of silently crawling the wrong data.
+    cleanly (redirects to a generic catch-all page) so the caller can skip it
+    instead of silently crawling the wrong data.
     """
     slug = slugify_district(district_row["name"])
-    url = f"{category_url}-{slug}"
+    url = f"{CATEGORY_URL}-{slug}"
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
@@ -215,7 +206,7 @@ async def fetch_and_parse(url, session, semaphore):
             else:
                 logger.error(f"Failed with status code: {response.status_code} for {url}")
                 return None, None
-                
+
             df = soup_to_df(html_content)
             tracking_data = extract_page_tracking_data(html_content)
             df_combined = merge_listing_with_tracking_data(df, tracking_data)
@@ -228,7 +219,7 @@ async def fetch_all_pages(urls: list, batch_size: int = BATCH_SIZE, batch_delay_
     """Fetch pages in bounded batches with a pause between batches."""
     semaphore = asyncio.Semaphore(MAX_CONCURRENCY)
     all_results = []
-    
+
     async with AsyncSession() as session:
         for start_index in range(0, len(urls), batch_size):
             batch_number = (start_index // batch_size) + 1
@@ -244,7 +235,7 @@ async def fetch_all_pages(urls: list, batch_size: int = BATCH_SIZE, batch_delay_
                     f"Sleeping {batch_delay_seconds}s before the next batch."
                 )
                 await asyncio.sleep(batch_delay_seconds)
-    
+
     return all_results
 
 async def main(url=URL):
@@ -255,28 +246,28 @@ async def main(url=URL):
     if df_combined_first is None or len(df_combined_first) == 0:
         logger.error(f"No listings found on the first page. HTML content:\n{html_content}")
         raise AssertionError("No listings found on the first page. Check if the page structure has changed or if the URL is correct.")
-    
+
     logger.info(f"Initial page fetched. Extracted {len(df_combined_first)} listings from the first page.")
     urls = get_urls_list(html_content, url)
-    
-     # Fetch all pages concurrently
+
+    # Fetch all pages concurrently
     results = await fetch_all_pages(urls)
-    
+
     # Combine all dataframes (listing + tracking metadata)
     df_total = df_combined_first.copy()
     for result_df, _ in results[1:]:
         if result_df is not None:
             df_total = pd.concat([df_total, result_df], ignore_index=True)
-    
+
     return df_total
 
-async def crawl_city_by_district(city_code: str, category_url: str = CATEGORY_URL) -> pd.DataFrame:
+async def crawl_city_by_district(city_code: str) -> pd.DataFrame:
     """
     Crawl every district of a city individually instead of the single
     city-level aggregate URL. batdongsan.com.vn forces IsDisplayNewAddress=true
     (districtId=0) only on city-level URLs for some cities (e.g. HCM) - scoping
     the URL down to a specific district resolves the old-address IDs correctly
-    for every listing, land included (not just projects with a projectId).
+    for every listing.
 
     Districts come from re_bronze.m_districts, filtered by cityCode. Districts
     whose derived slug doesn't resolve to a clean district page are skipped
@@ -292,7 +283,7 @@ async def crawl_city_by_district(city_code: str, category_url: str = CATEGORY_UR
     all_dfs = []
     async with AsyncSession() as session:
         for _, district_row in districts.iterrows():
-            url = await resolve_district_url(session, district_row, category_url=category_url)
+            url = await resolve_district_url(session, district_row)
             if url is None:
                 continue
 
@@ -311,39 +302,29 @@ async def crawl_city_by_district(city_code: str, category_url: str = CATEGORY_UR
     return pd.concat(all_dfs, ignore_index=True)
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Crawl batdongsan.com.vn real estate listings.")
+    parser = argparse.ArgumentParser(description="Crawl batdongsan.com.vn rental (cho thuê) listings.")
     parser.add_argument(
         "--mode", choices=["city", "district"], default=CRAWL_MODE,
         help="'city': crawl a single city-level URL (--url). "
              "'district': loop over every district of a city (re_bronze.m_districts, --city-code) "
              "for correct old-address districtId/wardId. Default: %(default)s",
     )
-    parser.add_argument(
-        "--category-url", default=CATEGORY_URL,
-        help="Category base URL, without the city/district suffix, e.g. "
-             "'https://batdongsan.com.vn/ban-can-ho-chung-cu' or '.../ban-nha-dat'. "
-             "Drives district-mode URLs and the --url default. Default: %(default)s",
-    )
-    parser.add_argument("--url", default=None, help="City-level URL to crawl (mode=city). Default: <category-url>-tp-ho-chi-minh")
+    parser.add_argument("--url", default=URL, help="City-level URL to crawl (mode=city). Default: %(default)s")
     parser.add_argument("--city-code", default=CITY_CODE, help="City code, e.g. SG, HN (mode=district). Default: %(default)s")
-    parser.add_argument("--output", default="data/real_estate_listings.csv", help="CSV output path. Default: %(default)s")
+    parser.add_argument("--output", default="data/real_estate_listings_rent.csv", help="CSV output path. Default: %(default)s")
     return parser.parse_args()
 
 if __name__ == "__main__":
     args = parse_args()
-    if args.url is None:
-        args.url = f"{args.category_url}-tp-ho-chi-minh"
     bq_client = get_bigquery_client()
     if args.mode == "district":
-        df_final = asyncio.run(crawl_city_by_district(args.city_code, category_url=args.category_url))
+        df_final = asyncio.run(crawl_city_by_district(args.city_code))
     else:
         df_final = asyncio.run(main(url=args.url))
     df_final.to_csv(args.output, index=False)
     df_final["scraped_at"] = pd.Timestamp.now("UTC")
     df_final["date_scraped"] = df_final["scraped_at"].dt.date
     upload_df_to_bigquery(
-        bq_client, df_final, f"{bq_client.project}.re_bronze.real_estate",
+        bq_client, df_final, f"{bq_client.project}.re_bronze.{BRONZE_TABLE}",
         write_disposition="WRITE_APPEND", allow_field_addition=True,
     )
-
-

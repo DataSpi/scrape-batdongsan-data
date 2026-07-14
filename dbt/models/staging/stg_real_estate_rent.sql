@@ -1,9 +1,9 @@
 -- Rental ("cho thuê") counterpart to stg_real_estate.sql, built from its own bronze
--- table (re_bronze.real_estate_rent, written by src/_web2br/j_real_estate.py
--- --bronze-table real_estate_rent) rather than commingled with sale listings: a rental
--- price is a monthly rate ("23 triệu/tháng"), never a lump sum (tỷ), so it is not
--- comparable to stg_real_estate.price_num/price_1m2 and must not share their bounds/bins
--- downstream (see mart_real_estate_rent.sql).
+-- table (re_bronze.real_estate_rent, written by src/_web2br/j_real_estate_rent.py -- a
+-- separate scraper script from j_real_estate.py) rather than commingled with sale
+-- listings: a rental price is a monthly rate ("23 triệu/tháng"), never a lump sum (tỷ),
+-- so it is not comparable to stg_real_estate.price_num/price_1m2 and must not share
+-- their bounds/bins downstream (see mart_real_estate_rent.sql).
 
 with source as (
     select * from {{ source('bronze', 'real_estate_rent') }}
