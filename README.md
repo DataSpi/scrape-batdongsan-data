@@ -32,10 +32,14 @@ graph TD
   G --> H[Looker Studio dashboard]
   G --> I[Static HTML reports]
 
-  J[crontab] -. schedule .-> M[src/orchestrator/run_pipeline.py]
+  J[Airflow self-hosted<br/>docker-compose] -. schedule .-> M[dags/pipeline_weekly_dag.py]
   M -. runs .-> A
   M -. then .-> C
 ```
+
+Pipeline chạy qua Docker + Airflow tự host (thay crontab), vì batdongsan.com.vn chặn IP của
+cloud/CI runner — bước scrape bắt buộc chạy từ máy cá nhân. GitHub Actions lo lint/dbt
+compile/build Docker image; không chạy scrape thật. Chi tiết: [technical-guides.md](docs/technical-guides.md).
 
 
 ## Quickstart
