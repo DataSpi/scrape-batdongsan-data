@@ -16,6 +16,7 @@ x-airflow-common: &airflow-common
     - ./airflow/logs:/opt/airflow/logs
     - ./src:/opt/airflow/repo/src
     - ./dbt:/opt/airflow/repo/dbt
+    - ./data:/opt/airflow/repo/data
     - ./requirements.txt:/opt/airflow/repo/requirements.txt:ro
     - ./gcp_service_account.json:/opt/airflow/repo/gcp_service_account.json:ro
   depends_on:
