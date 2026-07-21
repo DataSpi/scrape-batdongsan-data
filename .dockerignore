@@ -1,0 +1,26 @@
+.git
+.github
+.vscode
+.claude
+venv/
+__pycache__/
+*.pyc
+*.pyo
+
+data/
+logs/
+tmp/
+docs/
+malloy/
+sql/
+
+dbt/target/
+dbt/dbt_packages/
+dbt/logs/
+
+# secrets: never bake these into an image layer
+.env
+gcp_service_account.json
+
+*.md
+.DS_Store

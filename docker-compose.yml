@@ -1,0 +1,11 @@
+services:
+  pipeline:
+    build: .
+    image: scrape-batdongsan-data:latest
+    env_file: .env
+    volumes:
+      - ./gcp_service_account.json:/app/gcp_service_account.json:ro
+      - ./logs:/app/logs
+    # Default command matches the CMD in Dockerfile (full weekly pipeline).
+    # Override for one-off steps, e.g.:
+    #   docker compose run pipeline python -m src._web2br.j_metadata

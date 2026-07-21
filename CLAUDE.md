@@ -50,7 +50,7 @@ batdongsan.com.vn --(src/_web2br/*.py, curl_cffi + BeautifulSoup)--> BigQuery re
 ### Checklist tiến độ
 
 - [x] Stage 0 — Khởi tạo CLAUDE.md (`chore/init-claude-md`)
-- [ ] Stage 1 — Dockerize (`feat/stage2-docker`): `Dockerfile`, `docker-compose.yml`, `.dockerignore`, `.env.example`
+- [x] Stage 1 — Dockerize (`feat/stage2-docker`): `Dockerfile`, `docker-compose.yml`, `.dockerignore`, `.env.example`. Validated: `docker compose build` OK, container reaches batdongsan.com.vn from local machine (HTTP 200 on `GetCitiesV2`), confirming Docker doesn't break the residential-IP scraping constraint.
 - [ ] Stage 2 — Airflow DAGs (`feat/stage2-airflow`): `airflow/Dockerfile`, mở rộng `docker-compose.yml`, `dags/pipeline_weekly_dag.py`, `dags/lineage_rebuild_dag.py`, sửa `.gitignore` (dòng `dags/`)
 - [ ] Stage 3 — CI/CD (`feat/stage2-cicd`): `.github/workflows/ci.yml` (lint, dbt-ci, docker-build-push lên GHCR), `pyproject.toml` (ruff)
 - [ ] Stage 4 — Docs (`feat/stage2-docs`): cập nhật `README.md`, `docs/quickstart.md`, `docs/technical-guides.md`
