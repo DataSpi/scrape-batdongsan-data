@@ -1,0 +1,26 @@
+# Only validates SQL/Jinja compiles -- does not run the real weekly dbt run/test
+# (that happens via the local Airflow DAGs against real bronze data). Split into
+# its own workflow, path-filtered to dbt/**, so unrelated PRs don't pay for a
+# BigQuery round-trip.
+name: dbt CI
+
+on:
+  pull_request:
+    paths:
+      - "dbt/**"
+
+jobs:
+  dbt-compile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-python-env
+
+      - name: Write CI dbt profile
+        run: cp dbt/profiles.yml.example dbt/profiles.yml
+
+      - name: dbt compile
+        working-directory: dbt
+        env:
+          GCP_CREDENTIALS_JSON: ${{ secrets.GCP_CREDENTIALS_JSON }}
+        run: dbt compile --target ci --project-dir . --profiles-dir .

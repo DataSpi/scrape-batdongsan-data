@@ -11,8 +11,9 @@ Requires GOOGLE_MAPS_API_KEY in .env (Geocoding API key, separate from the BigQu
 service account -- see src/_geocode/geocode_locations.py docstring).
 """
 import pendulum
-from airflow import DAG
 from airflow.operators.bash import BashOperator
+
+from airflow import DAG
 
 REPO_DIR = "/opt/airflow/repo"
 DBT_DIR = f"{REPO_DIR}/dbt"

@@ -2,8 +2,10 @@ import time
 
 import pandas as pd
 from curl_cffi import requests
-from src.utils.gcp_conn import get_bigquery_client, upload_df_to_bigquery
+
 from src.utils.common_tools import setup_logging
+from src.utils.gcp_conn import get_bigquery_client, upload_df_to_bigquery
+
 logger = setup_logging()
 
 MAX_ATTEMPTS = 3

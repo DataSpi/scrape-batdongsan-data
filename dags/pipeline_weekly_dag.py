@@ -20,8 +20,9 @@ bug in one can't affect the other -- kept as separate tasks here for the same re
 from datetime import timedelta
 
 import pendulum
-from airflow import DAG
 from airflow.operators.bash import BashOperator
+
+from airflow import DAG
 
 REPO_DIR = "/opt/airflow/repo"
 DBT_DIR = f"{REPO_DIR}/dbt"

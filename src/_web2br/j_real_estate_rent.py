@@ -11,16 +11,18 @@ dbt/models/staging/stg_real_estate_rent.sql).
 """
 import argparse
 import asyncio
-from curl_cffi.requests import AsyncSession
-from bs4 import BeautifulSoup
-import pandas as pd
+import json
 import os
 import re
-import json
 import unicodedata
 
-from src.utils.gcp_conn import get_bigquery_client, query_to_df, upload_df_to_bigquery
+import pandas as pd
+from bs4 import BeautifulSoup
+from curl_cffi.requests import AsyncSession
+
 from src.utils.common_tools import setup_logging
+from src.utils.gcp_conn import get_bigquery_client, query_to_df, upload_df_to_bigquery
+
 logger = setup_logging()
 
 

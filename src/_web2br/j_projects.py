@@ -1,14 +1,15 @@
 import argparse
 import asyncio
 import json
-from curl_cffi.requests import AsyncSession
-from curl_cffi import requests
-from bs4 import BeautifulSoup
-import pandas as pd
 import os
 
-from src.utils.gcp_conn import get_bigquery_client, upload_df_to_bigquery
+import pandas as pd
+from bs4 import BeautifulSoup
+from curl_cffi.requests import AsyncSession
+
 from src.utils.common_tools import setup_logging
+from src.utils.gcp_conn import get_bigquery_client, upload_df_to_bigquery
+
 logger = setup_logging()
 
 
@@ -24,16 +25,16 @@ def soup_to_df(html_soup):
         """Extract card configurations from a project card."""
         card_config_all = prj_card.find("div", class_="re__prj-card-config re__clearfix")
         card_config_list = card_config_all.find_all("span", class_="re__prj-card-config-value")
-        
+
         configs = []
         for card_config in card_config_list:
-            if card_config.get('aria-label'): 
+            if card_config.get('aria-label'):
                 config = card_config.get('aria-label').strip()
-            else: 
+            else:
                 config = card_config.text.strip()
             configs.append(config)
         return configs
-    
+
     # Find all prj cards
     prj_cards = html_soup.find_all("div", class_="js__project-card js__card-project-web re__prj-card-full")
 
@@ -45,7 +46,7 @@ def soup_to_df(html_soup):
         prj_link = prj.find("a", class_="re__clearfix")['href']
         prj_id = prj.find("a", class_="re__clearfix")['tracking-label']
         configs = extract_card_configs(prj)
-            
+
         results.append({
             "title"             : title,
             # Serialized to JSON, not a native list: re_bronze.projects.additional_info
@@ -53,7 +54,7 @@ def soup_to_df(html_soup):
             # (no autodetect) -- a raw list column fails pyarrow conversion on upload.
             "additional_info"   : json.dumps(configs, ensure_ascii=False),
             "location"          : location,
-            "description"       : description,    
+            "description"       : description,
             "link"              : prj_link,
             "id"                : prj_id,
         })
@@ -92,7 +93,7 @@ async def fetch_and_parse(url, session, semaphore):
             else:
                 logger.error(f"Failed with status code: {response.status_code} for {url}")
                 return None, None
-                
+
             df = soup_to_df(html_content)
             return df, html_content
         except Exception as e:
@@ -103,7 +104,7 @@ async def fetch_all_pages(urls: list, batch_size: int = BATCH_SIZE, batch_delay_
     """Fetch pages in bounded batches with a pause between batches."""
     semaphore = asyncio.Semaphore(MAX_CONCURRENCY)
     all_results = []
-    
+
     async with AsyncSession() as session:
         for start_index in range(0, len(urls), batch_size):
             batch_number = (start_index // batch_size) + 1
@@ -119,7 +120,7 @@ async def fetch_all_pages(urls: list, batch_size: int = BATCH_SIZE, batch_delay_
                     f"Sleeping {batch_delay_seconds}s before the next batch."
                 )
                 await asyncio.sleep(batch_delay_seconds)
-    
+
     return all_results
 
 async def main(url=URL):
@@ -130,19 +131,19 @@ async def main(url=URL):
     if df is None or len(df) == 0:
         logger.error(f"No listings found on the first page. HTML content:\n{html_content}")
         raise AssertionError("No listings found on the first page. Check if the page structure has changed or if the URL is correct.")
-    
+
     logger.info(f"Initial page fetched. Extracted {len(df)} listings from the first page.")
     urls = get_urls_list(html_content, url)
-    
+
     # Fetch all pages concurrently
     results = await fetch_all_pages(urls)
-    
+
     # Combine all dataframes
     df_total = df.copy()
     for result_df, _ in results[1:]:
         if result_df is not None:
             df_total = pd.concat([df_total, result_df], ignore_index=True)
-    
+
     return df_total
 
 def parse_args():

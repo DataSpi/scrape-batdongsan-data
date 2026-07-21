@@ -1,0 +1,22 @@
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+# Scraper modules read module-level constants from env vars and have top-level
+# script code (see src/_web2br/j_metadata.py) -- not worth restructuring for lint.
+ignore = ["E402"]
+
+[tool.ruff.lint.per-file-ignores]
+# Pre-existing tab-indentation/line-length in legacy files, out of scope for the
+# stage-2 CI/CD rollout -- tracked as cleanup in CLAUDE.md, not fixed opportunistically
+# here to keep this diff scoped to CI infrastructure. New code should stay clean;
+# these ignores only cover files that already violate them.
+"src/utils/getting_metadata.py" = ["W191", "E101", "E501"]
+"src/utils/sqlalchemy_conn.py" = ["E501"]
+"src/_pg2bq/migrate.py" = ["E501"]
+"src/_web2br/j_metadata.py" = ["E501"]
+"src/_web2br/j_real_estate.py" = ["E501"]
+"src/_web2br/j_real_estate_rent.py" = ["E501"]
+"src/_web2br/j_projects.py" = ["E501"]

@@ -22,8 +22,8 @@ from pathlib import Path
 import requests
 from dotenv import load_dotenv
 
-from src.utils.gcp_conn import get_bigquery_client, query_to_df
 from src.utils.common_tools import setup_logging
+from src.utils.gcp_conn import get_bigquery_client, query_to_df
 
 load_dotenv()
 logger = setup_logging()

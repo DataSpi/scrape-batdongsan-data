@@ -1,14 +1,14 @@
 import logging
-import time
+import os
 import platform
 import shutil
 import subprocess
-import os
+import time
+from typing import List, Optional, Tuple
+
+import pandas as pd
 import psycopg2
 from psycopg2.extras import execute_batch, execute_values
-from typing import List, Tuple, Optional
-import pandas as pd
-
 
 
 def setup_logging():
@@ -111,7 +111,7 @@ def format_worksheet(worksheet):
     })
 
 class dbConnector:
-        
+
     def connect_to_database(host, port, dbname, user, password) -> psycopg2.extensions.connection:
         try:
             connection = psycopg2.connect(
@@ -133,12 +133,12 @@ class dbConnector:
     def execute_query(conn, query: str, params: Optional[Tuple] = None, fetch: bool = True) -> Optional[List[Tuple]]:
         """
         Execute a SQL query on the database connection.
-        
+
         Args:
             query (str): SQL query to execute
             params (Optional[Tuple]): Parameters for the query
             fetch (bool): Whether to fetch results (for SELECT queries)
-        
+
         Returns:
             Optional[List[Tuple]]: Query results if fetch=True, None otherwise
         """
@@ -146,7 +146,7 @@ class dbConnector:
             cursor = conn.cursor()
             cursor.execute(query, params)
             # logger.info(f"Query executed successfully:\n{query}")
-            
+
             if fetch:
                 results = cursor.fetchall()
                 cursor.close()
@@ -166,30 +166,30 @@ class dbConnector:
     def fetch_to_dataframe(conn, query: str, params: Optional[Tuple] = None) -> pd.DataFrame:
         """
         Execute a SQL query and return results as a pandas DataFrame.
-        
+
         Args:
             query (str): SQL query to execute
             params (Optional[Tuple]): Parameters for the query
-        
+
         Returns:
             pd.DataFrame: Query results as DataFrame
         """
         try:
             cursor = conn.cursor()
             cursor.execute(query, params)
-            
+
             # Get column names
             columns = [desc[0] for desc in cursor.description]
-            
+
             # Fetch all results
             results = cursor.fetchall()
             cursor.close()
-            
+
             # Create DataFrame
             df = pd.DataFrame(results, columns=columns)
             logger.info(f"Successfully fetched {len(df)} rows to DataFrame")
             return df
-            
+
         except psycopg2.Error as e:
             logger.error(f"Database error fetching to DataFrame: {e}")
             raise
@@ -215,7 +215,7 @@ class dbConnector:
     def upsert_df_to_table(conn, df: pd.DataFrame, schema: str, table: str, conflict_cols: List[str]):
         if df.empty:
             return
-        
+
         # Convert all numpy types (int64, float64, etc.) to native Python types
         data = df.astype(object).where(pd.notnull(df), None).values.tolist()
 
@@ -236,21 +236,21 @@ class dbConnector:
         with conn.cursor() as cur:
             # execute_values is more efficient for this use case
             execute_values(
-                cur, 
-                sql, 
+                cur,
+                sql,
                 # df.to_records(index=False), # Converts DF to list of tuples
                 data,
-                template=None, 
+                template=None,
                 page_size=1000
             )
-            
+
             # Now cur.rowcount will correctly return the total number of affected rows
             affected_rows = cur.rowcount
             logger.info(
                 f"Upserted {affected_rows} rows into {schema}.{table} (attempted {len(df)})."
             )
         conn.commit()
-    
+
     def spyno_sb_conn():
         DB_PASSWORD    = os.getenv("DB_PASSWORD")
         DB_USER        = os.getenv("DB_USER")
@@ -265,4 +265,3 @@ class dbConnector:
             password=DB_PASSWORD
         )
         return sb_conn
-        

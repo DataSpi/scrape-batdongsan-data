@@ -1,16 +1,18 @@
 import argparse
 import asyncio
-from curl_cffi import requests
-from curl_cffi.requests import AsyncSession
-from bs4 import BeautifulSoup
-import pandas as pd
+import json
 import os
 import re
-import json
 import unicodedata
 
-from src.utils.gcp_conn import get_bigquery_client, query_to_df, upload_df_to_bigquery
+import pandas as pd
+from bs4 import BeautifulSoup
+from curl_cffi import requests
+from curl_cffi.requests import AsyncSession
+
 from src.utils.common_tools import setup_logging
+from src.utils.gcp_conn import get_bigquery_client, query_to_df, upload_df_to_bigquery
+
 logger = setup_logging()
 
 
@@ -41,11 +43,11 @@ def extract_page_tracking_data(html_content):
     for script in html_content.find_all('script'):
         if script.string and 'window.pageTrackingData' in script.string:
             script_content = script.string
-            
+
             # Extract JSON from JSON.parse() call
             pattern = r"JSON\.parse\('({.*?})'\)"
             match = re.search(pattern, script_content, re.DOTALL)
-            
+
             if match:
                 json_str = match.group(1)
                 # Handle escaped quotes and special characters
@@ -62,13 +64,13 @@ def soup_to_df(html_soup):
     results = []
     for card in cards:
         # card = cards[0]
-        
+
         id_tag = card.find("a", class_="js__product-link-for-product-id")
         product_id = id_tag['data-product-id']
-        
+
         title_tag = card.find("span", class_="pr-title js__card-title")
         title = title_tag.text.strip() if title_tag else None
-        
+
         verify_tag = card.find("span", class_="re__card-image-verified")
         verify = True if verify_tag else False
 
@@ -215,7 +217,7 @@ async def fetch_and_parse(url, session, semaphore):
             else:
                 logger.error(f"Failed with status code: {response.status_code} for {url}")
                 return None, None
-                
+
             df = soup_to_df(html_content)
             tracking_data = extract_page_tracking_data(html_content)
             df_combined = merge_listing_with_tracking_data(df, tracking_data)
@@ -228,7 +230,7 @@ async def fetch_all_pages(urls: list, batch_size: int = BATCH_SIZE, batch_delay_
     """Fetch pages in bounded batches with a pause between batches."""
     semaphore = asyncio.Semaphore(MAX_CONCURRENCY)
     all_results = []
-    
+
     async with AsyncSession() as session:
         for start_index in range(0, len(urls), batch_size):
             batch_number = (start_index // batch_size) + 1
@@ -244,7 +246,7 @@ async def fetch_all_pages(urls: list, batch_size: int = BATCH_SIZE, batch_delay_
                     f"Sleeping {batch_delay_seconds}s before the next batch."
                 )
                 await asyncio.sleep(batch_delay_seconds)
-    
+
     return all_results
 
 async def main(url=URL):
@@ -255,19 +257,19 @@ async def main(url=URL):
     if df_combined_first is None or len(df_combined_first) == 0:
         logger.error(f"No listings found on the first page. HTML content:\n{html_content}")
         raise AssertionError("No listings found on the first page. Check if the page structure has changed or if the URL is correct.")
-    
+
     logger.info(f"Initial page fetched. Extracted {len(df_combined_first)} listings from the first page.")
     urls = get_urls_list(html_content, url)
-    
+
      # Fetch all pages concurrently
     results = await fetch_all_pages(urls)
-    
+
     # Combine all dataframes (listing + tracking metadata)
     df_total = df_combined_first.copy()
     for result_df, _ in results[1:]:
         if result_df is not None:
             df_total = pd.concat([df_total, result_df], ignore_index=True)
-    
+
     return df_total
 
 async def crawl_city_by_district(city_code: str, category_url: str = CATEGORY_URL) -> pd.DataFrame:
