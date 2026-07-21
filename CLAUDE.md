@@ -51,7 +51,7 @@ batdongsan.com.vn --(src/_web2br/*.py, curl_cffi + BeautifulSoup)--> BigQuery re
 
 - [x] Stage 0 — Khởi tạo CLAUDE.md (`chore/init-claude-md`)
 - [x] Stage 1 — Dockerize (`feat/stage2-docker`): `Dockerfile`, `docker-compose.yml`, `.dockerignore`, `.env.example`. Validated: `docker compose build` OK, container reaches batdongsan.com.vn from local machine (HTTP 200 on `GetCitiesV2`), confirming Docker doesn't break the residential-IP scraping constraint.
-- [ ] Stage 2 — Airflow DAGs (`feat/stage2-airflow`): `airflow/Dockerfile`, mở rộng `docker-compose.yml`, `dags/pipeline_weekly_dag.py`, `dags/lineage_rebuild_dag.py`, sửa `.gitignore` (dòng `dags/`)
+- [x] Stage 2 — Airflow DAGs (`feat/stage2-airflow`): `airflow/Dockerfile`, mở rộng `docker-compose.yml` (LocalExecutor, Postgres metadata DB riêng), `dags/pipeline_weekly_dag.py`, `dags/lineage_rebuild_dag.py`, sửa `.gitignore` (dòng `dags/` cũ sẽ nuốt mất DAG source). Validated: 2 DAG parse không lỗi (`airflow dags list-import-errors` → No data found), `airflow-init` migrate DB + tạo admin user thành công, import module Python đúng PYTHONPATH trong container scheduler. Lưu ý: `dbt/profiles.yml` (gitignored) cần path `keyfile` khác nhau giữa bare-metal và trong container Airflow — xem comment trong `dbt/profiles.yml.example`.
 - [ ] Stage 3 — CI/CD (`feat/stage2-cicd`): `.github/workflows/ci.yml` (lint, dbt-ci, docker-build-push lên GHCR), `pyproject.toml` (ruff)
 - [ ] Stage 4 — Docs (`feat/stage2-docs`): cập nhật `README.md`, `docs/quickstart.md`, `docs/technical-guides.md`
 - [ ] Stage 5 (tuỳ chọn) — Dọn code cũ (`chore/legacy-cleanup`): xoá `apscheduler`, `src/_br2sil/`, gộp 2 helper Postgres trùng nhau

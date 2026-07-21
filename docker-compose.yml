@@ -1,3 +1,27 @@
+x-airflow-common: &airflow-common
+  build:
+    context: .
+    dockerfile: airflow/Dockerfile
+  env_file: .env
+  environment:
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-metadata-db/airflow
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags
+    # Not Airflow's metadata DB -- lets BashOperator tasks `python -m src...`/`dbt ...`
+    # against the repo mounted below, same as PYTHONPATH does for the bare-metal run.
+    PYTHONPATH: /opt/airflow/repo
+  volumes:
+    - ./dags:/opt/airflow/dags
+    - ./airflow/logs:/opt/airflow/logs
+    - ./src:/opt/airflow/repo/src
+    - ./dbt:/opt/airflow/repo/dbt
+    - ./requirements.txt:/opt/airflow/repo/requirements.txt:ro
+    - ./gcp_service_account.json:/opt/airflow/repo/gcp_service_account.json:ro
+  depends_on:
+    airflow-metadata-db:
+      condition: service_healthy
+
 services:
   pipeline:
     build: .
@@ -9,3 +33,44 @@ services:
     # Default command matches the CMD in Dockerfile (full weekly pipeline).
     # Override for one-off steps, e.g.:
     #   docker compose run pipeline python -m src._web2br.j_metadata
+
+  # Airflow's own metadata DB -- unrelated to the legacy Malloy/Supabase Postgres
+  # referenced by DB_* in .env, kept on a separate service/volume on purpose.
+  airflow-metadata-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - airflow-metadata-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 5s
+      retries: 5
+
+  airflow-init:
+    <<: *airflow-common
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - airflow db migrate && airflow users create --username admin --password admin --firstname admin --lastname admin --role Admin --email admin@example.com
+
+  airflow-webserver:
+    <<: *airflow-common
+    command: webserver
+    ports:
+      - "8080:8080"
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+
+  airflow-scheduler:
+    <<: *airflow-common
+    command: scheduler
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+
+volumes:
+  airflow-metadata-db-data:

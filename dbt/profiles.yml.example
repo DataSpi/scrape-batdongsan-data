@@ -13,5 +13,12 @@ batdongsan:
       # invocation time (not against this file's location), which differs
       # between `python -m src.orchestrator.run_pipeline` (repo root) and
       # running `dbt` directly from dbt/ -- use an absolute path to avoid that.
+      #
+      # This path is also environment-specific: bare-metal/local runs need the
+      # host absolute path (e.g. /Users/you/scrape-batdongsan-data/gcp_service_account.json),
+      # while dags/*.py running inside the Airflow containers (docker-compose)
+      # need the path as mounted in-container: /opt/airflow/repo/gcp_service_account.json.
+      # Since dbt/profiles.yml is gitignored (one file, one machine/context),
+      # pick whichever matches how you actually invoke dbt.
       keyfile: /absolute/path/to/scrape-batdongsan-data/gcp_service_account.json
       threads: 4
