@@ -30,6 +30,10 @@ services:
     volumes:
       - ./gcp_service_account.json:/app/gcp_service_account.json:ro
       - ./logs:/app/logs
+      # src/_web2br/*.py write a CSV artifact to a relative `data/` path
+      # (e.g. --output default data/real_estate_listings.csv) -- must exist
+      # in the container's cwd or those scripts crash with OSError.
+      - ./data:/app/data
     # Default command matches the CMD in Dockerfile (full weekly pipeline).
     # Override for one-off steps, e.g.:
     #   docker compose run pipeline python -m src._web2br.j_metadata
