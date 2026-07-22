@@ -1,0 +1,15 @@
+version: 2
+
+exposures:
+  - name: dashboard_gia_bds_hcm_hn
+    label: "Dashboard phân tích giá BĐS HCM & HN"
+    type: dashboard
+    maturity: medium
+    url: https://datastudio.google.com/u/0/reporting/9e21618f-97dc-4480-b101-cbda26b9b2a5/page/p_os9zrshe5d
+    description: >
+      Looker Studio dashboard phân tích giá bất động sản HCM & Hà Nội.
+    depends_on:
+      - ref('mart_real_estate')
+    owner:
+      name: DataSpi
+      email: ptk23122000@gmail.com
