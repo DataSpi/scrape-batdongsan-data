@@ -8,6 +8,7 @@ model-paths: ["models"]
 seed-paths: ["seeds"]
 macro-paths: ["macros"]
 test-paths: ["tests"]
+snapshot-paths: ["snapshots"]
 
 target-path: "target"
 clean-targets:

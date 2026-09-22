@@ -1,15 +1,19 @@
 """
-Entrypoint for the whole scrape -> dbt pipeline, meant to be triggered by a single
-crontab entry on the local machine (batdongsan.com.vn blocks cloud/CI IPs, so scraping
-has to run here; dbt only talks to BigQuery so it runs here too rather than splitting
-the pipeline across two machines/schedulers).
+Entrypoint for the whole scrape -> dbt pipeline, triggered weekly by a launchd job on
+the local machine (see scripts/run_weekly_pipeline.sh + scripts/com.dataspi.
+batdongsan-weekly.plist) -- batdongsan.com.vn blocks cloud/CI IPs, so scraping has to
+run here; dbt only talks to BigQuery so it runs here too rather than splitting the
+pipeline across two machines/schedulers. No standing process needed between runs,
+unlike the Airflow DAG kept at dags/pipeline_weekly_dag.py as an optional alternative
+(that path needs airflow-scheduler running continuously; see its docstring).
 
     python -m src.orchestrator.run_pipeline
 
 Steps run strictly in order and the pipeline stops at the first failure -- dbt models
-depend on bronze data existing, and dbt test depends on dbt run having completed.
+depend on bronze data existing, dbt snapshot depends on dbt run having built this
+week's staging tables, and dbt test depends on both having completed.
 
-dbt run/test are scoped to `stg_real_estate+`/`stg_real_estate_rent+` on purpose:
+dbt run/snapshot/test are scoped to `stg_real_estate+`/`stg_real_estate_rent+` on purpose:
 stg_locations_v1/v2 and stg_projects are built from near-static reference data
 (city/district/ward/project lookups, plus geocoded lat/lng seeds -- see
 src/_geocode/geocode_locations.py) that doesn't need rebuilding every week. Rebuild that
@@ -56,6 +60,7 @@ STEPS = [
     ("scrape_projects_hn", [sys.executable, "-m", "src._web2br.j_projects", "--url", HN_PROJECTS_URL]),
     ("scrape_metadata", [sys.executable, "-m", "src._web2br.j_metadata"]),
     ("dbt_run", ["dbt", "run", *DBT_FLAGS, "--select", *DBT_SELECT]),
+    ("dbt_snapshot", ["dbt", "snapshot", *DBT_FLAGS, "--select", *DBT_SELECT]),
     ("dbt_test", ["dbt", "test", *DBT_FLAGS, "--select", *DBT_SELECT]),
 ]
 

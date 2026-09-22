@@ -4,16 +4,19 @@ Dự án thu thập dữ liệu, chuẩn hóa dữ liệu để thực hiện ph
 
 🔗 Trang giới thiệu dự án: **[dataspi.github.io/scrape-batdongsan-data](https://dataspi.github.io/scrape-batdongsan-data/)**
 
-### Reports 
-*(Updated: 2026-05-20)*
+### Reports
+*(Đông cứng từ 2026-05-20 — xem lưu ý bên dưới)*
 - [Báo cáo giá bất động sản theo quận (cũ) tại HN & TPHCM](docs/reports/HCM-HN_districts.html)
 - [Báo cáo giá bất động sản theo dự án tại HN & TPHCM](docs/reports/HCM-HN_prj.html)
 - Bài viết: [Đi xem nhà cùng Data Analyst - P1](https://spyno.substack.com/p/i-xem-nha-cung-data-analyst-p1)
   - Tháng 9-2025
 
+Báo cáo HTML tĩnh trên được build lần cuối qua pipeline Malloy/Postgres cũ, hiện đã ngừng dùng
+(không còn regenerate) — xem [nợ kỹ thuật](CLAUDE.md). Dashboard bên dưới là nguồn phân tích sống.
+
 ### Dashboard 
 *(Updated: 2026-02-16)*
-- Dashboard: [Google Looker Studio](https://lookerstudio.google.com/reporting/9e21618f-97dc-4480-b101-cbda26b9b2a5)
+- Dashboard: [Google Looker Studio](https://lookerstudio.google.com/reporting/9e21618f-97dc-4480-b101-cbda26b9b2a5) — nối trực tiếp BigQuery `re_gold.mart_real_estate` (khai báo qua dbt exposure, `dbt/models/marts/_exposures.yml`)
 
 ![Dashboard minh hoạ](docs/figs/dashboard-preview.png)
 
@@ -26,19 +29,23 @@ graph TD
   C --> D[(BigQuery re_silver)]
   D --> K[dbt mart: dbt/models/marts]
   K --> L[(BigQuery re_gold)]
+  L --> H[Looker Studio dashboard]
 
-  D --> E[Malloy model: malloy/malloy_publisher/real_estate.malloy]
-  E --> G[Analysis query: malloy/_materialize/materialize.malloysql]
-  G --> H[Looker Studio dashboard]
-  G --> I[Static HTML reports]
+  D --> S[dbt snapshot: SCD2 history<br/>snp_real_estate*]
 
-  J[Airflow self-hosted<br/>docker-compose] -. schedule .-> M[dags/pipeline_weekly_dag.py]
-  M -. runs .-> A
-  M -. then .-> C
+  J[launchd job<br/>run_pipeline.py bare-metal] -. schedule .-> A
+  J -. then .-> C
+  J -. then .-> S
 ```
 
-Pipeline chạy qua Docker + Airflow tự host (thay crontab), vì batdongsan.com.vn chặn IP của
-cloud/CI runner — bước scrape bắt buộc chạy từ máy cá nhân. GitHub Actions lo lint/dbt
+Malloy (`malloy/`) và `src/reports/report_builder.py` không còn nằm trong pipeline sống — đã bị
+thay bằng kết nối BigQuery trực tiếp ở trên.
+
+Pipeline chạy định kỳ qua launchd (macOS) gọi thẳng `src/orchestrator/run_pipeline.py`
+bare-metal — không có process nào chạy liên tục giữa các lần, vì batdongsan.com.vn chặn IP của
+cloud/CI runner nên bước scrape bắt buộc chạy từ máy cá nhân. Airflow tự host qua Docker
+(`dags/pipeline_weekly_dag.py`) vẫn có trong repo như lựa chọn thay thế cho ai muốn UI/retry, chỉ
+không phải mặc định (chạy 24/7 tốn resource cho một job 1 lần/tuần). GitHub Actions lo lint/dbt
 compile/build Docker image; không chạy scrape thật. Chi tiết: [technical-guides.md](docs/technical-guides.md).
 
 

@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Template launchd job for the weekly scrape -> dbt pipeline. Install by copying this
+  file to ~/Library/LaunchAgents/ (adjust the hardcoded /Users/spinokiem paths below if
+  the repo or conda env live somewhere else) and running:
+
+      launchctl load ~/Library/LaunchAgents/com.dataspi.batdongsan-weekly.plist
+
+  StartCalendarInterval fires Monday 9am, same schedule the Airflow DAG uses -- and
+  unlike plain cron, launchd runs a missed job as soon as the machine wakes if it was
+  asleep at the scheduled time, instead of silently skipping it.
+
+  No RunAtLoad: loading the job doesn't trigger an immediate run. To test without
+  waiting for Monday: `launchctl start com.dataspi.batdongsan-weekly`.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.dataspi.batdongsan-weekly</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/spinokiem/scrape-batdongsan-data/scripts/run_weekly_pipeline.sh</string>
+    </array>
+
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Weekday</key>
+        <integer>1</integer>
+        <key>Hour</key>
+        <integer>9</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <false/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/spinokiem/scrape-batdongsan-data/logs/launchd.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/spinokiem/scrape-batdongsan-data/logs/launchd.err.log</string>
+</dict>
+</plist>

@@ -16,40 +16,55 @@ batdongsan.com.vn --(src/_web2br)--> BigQuery re_bronze
                                           v
                                     BigQuery re_gold
                                           |
-                    +---------------------+---------------------+
-                    v                                           v
-        Malloy (malloy/malloy_publisher)              src/reports/report_builder.py
-                    |                                           |
-             Looker Studio dashboard                   docs/reports/*.html (GitHub Pages)
+                               Looker Studio dashboard
+                       (BigQuery connector trực tiếp, khai báo qua
+                        dbt exposure — dbt/models/marts/_exposures.yml)
 ```
 
 Ba schema BigQuery: `re_bronze` (raw scrape) → `re_silver` (dbt staging, deduped/cleaned) →
-`re_gold` (dbt marts, sẵn sàng cho báo cáo).
+`re_gold` (dbt marts, sẵn sàng cho báo cáo). Malloy (`malloy/`) và
+`src/reports/report_builder.py` (→ `docs/reports/*.html`) không còn nằm trong pipeline sống —
+xem mục 6.
 
-Từ giai đoạn 2, toàn bộ orchestration chạy qua **Airflow tự host** (docker-compose, xem mục 2)
-thay vì crontab gọi thẳng `src/orchestrator/run_pipeline.py`. Module đó vẫn còn trong repo như
-phương án dự phòng thủ công, nhưng đường chính giờ là 2 DAG trong `dags/`.
+Orchestration mặc định (giai đoạn 3) là **launchd bare-metal**: 1 job launchd gọi thẳng
+`src/orchestrator/run_pipeline.py` qua `scripts/run_weekly_pipeline.sh`, không qua Docker, không
+có process nào chạy liên tục giữa các lần. Airflow tự host (docker-compose, xem mục 2b) vẫn còn
+trong repo như phương án thay thế cho ai muốn UI/retry/backfill của Airflow, đánh đổi lấy
+`airflow-scheduler` + Postgres metadata phải chạy 24/7 chỉ để bắn 1 job/tuần — xem lý do đầy đủ ở
+[CLAUDE.md § Giai đoạn 3](../CLAUDE.md).
 
-## 2) Vận hành định kỳ — Airflow (self-hosted, docker-compose)
+## 2) Vận hành định kỳ — launchd bare-metal (mặc định)
 
-**Vì sao tự host thay vì Airflow managed/cloud**: batdongsan.com.vn chặn IP của cloud/CI
-runner — bước scrape bắt buộc phải chạy từ IP dân dụng (máy cá nhân). Container Docker chạy
-trên máy local vẫn ra internet bằng IP của máy đó (NAT qua Docker Engine), nên Airflow ở đây
-chạy self-hosted qua `docker-compose.yml` (LocalExecutor — một máy, task vốn đã tuần tự do
-ràng buộc 1 IP scrape, không cần CeleryExecutor/Redis) thay vì managed Airflow trên cloud.
+**Vì sao bare-metal thay vì qua Docker**: batdongsan.com.vn chặn IP của cloud/CI runner — bước
+scrape bắt buộc chạy từ IP dân dụng (máy cá nhân). Máy maintainer đã có sẵn conda env đúng
+(`scrape_bds`, Python 3.12) nên không cần lớp Docker cho việc này — dùng Docker ở đây chỉ thêm
+một dependency nữa (Docker Desktop cũng phải tự khởi động sau reboot) mà không có lợi ích tương
+ứng cho 1 job chạy trên đúng 1 máy cố định.
 
-Setup lần đầu / chạy hằng ngày: xem [Quickstart mục 3](quickstart.md#3-build--khởi-động).
+Setup: copy `scripts/com.dataspi.batdongsan-weekly.plist` vào `~/Library/LaunchAgents/`, sửa
+path nếu repo/conda env không nằm ở `/Users/spinokiem/...`, rồi:
 
-DAG chính — `dags/pipeline_weekly_dag.py`, lịch `0 9 * * 1` (Thứ 2, 9h sáng, thay thế crontab
-cũ), `catchup=False`, `retries=2`. Các task chạy tuần tự, **dừng ngay khi có task lỗi**, đúng
-semantics của `STEPS` cũ trong `src/orchestrator/run_pipeline.py`:
+```bash
+launchctl load ~/Library/LaunchAgents/com.dataspi.batdongsan-weekly.plist
+# test ngay không cần đợi thứ 2:
+launchctl start com.dataspi.batdongsan-weekly
+```
+
+`StartCalendarInterval` bắn Thứ 2, 9h sáng. Khác cron thật: nếu máy đang ngủ đúng giờ đó, launchd
+tự chạy bù ngay khi máy thức dậy thay vì bỏ qua hẳn lần chạy. `scripts/run_weekly_pipeline.sh` bọc
+`caffeinate -i` để máy không ngủ giữa chừng, và ghi log ra `logs/pipeline_<timestamp>.log` (log
+riêng của launchd — `StandardOutPath`/`StandardErrorPath` trong plist — ghi ra `logs/launchd.*.log`).
+
+Các bước chạy tuần tự, **dừng ngay khi có bước lỗi** (`STEPS` trong `run_pipeline.py`):
 
 1. `scrape_real_estate_hcm` / `scrape_real_estate_hn` — `src/_web2br/j_real_estate.py`
 2. `scrape_real_estate_rent_hcm` / `scrape_real_estate_rent_hn` — `src/_web2br/j_real_estate_rent.py`
 3. `scrape_projects_hcm` / `scrape_projects_hn` — `src/_web2br/j_projects.py`
 4. `scrape_metadata` — `src/_web2br/j_metadata.py`
 5. `dbt_run` — `dbt run --select stg_real_estate+ stg_real_estate_rent+`
-6. `dbt_test` — `dbt test --select stg_real_estate+ stg_real_estate_rent+`
+6. `dbt_snapshot` — `dbt snapshot --select stg_real_estate+ stg_real_estate_rent+` (SCD2 history,
+   xem mục 1b bên dưới)
+7. `dbt_test` — `dbt test --select stg_real_estate+ stg_real_estate_rent+`
 
 Sale ("bán") và cho thuê tách script/task riêng để bug ở nhánh này không ảnh hưởng nhánh kia —
 2 schema BigQuery riêng (`re_bronze.real_estate` vs `re_bronze.real_estate_rent`), giá thuê là
@@ -58,6 +73,47 @@ giá/tháng nên không share price bin với giá bán.
 Pipeline **không** rebuild `stg_locations_v1/v2` hay `stg_projects` mỗi tuần — đó là dữ liệu
 tham chiếu gần như tĩnh (city/district/ward/project + lat/lng geocode), chỉ cần rebuild thủ
 công khi nó thực sự thay đổi (xem mục 3).
+
+Debug khi có bước lỗi: mở log file mới nhất trong `logs/` (`ls -t logs/pipeline_*.log | head -1`).
+
+### 1b) Lịch sử thay đổi listing (SCD2/CDC)
+
+`stg_real_estate`/`stg_real_estate_rent` chỉ giữ bản mới nhất mỗi tuần (dedup theo `scraped_at`).
+`dbt/snapshots/snp_real_estate.sql` và `snp_real_estate_rent.sql` (dbt `snapshot`,
+`strategy: check`) giữ lại **mọi** lần giá/diện tích/loại hình/... thay đổi, mỗi version 1 dòng
+với `dbt_valid_from`/`dbt_valid_to`. `hard_deletes='new_record'` xử lý tin bị gỡ/bán xong: khi 1
+`product_id` biến mất khỏi `stg_real_estate`, snapshot đóng dòng cũ và insert 1 dòng mới
+`dbt_is_deleted = 'True'` làm "trạng thái hiện tại".
+
+Không cần nhớ tên cột nội bộ của dbt — đọc trạng thái hiện tại (active/closed) qua
+`vw_real_estate_current` / `vw_real_estate_rent_current`:
+
+```sql
+select * from re_gold.vw_real_estate_current where status = 'active';
+```
+
+Xem lịch sử đầy đủ 1 listing thì query thẳng bảng snapshot:
+
+```sql
+select * from re_silver.snp_real_estate
+where product_id = '...'
+order by dbt_valid_from;
+```
+
+## 2b) Vận hành định kỳ (tuỳ chọn) — Airflow self-hosted, docker-compose
+
+**Vì sao tự host thay vì Airflow managed/cloud**: batdongsan.com.vn chặn IP của cloud/CI
+runner — bước scrape bắt buộc phải chạy từ IP dân dụng (máy cá nhân). Container Docker chạy
+trên máy local vẫn ra internet bằng IP của máy đó (NAT qua Docker Engine), nên Airflow ở đây
+chạy self-hosted qua `docker-compose.yml` (LocalExecutor — một máy, task vốn đã tuần tự do
+ràng buộc 1 IP scrape, không cần CeleryExecutor/Redis) thay vì managed Airflow trên cloud.
+
+Setup lần đầu / chạy hằng ngày: xem
+[Quickstart mục 6](quickstart.md#6-cách-khác--docker--airflow-self-hosted).
+
+DAG chính — `dags/pipeline_weekly_dag.py`, lịch `0 9 * * 1` (Thứ 2, 9h sáng, đồng bộ với lịch
+launchd ở mục 2), `catchup=False`, `retries=2`. Các task giống hệt danh sách 7 bước ở mục 2, chạy
+tuần tự và **dừng ngay khi có task lỗi**.
 
 Debug khi có task lỗi: mở Airflow UI (`localhost:8080`) → DAG → task → Logs, hoặc
 `docker compose logs airflow-scheduler`.
@@ -133,22 +189,22 @@ Mở `http://localhost:8080`. Nếu `mart_real_estate` chưa từng được `db
 sẽ cảnh báo "Dataset re_gold not found" khi build catalog — không chặn việc serve, chỉ thiếu
 sample data/column stats cho model đó.
 
-## 6) Semantic modeling (Malloy) & Reports
+## 6) Dashboard (Looker Studio) & Malloy/Reports (ngừng dùng)
 
-- Model Malloy: `malloy/malloy_publisher/real_estate.malloy` — **lưu ý: hiện vẫn trỏ vào
-  Supabase, chưa migrate theo BigQuery** sau lần đổi pipeline sang BigQuery. Cần cập nhật
-  connection trước khi dùng lại các query trong `malloy/_analysing/` và
-  `malloy/_materialize/materialize.malloysql`.
-- Sinh báo cáo HTML tĩnh:
-
-  ```bash
-  python src/reports/report_builder.py
-  ```
-
-  Ghi ra `docs/reports/HCM-HN_prj.html` và `docs/reports/HCM-HN_districts.html` — nằm luôn
-  trong thư mục publish của GitHub Pages, không cần copy thủ công.
+- Dashboard sống: [Looker Studio](https://lookerstudio.google.com/reporting/9e21618f-97dc-4480-b101-cbda26b9b2a5),
+  nối trực tiếp BigQuery `re_gold.mart_real_estate` qua BigQuery connector — không qua semantic
+  layer trung gian. Lineage khai báo bằng dbt exposure ở `dbt/models/marts/_exposures.yml`
+  (`depends_on: ref('mart_real_estate')`), nên hiện trong `dbt docs generate` / DAG.
+- Malloy (`malloy/malloy_publisher/real_estate.malloy`) và pipeline báo cáo HTML tĩnh
+  (`src/reports/report_builder.py` → `docs/reports/HCM-HN_*.html`) **không còn dùng** — cả hai
+  trỏ vào Supabase/Postgres cũ, từ trước khi pipeline chuyển sang BigQuery. `docs/reports/*.html`
+  hiện tại là artifact đông cứng từ lần build cuối (2026-05-20), không còn regenerate. Xem mục
+  nợ kỹ thuật trong [CLAUDE.md](../CLAUDE.md) — dọn dẹp ở Stage 5.
 
 ## 7) Docker & Airflow — layout container
+
+*Chỉ cần đọc mục này nếu bạn dùng path Airflow tuỳ chọn (mục 2b) hoặc muốn build/test bằng
+Docker — pipeline chạy mặc định (mục 2) không phụ thuộc gì ở đây.*
 
 - `Dockerfile` (root): image `pipeline` — Python 3.12 + `requirements.txt` + dbt CLI, dùng cho
   cả `docker run` trực tiếp lẫn task Airflow. `PYTHONPATH=/app` set sẵn trong image (trước đây
@@ -169,8 +225,8 @@ sample data/column stats cho model đó.
 ## 8) CI/CD — GitHub Actions
 
 GitHub-hosted runner **không** tới được batdongsan.com.vn (bị chặn) — CI không bao giờ chạy
-scrape thật hay các DAG orchestration, việc đó ở lại hoàn toàn trên Airflow local (mục 2).
-CI chỉ làm 3 việc, đều là fast feedback trước khi merge:
+scrape thật hay orchestration, việc đó ở lại hoàn toàn trên máy local (launchd, mục 2 — hoặc
+Airflow, mục 2b, nếu bạn chọn path đó). CI chỉ làm 3 việc, đều là fast feedback trước khi merge:
 
 - `.github/workflows/ci.yml`:
   - job `lint` — `ruff check .` (cấu hình ở `pyproject.toml`).
@@ -207,6 +263,12 @@ Sau khi có báo cáo mới trong `docs/reports/`, thêm một card link trong p
 - **Task scrape lỗi `OSError: Cannot save file into a non-existent directory: 'data'`**:
   `data/` bị gitignore nên không có sẵn ở máy mới — kiểm tra `docker-compose.yml` đã mount
   `./data` vào đúng service/container chưa (xem mục 7).
+- **launchd job chạy nhưng không thấy log file mới trong `logs/`**: `launchctl list | grep
+  dataspi` xem job có load không; nếu không thấy dòng nào, `launchctl load` lại đúng path plist
+  trong `~/Library/LaunchAgents/`. Nếu job có load nhưng vẫn lỗi ngay từ đầu (trước khi kịp tạo
+  log file trong `logs/`), xem `logs/launchd.err.log` (path set trong
+  `StandardErrorPath` của plist) — thường là do path conda env trong
+  `scripts/run_weekly_pipeline.sh` không khớp máy đang chạy.
 - **DAG không xuất hiện trên Airflow UI hoặc báo import error**: `docker compose exec
   airflow-scheduler airflow dags list-import-errors`.
 - **`dbt run` báo thiếu source table**: bước scrape (`src/_web2br/*.py`) chưa chạy hoặc chạy

@@ -1,18 +1,22 @@
 """
-Weekly scrape -> dbt pipeline, replacing the crontab entry that used to run
-`python -m src.orchestrator.run_pipeline` directly on the maintainer's machine.
+Weekly scrape -> dbt pipeline. Optional path: the live/default scheduler is a launchd
+job on the maintainer's machine running `python -m src.orchestrator.run_pipeline`
+directly (see that module's docstring) -- no standing process needed between runs. This
+DAG is kept for anyone who wants Airflow's UI/retries/backfill instead, at the cost of
+airflow-scheduler + its Postgres metadata DB running continuously (~1-1.5GB RAM) just to
+fire one job a week.
 
 Runs self-hosted (docker-compose, see repo root) rather than on a managed/cloud
 Airflow instance: batdongsan.com.vn blocks cloud/CI IP ranges, so the scrape tasks
-below must execute from this machine's residential IP, same as the original
-crontab job did.
+below must execute from this machine's residential IP, same constraint run_pipeline.py
+has.
 
-Same 9 steps, same order, same fail-fast semantics as the old STEPS list in
-src/orchestrator/run_pipeline.py (that module is kept as a manual fallback --
-see its docstring). dbt run/test are scoped to `stg_real_estate+ stg_real_estate_rent+`
-on purpose: stg_locations_v1/v2 and stg_projects are near-static reference data
-(city/district/ward/project lookups + geocoded lat/lng seeds) that doesn't need
-rebuilding every week -- see dags/lineage_rebuild_dag.py for that manual-trigger DAG.
+Same steps, same order, same fail-fast semantics as the STEPS list in
+src/orchestrator/run_pipeline.py -- keep both in sync when one changes. dbt
+run/snapshot/test are scoped to `stg_real_estate+ stg_real_estate_rent+` on purpose:
+stg_locations_v1/v2 and stg_projects are near-static reference data (city/district/ward/
+project lookups + geocoded lat/lng seeds) that doesn't need rebuilding every week -- see
+dags/lineage_rebuild_dag.py for that manual-trigger DAG.
 
 Sale ("ban") and rental ("cho thue") listings are scraped by separate scripts so a
 bug in one can't affect the other -- kept as separate tasks here for the same reason.
@@ -89,6 +93,11 @@ with DAG(
         bash_command=f"dbt run {DBT_FLAGS} --select {DBT_SELECT}",
         cwd=REPO_DIR,
     )
+    dbt_snapshot = BashOperator(
+        task_id="dbt_snapshot",
+        bash_command=f"dbt snapshot {DBT_FLAGS} --select {DBT_SELECT}",
+        cwd=REPO_DIR,
+    )
     dbt_test = BashOperator(
         task_id="dbt_test",
         bash_command=f"dbt test {DBT_FLAGS} --select {DBT_SELECT}",
@@ -104,5 +113,6 @@ with DAG(
         >> scrape_projects_hn
         >> scrape_metadata
         >> dbt_run
+        >> dbt_snapshot
         >> dbt_test
     )
