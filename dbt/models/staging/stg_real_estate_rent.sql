@@ -4,9 +4,23 @@
 -- listings: a rental price is a monthly rate ("23 triệu/tháng"), never a lump sum (tỷ),
 -- so it is not comparable to stg_real_estate.price_num/price_1m2 and must not share
 -- their bounds/bins downstream (see mart_real_estate_rent.sql).
+--
+-- Incremental: same approach as stg_real_estate.sql -- watermark on date_scraped (the
+-- scrape-date column still exposed in the final select; scraped_at is dropped), rn dedup
+-- still scoped per incremental batch, unique_key=product_id merges in rescraped listings.
+
+{{
+    config(
+        materialized='incremental',
+        unique_key='product_id',
+    )
+}}
 
 with source as (
     select * from {{ source('bronze', 'real_estate_rent') }}
+    {% if is_incremental() %}
+    where date_scraped > (select max(date_scraped) from {{ this }})
+    {% endif %}
 ),
 
 cleaned_link as (

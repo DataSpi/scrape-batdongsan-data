@@ -9,9 +9,28 @@
 --   2. real_estate_type matching only implements the whitelist tokens that were actually
 --      reachable in the legacy code (some whitelist entries were dead due to substring
 --      shadowing by an earlier, broader token in the same priority list).
+--
+-- Incremental: only rescans bronze rows newer than what's already here (watermark on
+-- date_scraped, the one scrape-date column this model still exposes -- scraped_at is
+-- dropped from the final select below, so it can't be read back off `this`). The
+-- row_number()/rn dedup further down still runs per incremental batch (safety net for
+-- reruns writing >1 bronze row per product_id in the same batch); unique_key=product_id
+-- lets dbt's merge replace a listing's old row when it's rescraped, same "most recent
+-- wins" semantics as the old full-refresh version, just without rescanning all of bronze
+-- every run.
+
+{{
+    config(
+        materialized='incremental',
+        unique_key='product_id',
+    )
+}}
 
 with source as (
     select * from {{ source('bronze', 'real_estate') }}
+    {% if is_incremental() %}
+    where date_scraped > (select max(date_scraped) from {{ this }})
+    {% endif %}
 ),
 
 cleaned_link as (
