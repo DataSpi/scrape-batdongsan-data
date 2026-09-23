@@ -5,14 +5,19 @@
   file to ~/Library/LaunchAgents/ (adjust the hardcoded /Users/spinokiem paths below if
   the repo or conda env live somewhere else) and running:
 
-      launchctl load ~/Library/LaunchAgents/com.dataspi.batdongsan-weekly.plist
+      launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.dataspi.batdongsan-weekly.plist
+
+  Use `bootstrap`, not the legacy `launchctl load` -- on modern macOS (confirmed on 15.x
+  Sequoia) `load` fails with an unhelpful "Input/output error" that gives no indication
+  of the actual problem, while `bootstrap` reports errors clearly. To remove:
+  `launchctl bootout gui/$(id -u)/com.dataspi.batdongsan-weekly`.
 
   StartCalendarInterval fires Monday 9am, same schedule the Airflow DAG uses -- and
   unlike plain cron, launchd runs a missed job as soon as the machine wakes if it was
   asleep at the scheduled time, instead of silently skipping it.
 
   No RunAtLoad: loading the job doesn't trigger an immediate run. To test without
-  waiting for Monday: `launchctl start com.dataspi.batdongsan-weekly`.
+  waiting for Monday: `launchctl kickstart gui/$(id -u)/com.dataspi.batdongsan-weekly`.
 -->
 <plist version="1.0">
 <dict>

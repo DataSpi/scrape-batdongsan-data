@@ -44,18 +44,22 @@ test`. Dừng ngay khi có bước lỗi.
 cp scripts/com.dataspi.batdongsan-weekly.plist ~/Library/LaunchAgents/
 # sửa các path /Users/spinokiem/... trong file plist + trong
 # scripts/run_weekly_pipeline.sh cho khớp máy bạn (repo path, conda env path)
-launchctl load ~/Library/LaunchAgents/com.dataspi.batdongsan-weekly.plist
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.dataspi.batdongsan-weekly.plist
 
 # test ngay không cần đợi tới lịch (Thứ 2, 9h sáng):
-launchctl start com.dataspi.batdongsan-weekly
+launchctl kickstart gui/$(id -u)/com.dataspi.batdongsan-weekly
 ```
+
+Dùng `bootstrap`, không dùng `launchctl load` (lệnh cũ) -- trên macOS hiện đại (xác nhận trên
+15.x Sequoia) `load` báo lỗi mù mờ "Input/output error" không rõ nguyên nhân, còn `bootstrap`
+báo lỗi rõ ràng hơn hẳn. Gỡ job: `launchctl bootout gui/$(id -u)/com.dataspi.batdongsan-weekly`.
 
 Khác cron thật: nếu máy đang ngủ đúng giờ trigger, launchd tự chạy bù khi máy thức dậy thay vì
 bỏ qua hẳn lần chạy đó. Log mỗi lần chạy nằm ở `logs/pipeline_<timestamp>.log`.
 
 ## 5) Kiểm tra nhanh
 
-- Chạy `python -m src.orchestrator.run_pipeline` (hoặc `launchctl start ...`) thấy log chạy hết
+- Chạy `python -m src.orchestrator.run_pipeline` (hoặc `launchctl kickstart ...`) thấy log chạy hết
   cả 10 bước, exit code 0.
 - Có dữ liệu mới trong BigQuery `re_bronze`/`re_silver`/`re_gold`.
 - `re_silver.snp_real_estate` có dòng với `dbt_valid_from` = thời điểm vừa chạy.

@@ -45,10 +45,14 @@ Setup: copy `scripts/com.dataspi.batdongsan-weekly.plist` vào `~/Library/Launch
 path nếu repo/conda env không nằm ở `/Users/spinokiem/...`, rồi:
 
 ```bash
-launchctl load ~/Library/LaunchAgents/com.dataspi.batdongsan-weekly.plist
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.dataspi.batdongsan-weekly.plist
 # test ngay không cần đợi thứ 2:
-launchctl start com.dataspi.batdongsan-weekly
+launchctl kickstart gui/$(id -u)/com.dataspi.batdongsan-weekly
 ```
+
+Dùng `bootstrap`, không dùng `launchctl load` (lệnh cũ) -- trên macOS hiện đại (xác nhận trên
+15.x Sequoia) `load` báo lỗi mù mờ "Input/output error" không rõ nguyên nhân thật sự, còn
+`bootstrap` báo lỗi rõ ràng hơn hẳn. Gỡ job: `launchctl bootout gui/$(id -u)/com.dataspi.batdongsan-weekly`.
 
 `StartCalendarInterval` bắn Thứ 2, 9h sáng. Khác cron thật: nếu máy đang ngủ đúng giờ đó, launchd
 tự chạy bù ngay khi máy thức dậy thay vì bỏ qua hẳn lần chạy. `scripts/run_weekly_pipeline.sh` bọc
@@ -263,10 +267,14 @@ Sau khi có báo cáo mới trong `docs/reports/`, thêm một card link trong p
 - **Task scrape lỗi `OSError: Cannot save file into a non-existent directory: 'data'`**:
   `data/` bị gitignore nên không có sẵn ở máy mới — kiểm tra `docker-compose.yml` đã mount
   `./data` vào đúng service/container chưa (xem mục 7).
-- **launchd job chạy nhưng không thấy log file mới trong `logs/`**: `launchctl list | grep
-  dataspi` xem job có load không; nếu không thấy dòng nào, `launchctl load` lại đúng path plist
-  trong `~/Library/LaunchAgents/`. Nếu job có load nhưng vẫn lỗi ngay từ đầu (trước khi kịp tạo
-  log file trong `logs/`), xem `logs/launchd.err.log` (path set trong
+- **`launchctl load` báo "Input/output error"**: lệnh cũ, báo lỗi mù mờ trên macOS hiện đại —
+  dùng `launchctl bootstrap gui/$(id -u) <path plist>` thay thế, lỗi sẽ rõ hơn nhiều (thường là
+  file plist chưa được copy vào `~/Library/LaunchAgents/`, hoặc job đã load rồi).
+- **launchd job chạy nhưng không thấy log file mới trong `logs/`**: `launchctl print
+  gui/$(id -u)/com.dataspi.batdongsan-weekly` xem job có load không; nếu báo "could not find
+  service", `bootstrap` lại đúng path plist trong `~/Library/LaunchAgents/`. Nếu job có load
+  nhưng vẫn lỗi ngay từ đầu (trước khi kịp tạo log file trong `logs/`), xem
+  `logs/launchd.err.log` (path set trong
   `StandardErrorPath` của plist) — thường là do path conda env trong
   `scripts/run_weekly_pipeline.sh` không khớp máy đang chạy.
 - **DAG không xuất hiện trên Airflow UI hoặc báo import error**: `docker compose exec
