@@ -9,6 +9,7 @@ Tài liệu dự án scrape-batdongsan-data được tổ chức để dễ đ�
 ## Hướng dẫn kỹ thuật
 
 - [Hướng dẫn kỹ thuật](technical-guides.md): Tổng hợp hướng dẫn chi tiết cho từng module (scraper, modeling, báo cáo, triển khai).
+- [Data Modeling & Architecture](data-modeling.md): Star schema ở silver, OBT ở gold, trade-off — script thuyết trình.
 
 ## Liên kết nhanh
 
