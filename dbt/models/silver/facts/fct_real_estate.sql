@@ -1,5 +1,5 @@
 -- Ports src/_br2sil/j_real_estate.py to SQL. Two behavior changes vs. the legacy
--- pandas script (see dbt/models/staging/_staging.yml for details):
+-- pandas script (see dbt/models/silver/facts/_facts.yml and dbt/models/silver/_seeds.yml for details):
 --   1. Real dedup by product_id (legacy script only logged duplicates, kept appending
 --      them). Originally keyed on substr(link_clean, -10): the source site appends a
 --      "?c=d1"-style tracking query string to the same listing's link on some scrapes
@@ -27,7 +27,7 @@
 }}
 
 with source as (
-    select * from {{ source('bronze', 'real_estate') }}
+    select * from {{ source('bronze', 'fct_real_estate') }}
     {% if is_incremental() %}
     where date_scraped > (select max(date_scraped) from {{ this }})
     {% endif %}
@@ -123,7 +123,7 @@ final as (
         p.date_scraped,
         p.scraped_at
     from parsed p
-    left join {{ ref('real_estate_type_mapping') }} m on p.matched_token = m.raw_token
+    left join {{ ref('dim_real_estate_type_mapping') }} m on p.matched_token = m.raw_token
 ),
 
 with_price_per_m2 as (

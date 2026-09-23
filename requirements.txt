@@ -3,6 +3,7 @@ python-dotenv
 numpy
 curl_cffi
 requests
+patchright
 beautifulsoup4
 sqlalchemy
 psycopg2-binary

@@ -18,7 +18,7 @@ from airflow import DAG
 REPO_DIR = "/opt/airflow/repo"
 DBT_DIR = f"{REPO_DIR}/dbt"
 DBT_FLAGS = f"--project-dir {DBT_DIR} --profiles-dir {DBT_DIR}"
-LINEAGE_SELECT = "stg_locations_v1+ stg_locations_v2+ stg_projects+"
+LINEAGE_SELECT = "dim_location_v1+ dim_location_v2+ dim_project+"
 
 with DAG(
     dag_id="lineage_rebuild",
@@ -36,7 +36,7 @@ with DAG(
     )
     dbt_seed = BashOperator(
         task_id="dbt_seed",
-        bash_command=f"dbt seed {DBT_FLAGS} --select district_geo_v1 ward_geo_v2",
+        bash_command=f"dbt seed {DBT_FLAGS} --select dim_district_geo_v1 dim_ward_geo_v2",
         cwd=REPO_DIR,
     )
     dbt_run = BashOperator(

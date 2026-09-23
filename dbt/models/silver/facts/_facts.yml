@@ -1,0 +1,42 @@
+version: 2
+
+models:
+  - name: fct_real_estate
+    description: >
+      One row per listing (deduped by product_id, keeping the most recent scraped_at).
+      Replaces src/_br2sil/j_real_estate.py, which appended every run's full re-read of
+      re_bronze.real_estate to re_silver.real_estate with no real dedup — only a log
+      line — so re_silver.real_estate has been accumulating duplicate rows on every run.
+    columns:
+      - name: product_id
+        description: Native listing id from batdongsan.com.vn.
+        data_tests:
+          - not_null
+          - unique
+      - name: link
+        data_tests:
+          - not_null
+      - name: is_price_outlier
+        description: >
+          True when price_1m2 is < 5 or > 1000 triệu/m2 -- outside every observed
+          legitimate listing (cheapest real nhà ở xã hội listings run ~6.65+, priciest
+          named-tower units top out around 930). Catches source-site data-entry errors,
+          almost always a triệu/tỷ unit mixup (e.g. product_id 45698293, where a stray
+          total-price typo produced a ~8,000 triệu/m2 price/m2). mart_real_estate
+          filters these rows out; they stay visible here for manual review.
+
+  - name: fct_real_estate_rent
+    description: >
+      Rental ("cho thuê") counterpart to fct_real_estate, built from its own bronze
+      table (re_bronze.fct_real_estate_rent) since rental prices are monthly rates, not
+      comparable to sale prices. One row per listing (deduped by product_id, keeping
+      the most recent scraped_at).
+    columns:
+      - name: product_id
+        description: Native listing id from batdongsan.com.vn.
+        data_tests:
+          - not_null
+          - unique
+      - name: link
+        data_tests:
+          - not_null

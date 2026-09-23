@@ -11,7 +11,7 @@ Scrape dữ liệu bất động sản từ [batdongsan.com.vn](https://batdongs
 ```
 batdongsan.com.vn --(src/_web2br/*.py, curl_cffi + BeautifulSoup)--> BigQuery re_bronze (raw)
                                                                           |
-                                                                    dbt staging models
+                                                                dbt star schema (fct_/dim_ models)
                                                                           v
                                                                    BigQuery re_silver (deduped/cleaned)
                                                                           |
@@ -25,17 +25,17 @@ batdongsan.com.vn --(src/_web2br/*.py, curl_cffi + BeautifulSoup)--> BigQuery re
 ```
 
 `re_silver` cũng chứa lịch sử SCD2 của từng listing (`dbt/snapshots/snp_real_estate*`, dbt
-`snapshot` với `strategy: check` + `hard_deletes='new_record'`) — `stg_real_estate*` chỉ giữ bản
+`snapshot` với `strategy: check` + `hard_deletes='new_record'`) — `fct_real_estate*` chỉ giữ bản
 mới nhất mỗi tuần, còn `snp_real_estate*` giữ mọi lần thay đổi giá/diện tích/loại hình... và đánh
 dấu tin đã bị gỡ (`dbt_is_deleted`). `mart_real_estate*` không đổi hành vi (vẫn build từ
-`stg_real_estate*`, không có lịch sử); đọc "trạng thái hiện tại" (active/closed) qua
+`fct_real_estate*`, không có lịch sử); đọc "trạng thái hiện tại" (active/closed) qua
 `vw_real_estate_current`/`vw_real_estate_rent_current` — xem Giai đoạn 3.
 
 Malloy (`malloy/malloy_publisher/`) và pipeline báo cáo HTML tĩnh (`src/reports/report_builder.py`
 → `docs/reports/*.html`) đã **ngừng dùng** — cả hai trỏ vào Supabase/Postgres cũ, không còn
 được regenerate. Đây là code mồ côi (xem mục nợ kỹ thuật), không phải nhánh sống của pipeline.
 
-**Orchestration**: `src/orchestrator/run_pipeline.py` — 10 bước tuần tự (scrape sale HCM/HN, scrape rent HCM/HN, scrape projects HCM/HN, scrape metadata, `dbt run`, `dbt snapshot`, `dbt test`), dừng ngay khi có bước lỗi. Live path là launchd job (`scripts/run_weekly_pipeline.sh` + `scripts/com.dataspi.batdongsan-weekly.plist`, Thứ 2 9h sáng) trên máy local của maintainer — không có process nào chạy liên tục giữa các lần. Airflow (`dags/pipeline_weekly_dag.py`, tự host qua `docker-compose`) vẫn tồn tại trong repo như path tuỳ chọn cho ai muốn UI/retry/backfill, nhưng không phải default nữa — xem Giai đoạn 3 để biết lý do đảo ngược quyết định Stage 2. Location/project lineage (geocode + seed) là bước thủ công riêng, không nằm trong lịch tuần.
+**Orchestration**: `src/orchestrator/run_pipeline.py` — 9 bước tuần tự (scrape sale HCM/HN, scrape rent HCM/HN, scrape projects HCM/HN, `dbt run`, `dbt snapshot`, `dbt test`), dừng ngay khi có bước lỗi. Live path là launchd job (`scripts/run_weekly_pipeline.sh` + `scripts/com.dataspi.batdongsan-weekly.plist`, Thứ 2 9h sáng) trên máy local của maintainer — không có process nào chạy liên tục giữa các lần. Airflow (`dags/pipeline_weekly_dag.py`, tự host qua `docker-compose`) vẫn tồn tại trong repo như path tuỳ chọn cho ai muốn UI/retry/backfill, nhưng không phải default nữa — xem Giai đoạn 3 để biết lý do đảo ngược quyết định Stage 2. Location/project lineage (geocode + seed) **và** metadata scrape (`metadata.py` — city/ward/street/project lookup, nguồn bronze cho lineage đó) là bước thủ công riêng, không nằm trong lịch tuần — dbt không rebuild `dim_location_v1/v2`/`dim_project` hàng tuần nên scrape lại metadata mỗi tuần cũng vô nghĩa, xem docstring `run_pipeline.py`.
 
 **Ràng buộc quan trọng nhất**: batdongsan.com.vn chặn IP của cloud/CI runner — bước scrape bắt buộc chạy từ IP dân dụng (máy local). Đây là lý do pipeline không dùng GitHub Actions để scrape, và là ràng buộc thiết kế xuyên suốt cả giai đoạn 2 lẫn giai đoạn 3.
 
@@ -79,7 +79,7 @@ Hai quyết định độc lập, không nằm trong scope giai đoạn 2 gốc:
    trong lúc chạy. Airflow (`dags/pipeline_weekly_dag.py`, `docker-compose.yml`, `airflow/`)
    **không bị xoá** — vẫn là path hợp lệ, tài liệu hoá là tuỳ chọn thay vì default. Cả hai path
    (`run_pipeline.py` STEPS và DAG) được giữ đồng bộ thủ công — sửa 1 bên nhớ sửa bên kia.
-2. **SCD2/CDC cho listing**: `stg_real_estate`/`stg_real_estate_rent` trước giờ dedup bằng
+2. **SCD2/CDC cho listing**: `fct_real_estate`/`fct_real_estate_rent` trước giờ dedup bằng
    `ROW_NUMBER() PARTITION BY product_id ORDER BY scraped_at DESC` rồi `WHERE rn = 1` — mỗi lần
    `dbt run` xoá mất lịch sử thay đổi, chỉ giữ bản hiện tại. Thêm dbt `snapshot`
    (`dbt/snapshots/snp_real_estate.sql`, `snp_real_estate_rent.sql`, `strategy: check` trên các cột
@@ -94,3 +94,54 @@ Hai quyết định độc lập, không nằm trong scope giai đoạn 2 gốc:
 Việc dọn crontab rác cũ trên máy (dòng trỏ project không liên quan, path
 `~/Documents/1. Data_Science/scrape_bds`) và cài đặt launchd job thật (`launchctl load`) là thao
 tác thủ công ngoài git repo, không nằm trong commit nào.
+
+## Giai đoạn 4 — Naming cleanup: `fct_`/`dim_` nhất quán xuyên bronze/silver (`refactor/silver-star-schema-naming`)
+
+Rename thuần tuý (không đổi logic SQL/Python nào), 2 phần:
+
+1. **`re_silver` → `fct_`/`dim_` thay vì `stg_` chung**: `stg_real_estate`/`stg_real_estate_rent`
+   → `fct_real_estate`/`fct_real_estate_rent` (fact, grain = 1 listing); `stg_projects` →
+   `dim_project`, `stg_locations_v1`/`stg_locations_v2` → `dim_location_v1`/`dim_location_v2`
+   (dimension, join nhiều bảng master từ bronze). Folder `dbt/models/staging/` → tách thành
+   `dbt/models/silver/facts/` + `dbt/models/silver/dimensions/`, thể hiện star schema qua chính
+   cấu trúc thư mục — trước đây `stg_` dùng chung cho cả 2 vai trò khác nhau, che mất shape thật
+   của model dù `docs/data-modeling.md` đã mô tả bằng lời từ lâu. `re_bronze` **không đổi tên**
+   (không phải dbt model — Python ghi thẳng, gắn `stg_` vào đó sẽ hiểu nhầm theo convention dbt);
+   **không thêm layer `int_`** (chưa có bước intermediate thật sự, thêm lúc này là
+   over-engineer so với quy mô 1 người/weekly batch). `snp_*`/`vw_*`/`mart_*` giữ nguyên — prefix
+   đã đúng vai trò từ trước.
+2. **Bỏ prefix `j_` ở `src/_web2br/`**: `j_real_estate.py`/`j_real_estate_rent.py`/`j_projects.py`/
+   `j_metadata.py` → `real_estate.py`/`real_estate_rent.py`/`projects.py`/`metadata.py` — prefix
+   này từng dùng để phân biệt cùng tên file giữa `_web2br/` và `_br2sil/` (2 pipeline stage khác
+   nhau cùng xử lý 1 domain entity), nhưng `_br2sil/` giờ chỉ còn `.pyc` mồ côi (xem nợ kỹ thuật,
+   xoá ở Stage 5) nên `j_` không còn ý nghĩa phân biệt gì trong folder duy nhất còn lại.
+3. **`re_bronze` cũng đổi sang `fct_`/`dim_`** (mở rộng quyết định 1 xuống cả bronze, sau khi
+   review lại thấy giữ 2 từ vựng song song — `m_` ở bronze, `dim_`/`fct_` ở silver — cho cùng 1
+   khái niệm chỉ gây rối chứ không thêm tín hiệu gì): `real_estate`/`real_estate_rent`/`projects`
+   → `fct_real_estate`/`fct_real_estate_rent`/`fct_project` (raw, event-grain); `m_cities`/
+   `m_districts`/`m_wards`/`m_streets`/`m_projects` (legacy v1, frozen) → `dim_city_v1`/
+   `dim_district_v1`/`dim_ward_v1`/`dim_street_v1`/`dim_project_v1`; `m_cities_v2`/`m_wards_v2`/
+   `m_streets_v2`/`m_projects_v2` (active) → `dim_city_v2`/`dim_ward_v2`/`dim_street_v2`/
+   `dim_project_v2`; 3 seed `real_estate_type_mapping`/`district_geo_v1`/`ward_geo_v2` →
+   `dim_real_estate_type_mapping`/`dim_district_geo_v1`/`dim_ward_geo_v2`. Tên bảng trùng giữa
+   `re_bronze`/`re_silver` (VD `fct_real_estate` ở cả 2 schema) là chủ ý — cùng 1 entity, khác mức
+   refine, schema phân biệt layer còn prefix phân biệt vai trò, 2 trục độc lập không lẫn nhau.
+
+Đã cập nhật đồng bộ mọi reference: `ref()`/`source()` trong dbt (models/snapshots/tests/seeds),
+`DBT_SELECT`/`STEPS`/module path/query đọc bronze (hardcode trong `real_estate.py`/
+`real_estate_rent.py` để lấy danh sách district) trong `run_pipeline.py` và cả 2 Airflow DAG,
+comment trong `src/_geocode/geocode_locations.py` (kể cả path CSV output), `docker-compose.yml`,
+và toàn bộ doc (`technical-guides.md`, `data-modeling.md`, `interview-prep.md`) — **trừ**
+`docs/blog_drafts/technical-writeup-2026-07-personal.md` (bài blog draft mô tả trạng thái tại
+thời điểm viết 07/2026, cố tình giữ nguyên tên cũ vì sửa lại là viết lại lịch sử) và các mô tả
+lịch sử về `src/_br2sil/` (code mồ côi đã xoá, tên bảng trong mô tả đó là tên tại thời điểm script
+đó còn chạy, sửa lại sẽ sai sự thật).
+
+**Đã chạy thật trên production BigQuery** (không chỉ đổi code): cả 20 bảng (5 silver + 15 bronze,
+gồm 12 bảng raw + 3 seed) đổi tên bằng `ALTER TABLE ... RENAME TO` thay vì để dbt tạo bảng mới rồi
+bỏ bảng cũ — giữ nguyên data/lịch sử tức thì, không tốn compute quét lại bronze. Verify: row count
+khớp tuyệt đối trước/sau mọi rename; `dbt run`/`dbt snapshot`/`dbt test` chạy lại sau đó xác nhận
+DAG resolve đúng bảng mới (`fct_real_estate` incremental MERGE 0 rows — không rescan bronze thừa;
+`dbt snapshot` báo đúng 0 rows changed — rename không vô tình tạo lịch sử SCD2 giả); 28/31 test
+pass, 3 warning còn lại (outlier giá/m2, FK `projectId` thiếu ~5%) là hành vi đã biết từ trước,
+không liên quan tới rename.

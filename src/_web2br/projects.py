@@ -9,6 +9,7 @@ from curl_cffi.requests import AsyncSession
 
 from src.utils.common_tools import setup_logging
 from src.utils.gcp_conn import get_bigquery_client, upload_df_to_bigquery
+from src.utils.scrape_session import async_get_with_cf_bypass, get_session
 
 logger = setup_logging()
 
@@ -49,7 +50,7 @@ def soup_to_df(html_soup):
 
         results.append({
             "title"             : title,
-            # Serialized to JSON, not a native list: re_bronze.projects.additional_info
+            # Serialized to JSON, not a native list: re_bronze.fct_project.additional_info
             # is a STRING column, and WRITE_APPEND loads use the existing table schema
             # (no autodetect) -- a raw list column fails pyarrow conversion on upload.
             "additional_info"   : json.dumps(configs, ensure_ascii=False),
@@ -77,15 +78,8 @@ def get_urls_list(html_content, base_url):
 async def fetch_and_parse(url, session, semaphore):
     """Fetch HTML content from URL and parse it into a DataFrame."""
     async with semaphore:
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.9',
-        }
-
         try:
-            # The 'impersonate' argument is the magic part—it mimics Chrome's TLS fingerprint
-            response = await session.get(url, headers=headers, impersonate="chrome124")
+            response = await async_get_with_cf_bypass(session, url)
 
             if response.status_code == 200:
                 logger.info(f"Success! Data received from {url}")
@@ -105,7 +99,8 @@ async def fetch_all_pages(urls: list, batch_size: int = BATCH_SIZE, batch_delay_
     semaphore = asyncio.Semaphore(MAX_CONCURRENCY)
     all_results = []
 
-    async with AsyncSession() as session:
+    headers, cookies = get_session()
+    async with AsyncSession(headers=headers, cookies=cookies) as session:
         for start_index in range(0, len(urls), batch_size):
             batch_number = (start_index // batch_size) + 1
             batch_urls = urls[start_index:start_index + batch_size]
@@ -126,7 +121,8 @@ async def fetch_all_pages(urls: list, batch_size: int = BATCH_SIZE, batch_delay_
 async def main(url=URL):
     # Fetch first page to get total pages
     semaphore = asyncio.Semaphore(1)
-    async with AsyncSession() as session:
+    headers, cookies = get_session()
+    async with AsyncSession(headers=headers, cookies=cookies) as session:
         df, html_content = await fetch_and_parse(url, session, semaphore)
     if df is None or len(df) == 0:
         logger.error(f"No listings found on the first page. HTML content:\n{html_content}")
@@ -155,6 +151,6 @@ if __name__ == "__main__":
     args = parse_args()
     bq_client = get_bigquery_client()
     df_final = asyncio.run(main(url=args.url))
-    upload_df_to_bigquery(bq_client, df_final, f"{bq_client.project}.re_bronze.projects", write_disposition="WRITE_APPEND")
+    upload_df_to_bigquery(bq_client, df_final, f"{bq_client.project}.re_bronze.fct_project", write_disposition="WRITE_APPEND")
 
 

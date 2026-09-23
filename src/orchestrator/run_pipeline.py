@@ -13,21 +13,26 @@ Steps run strictly in order and the pipeline stops at the first failure -- dbt m
 depend on bronze data existing, dbt snapshot depends on dbt run having built this
 week's staging tables, and dbt test depends on both having completed.
 
-dbt run/snapshot/test are scoped to `stg_real_estate+`/`stg_real_estate_rent+` on purpose:
-stg_locations_v1/v2 and stg_projects are built from near-static reference data
+dbt run/snapshot/test are scoped to `fct_real_estate+`/`fct_real_estate_rent+` on purpose:
+dim_location_v1/v2 and dim_project are built from near-static reference data
 (city/district/ward/project lookups, plus geocoded lat/lng seeds -- see
-src/_geocode/geocode_locations.py) that doesn't need rebuilding every week. Rebuild that
-lineage manually when it actually changes:
+src/_geocode/geocode_locations.py) that doesn't need rebuilding every week. For the same
+reason, scrape_metadata (metadata.py -- re_bronze.dim_city_v2/dim_ward_v2/dim_street_v2/
+dim_project_v2, the bronze source for that lineage) isn't a weekly STEP either: scraping it
+fresh every week would just sit unused, since dbt never rebuilds those silver dimension
+models on the weekly schedule anyway. Refresh both manually, together, when the reference
+data actually changes (new city/ward, new project launched, administrative reform):
 
+    python -m src._web2br.metadata
     dbt seed --project-dir dbt --profiles-dir dbt
-    dbt run --project-dir dbt --profiles-dir dbt --select stg_locations_v1+ stg_locations_v2+ stg_projects+
+    dbt run --project-dir dbt --profiles-dir dbt --select dim_location_v1+ dim_location_v2+ dim_project+
 
 Sale ("bán") and rental ("cho thuê") listings are scraped by separate scripts
-(j_real_estate.py vs j_real_estate_rent.py -- split so a bug in one pipeline can't
-affect the other) into separate bronze tables (re_bronze.real_estate vs
-re_bronze.real_estate_rent) and built through separate silver/gold models -- rental
+(real_estate.py vs real_estate_rent.py -- split so a bug in one pipeline can't
+affect the other) into separate bronze tables (re_bronze.fct_real_estate vs
+re_bronze.fct_real_estate_rent) and built through separate silver/gold models -- rental
 prices are monthly rates, not comparable to sale prices, so they never share a table or
-a price bound/bin with the sale lineage. See dbt/models/staging/stg_real_estate_rent.sql.
+a price bound/bin with the sale lineage. See dbt/models/silver/facts/fct_real_estate_rent.sql.
 """
 import subprocess
 import sys
@@ -41,26 +46,31 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DBT_PROJECT_DIR = PROJECT_ROOT / "dbt"
 DBT_FLAGS = ["--project-dir", str(DBT_PROJECT_DIR), "--profiles-dir", str(DBT_PROJECT_DIR)]
 
-# j_real_estate.py/j_real_estate_rent.py default to HCM (--url) when no override is
-# passed; j_projects.py same. HN needs an explicit --url since none of these scripts
+# real_estate.py/real_estate_rent.py default to HCM (--url) when no override is
+# passed; projects.py same. HN needs an explicit --url since none of these scripts
 # derive a city-level URL from --city-code (--city-code only drives district-mode
 # crawling).
 HN_REAL_ESTATE_URL = "https://batdongsan.com.vn/ban-can-ho-chung-cu-ha-noi"
 HN_PROJECTS_URL = "https://batdongsan.com.vn/du-an-bat-dong-san-ha-noi"
 HN_RENT_URL = "https://batdongsan.com.vn/cho-thue-can-ho-chung-cu-ha-noi"
 
-DBT_SELECT = ["stg_real_estate+", "stg_real_estate_rent+"]
+DBT_SELECT = ["fct_real_estate+", "fct_real_estate_rent+"]
+# vw_real_estate_current/vw_real_estate_rent_current (in DBT_SELECT's downstream graph)
+# select from the snp_real_estate/snp_real_estate_rent snapshots, which don't exist yet
+# the first time dbt run executes -- dbt snapshot only creates them straight after.
+# Building the views is deferred to its own step, after the snapshot exists.
+DBT_CURRENT_VIEWS = ["vw_real_estate_current", "vw_real_estate_rent_current"]
 
 STEPS = [
-    ("scrape_real_estate_hcm", [sys.executable, "-m", "src._web2br.j_real_estate", "--mode", "district"]),
-    ("scrape_real_estate_hn", [sys.executable, "-m", "src._web2br.j_real_estate", "--url", HN_REAL_ESTATE_URL]),
-    ("scrape_real_estate_rent_hcm", [sys.executable, "-m", "src._web2br.j_real_estate_rent", "--mode", "district"]),
-    ("scrape_real_estate_rent_hn", [sys.executable, "-m", "src._web2br.j_real_estate_rent", "--url", HN_RENT_URL]),
-    ("scrape_projects_hcm", [sys.executable, "-m", "src._web2br.j_projects"]),
-    ("scrape_projects_hn", [sys.executable, "-m", "src._web2br.j_projects", "--url", HN_PROJECTS_URL]),
-    ("scrape_metadata", [sys.executable, "-m", "src._web2br.j_metadata"]),
-    ("dbt_run", ["dbt", "run", *DBT_FLAGS, "--select", *DBT_SELECT]),
+    ("scrape_real_estate_hcm", [sys.executable, "-m", "src._web2br.real_estate", "--mode", "district"]),
+    ("scrape_real_estate_hn", [sys.executable, "-m", "src._web2br.real_estate", "--url", HN_REAL_ESTATE_URL]),
+    ("scrape_real_estate_rent_hcm", [sys.executable, "-m", "src._web2br.real_estate_rent", "--mode", "district"]),
+    ("scrape_real_estate_rent_hn", [sys.executable, "-m", "src._web2br.real_estate_rent", "--url", HN_RENT_URL]),
+    ("scrape_projects_hcm", [sys.executable, "-m", "src._web2br.projects"]),
+    ("scrape_projects_hn", [sys.executable, "-m", "src._web2br.projects", "--url", HN_PROJECTS_URL]),
+    ("dbt_run", ["dbt", "run", *DBT_FLAGS, "--select", *DBT_SELECT, "--exclude", *DBT_CURRENT_VIEWS]),
     ("dbt_snapshot", ["dbt", "snapshot", *DBT_FLAGS, "--select", *DBT_SELECT]),
+    ("dbt_run_current_views", ["dbt", "run", *DBT_FLAGS, "--select", *DBT_CURRENT_VIEWS]),
     ("dbt_test", ["dbt", "test", *DBT_FLAGS, "--select", *DBT_SELECT]),
 ]
 

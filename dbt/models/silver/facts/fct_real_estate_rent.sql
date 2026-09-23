@@ -1,11 +1,11 @@
--- Rental ("cho thuê") counterpart to stg_real_estate.sql, built from its own bronze
--- table (re_bronze.real_estate_rent, written by src/_web2br/j_real_estate_rent.py -- a
--- separate scraper script from j_real_estate.py) rather than commingled with sale
+-- Rental ("cho thuê") counterpart to fct_real_estate.sql, built from its own bronze
+-- table (re_bronze.fct_real_estate_rent, written by src/_web2br/real_estate_rent.py -- a
+-- separate scraper script from real_estate.py) rather than commingled with sale
 -- listings: a rental price is a monthly rate ("23 triệu/tháng"), never a lump sum (tỷ),
--- so it is not comparable to stg_real_estate.price_num/price_1m2 and must not share
+-- so it is not comparable to fct_real_estate.price_num/price_1m2 and must not share
 -- their bounds/bins downstream (see mart_real_estate_rent.sql).
 --
--- Incremental: same approach as stg_real_estate.sql -- watermark on date_scraped (the
+-- Incremental: same approach as fct_real_estate.sql -- watermark on date_scraped (the
 -- scrape-date column still exposed in the final select; scraped_at is dropped), rn dedup
 -- still scoped per incremental batch, unique_key=product_id merges in rescraped listings.
 
@@ -17,7 +17,7 @@
 }}
 
 with source as (
-    select * from {{ source('bronze', 'real_estate_rent') }}
+    select * from {{ source('bronze', 'fct_real_estate_rent') }}
     {% if is_incremental() %}
     where date_scraped > (select max(date_scraped) from {{ this }})
     {% endif %}
@@ -60,7 +60,7 @@ parsed as (
     select
         *,
         -- Rental cards are always "X triệu/tháng" in practice (never tỷ), but the tỷ
-        -- branch below is kept for parity with stg_real_estate.sql in case a
+        -- branch below is kept for parity with fct_real_estate.sql in case a
         -- source-site data-entry slip ever lists one that way.
         regexp_extract(price_clean, r'^([\d\.]+)(?:tỷ|triệu)') as price_value_str,
         regexp_extract(price_clean, r'^[\d\.]+(tỷ|triệu)') as price_unit,
@@ -107,7 +107,7 @@ final as (
         p.date_scraped,
         p.scraped_at
     from parsed p
-    left join {{ ref('real_estate_type_mapping') }} m on p.matched_token = m.raw_token
+    left join {{ ref('dim_real_estate_type_mapping') }} m on p.matched_token = m.raw_token
 ),
 
 with_price_per_m2 as (
@@ -142,7 +142,7 @@ product_id
 , real_estate_type
 , price_per_month
 , price_per_m2_per_month
--- No is_price_outlier column yet -- stg_real_estate's [5,1000] triệu/m2 bound was
+-- No is_price_outlier column yet -- fct_real_estate's [5,1000] triệu/m2 bound was
 -- derived empirically from real sale listings (see that model's comments); there's no
 -- equivalent observed rental price/m2 distribution yet to calibrate a bound from.
 -- Revisit once there's enough real data to eyeball.

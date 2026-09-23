@@ -5,11 +5,11 @@ sources:
     database: braided-haiku-465415-k5
     schema: re_bronze
     tables:
-      - name: real_estate
+      - name: fct_real_estate
         description: >
-          Raw scraped listings, appended on every scrape run (src/_web2br/j_real_estate.py).
+          Raw scraped listings, appended on every scrape run (src/_web2br/real_estate.py).
           No natural dedup key enforced at write time — multiple rows per listing
-          accumulate across runs; dedup happens in stg_real_estate.
+          accumulate across runs; dedup happens in fct_real_estate (silver).
         config:
           loaded_at_field: scraped_at
           freshness:
@@ -23,17 +23,17 @@ sources:
           - name: scraped_at
             description: >
               UTC timestamp of the scrape run that wrote this row. Added alongside the
-              dbt migration so stg_real_estate can dedupe to the most recent scrape per
-              listing instead of accumulating duplicates forever. Rows scraped before
-              this column existed will have it NULL.
-      - name: real_estate_rent
+              dbt migration so fct_real_estate (silver) can dedupe to the most recent
+              scrape per listing instead of accumulating duplicates forever. Rows
+              scraped before this column existed will have it NULL.
+      - name: fct_real_estate_rent
         description: >
           Raw scraped rental ("cho thuê") listings, written by
-          src/_web2br/j_real_estate_rent.py -- a separate scraper script from the one
-          that writes `real_estate` (src/_web2br/j_real_estate.py), so a bug in one
+          src/_web2br/real_estate_rent.py -- a separate scraper script from the one
+          that writes `fct_real_estate` (src/_web2br/real_estate.py), so a bug in one
           pipeline can't affect the other. Kept in its own table rather than appended to
-          `real_estate` because rental prices are monthly rates, not comparable to sale
-          prices -- see stg_real_estate_rent.sql.
+          `fct_real_estate` because rental prices are monthly rates, not comparable to
+          sale prices -- see fct_real_estate_rent.sql (silver).
         config:
           loaded_at_field: scraped_at
           freshness:
@@ -46,23 +46,23 @@ sources:
             description: Relative or absolute URL of the listing.
           - name: scraped_at
             description: UTC timestamp of the scrape run that wrote this row.
-      - name: projects
-        description: Raw scraped project pages (src/_web2br/j_projects.py). Not yet consumed downstream.
-      - name: m_cities
-        description: "Legacy (v1/old address scheme) city reference table. Frozen — no longer refreshed by src/_web2br/j_metadata.py."
-      - name: m_districts
+      - name: fct_project
+        description: Raw scraped project pages (src/_web2br/projects.py). Not yet consumed downstream.
+      - name: dim_city_v1
+        description: "Legacy (v1/old address scheme) city reference table. Frozen — no longer refreshed by src/_web2br/metadata.py."
+      - name: dim_district_v1
         description: "Legacy (v1) district reference table. Frozen — no longer refreshed."
-      - name: m_wards
+      - name: dim_ward_v1
         description: "Legacy (v1) ward reference table. Frozen — no longer refreshed."
-      - name: m_streets
+      - name: dim_street_v1
         description: "Legacy (v1) street reference table. Frozen — no longer refreshed."
-      - name: m_projects
+      - name: dim_project_v1
         description: "Legacy (v1) project reference table. Frozen — no longer refreshed."
-      - name: m_cities_v2
-        description: Active (post-address-reform) city reference table, refreshed by src/_web2br/j_metadata.py.
-      - name: m_wards_v2
-        description: Active (v2) ward reference table, refreshed by src/_web2br/j_metadata.py.
-      - name: m_streets_v2
-        description: Active (v2) street reference table, refreshed by src/_web2br/j_metadata.py.
-      - name: m_projects_v2
-        description: Active (v2) project reference table, refreshed by src/_web2br/j_metadata.py.
+      - name: dim_city_v2
+        description: Active (post-address-reform) city reference table, refreshed by src/_web2br/metadata.py.
+      - name: dim_ward_v2
+        description: Active (v2) ward reference table, refreshed by src/_web2br/metadata.py.
+      - name: dim_street_v2
+        description: Active (v2) street reference table, refreshed by src/_web2br/metadata.py.
+      - name: dim_project_v2
+        description: Active (v2) project reference table, refreshed by src/_web2br/metadata.py.

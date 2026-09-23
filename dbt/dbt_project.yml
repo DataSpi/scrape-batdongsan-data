@@ -17,7 +17,7 @@ clean-targets:
 
 models:
   batdongsan:
-    staging:
+    silver:
       +schema: re_silver
       +materialized: table
     marts:

@@ -12,33 +12,33 @@ là dimension xoay quanh.
 
 ```mermaid
 erDiagram
-    stg_real_estate }o--|| stg_projects : "projectId"
-    stg_real_estate_rent }o--|| stg_projects : "projectId"
-    stg_projects }o--|| stg_locations_v1 : "districtId (legacy)"
-    stg_projects }o--|| stg_locations_v2 : "wardId (active, chưa wired vào gold)"
+    fct_real_estate }o--|| dim_project : "projectId"
+    fct_real_estate_rent }o--|| dim_project : "projectId"
+    dim_project }o--|| dim_location_v1 : "districtId (legacy)"
+    dim_project }o--|| dim_location_v2 : "wardId (active, chưa wired vào gold)"
 
-    stg_real_estate {
+    fct_real_estate {
         string product_id PK
         string projectId FK
         float price_num
         float price_1m2
     }
-    stg_real_estate_rent {
+    fct_real_estate_rent {
         string product_id PK
         string projectId FK
         float price_per_month
     }
-    stg_projects {
+    dim_project {
         string projectId PK
         string name
         string districtId FK
     }
-    stg_locations_v1 {
+    dim_location_v1 {
         string districtId PK
         string name_district
         string name_city
     }
-    stg_locations_v2 {
+    dim_location_v2 {
         string wardId PK
         string name_ward
         string name_city
@@ -46,7 +46,7 @@ erDiagram
 ```
 
 **Điểm nói khi thuyết trình:**
-- 2 fact riêng (`stg_real_estate` bán, `stg_real_estate_rent` thuê) — giá thuê là giá/tháng,
+- 2 fact riêng (`fct_real_estate` bán, `fct_real_estate_rent` thuê) — giá thuê là giá/tháng,
   không cùng thang với giá bán nên không gộp chung 1 fact.
 - `Location` có **2 version tường minh** (v1 = địa giới cũ, v2 = sau sáp nhập hành chính) thay
   vì SCD tổng quát (`valid_from`/`valid_to`) — vì biết trước domain chỉ đổi đúng 1 lần, build
@@ -63,10 +63,10 @@ cho đúng nhu cầu của BI tool đang dùng.
 ```mermaid
 flowchart LR
     subgraph Silver["re_silver — star schema"]
-        F[stg_real_estate<br/>fact]
-        P[stg_projects<br/>dim]
-        L1[stg_locations_v1<br/>dim, legacy district]
-        L2[stg_locations_v2<br/>dim, active ward]
+        F[fct_real_estate<br/>fact]
+        P[dim_project<br/>dim]
+        L1[dim_location_v1<br/>dim, legacy district]
+        L2[dim_location_v2<br/>dim, active ward]
     end
 
     subgraph Gold["re_gold — OBT"]

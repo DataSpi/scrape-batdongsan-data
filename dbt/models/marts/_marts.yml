@@ -40,7 +40,7 @@ models:
         data_tests:
           - relationships:
               arguments:
-                to: ref('stg_projects')
+                to: ref('dim_project')
                 field: projectId
               config:
                 severity: warn
@@ -93,7 +93,7 @@ models:
     description: >
       Gold layer for rental ("cho thuê") listings -- rent counterpart to
       mart_real_estate, built from its own bronze/silver lineage
-      (re_bronze.real_estate_rent -> stg_real_estate_rent) since rental prices are
+      (re_bronze.fct_real_estate_rent -> fct_real_estate_rent) since rental prices are
       monthly rates, not comparable to sale prices.
     config:
       contract:
@@ -129,7 +129,7 @@ models:
         data_tests:
           - relationships:
               arguments:
-                to: ref('stg_projects')
+                to: ref('dim_project')
                 field: projectId
               config:
                 severity: warn

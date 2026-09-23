@@ -1,7 +1,7 @@
 -- Rent counterpart to snp_real_estate.sql -- see that file for the full rationale
 -- (check_cols choice, invalidate_hard_deletes). price_num/price_1m2 become
 -- price_per_month/price_per_m2_per_month since rental prices are monthly rates, not
--- comparable to sale prices (same split as stg_real_estate_rent.sql).
+-- comparable to sale prices (same split as fct_real_estate_rent.sql).
 
 {% snapshot snp_real_estate_rent %}
 
@@ -25,6 +25,6 @@
     )
 }}
 
-select * from {{ ref('stg_real_estate_rent') }}
+select * from {{ ref('fct_real_estate_rent') }}
 
 {% endsnapshot %}

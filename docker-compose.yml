@@ -37,7 +37,7 @@ services:
       - ./data:/app/data
     # Default command matches the CMD in Dockerfile (full weekly pipeline).
     # Override for one-off steps, e.g.:
-    #   docker compose run pipeline python -m src._web2br.j_metadata
+    #   docker compose run pipeline python -m src._web2br.metadata
 
   # Airflow's own metadata DB -- unrelated to the legacy Malloy/Supabase Postgres
   # referenced by DB_* in .env, kept on a separate service/volume on purpose.
