@@ -16,6 +16,13 @@ models:
       - name: link
         data_tests:
           - not_null
+      - name: agent_phone_hash
+        description: >
+          SHA-256 (hex) of the raw agent phone number scraped off the listing card.
+          The raw number is never selected as its own column anywhere past the model's
+          `final` CTE -- this hash is the only trace of it in re_silver/re_gold. Lets
+          downstream analysis identify repeat postings by the same agent without
+          storing a callable phone number.
       - name: is_price_outlier
         description: >
           True when price_1m2 is < 5 or > 1000 triệu/m2 -- outside every observed
@@ -40,3 +47,7 @@ models:
       - name: link
         data_tests:
           - not_null
+      - name: agent_phone_hash
+        description: >
+          SHA-256 (hex) of the raw agent phone number scraped off the listing card --
+          see fct_real_estate.agent_phone_hash above for the rationale.

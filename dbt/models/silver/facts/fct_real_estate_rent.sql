@@ -48,10 +48,12 @@ type_matched as (
 price_area as (
     select
         *,
-        lower(replace(replace(price, ',', '.'), ' ', '')) as price_clean,
         -- Vietnamese number format: '.' is a thousands separator, ',' is the decimal
         -- point (e.g. "1.030 m²" = 1030, "76,5 m²" = 76.5) -- strip the former before
-        -- converting the latter, or "1.030" parses as the float 1.03.
+        -- converting the latter, or "1.030" parses as the float 1.03. Same treatment as
+        -- price in fct_real_estate.sql -- no rent row hits this today (rents stay well
+        -- under 1000 triệu/tháng), but the bug would be silent if one ever did.
+        lower(replace(replace(replace(price, '.', ''), ',', '.'), ' ', '')) as price_clean,
         replace(replace(area, '.', ''), ',', '.') as area_clean
     from type_matched
 ),
@@ -86,8 +88,9 @@ final as (
         p.toilets,
         p.location,
         p.description,
-        p.agent_name,
-        p.phone,
+        -- Hashed rather than carried through raw -- see fct_real_estate.sql for the
+        -- rationale (same treatment, same scraper field, separate bronze table).
+        to_hex(sha256(p.phone)) as agent_phone_hash,
         p.intent,
         p.pageType,
         p.productId,
@@ -151,8 +154,7 @@ product_id
 , toilets
 -- , location
 -- , description
--- , agent_name
--- , phone
+, agent_phone_hash
 , intent
 -- , pageType
 -- , productId
