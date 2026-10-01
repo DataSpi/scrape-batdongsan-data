@@ -14,18 +14,24 @@ là dimension xoay quanh.
 erDiagram
     fct_real_estate }o--|| dim_project : "projectId"
     fct_real_estate_rent }o--|| dim_project : "projectId"
-    dim_project }o--|| dim_location_v1 : "districtId (legacy)"
+    fct_real_estate }o--o| dim_location_v1 : "districtId (direct, ưu tiên)"
+    fct_real_estate_rent }o--o| dim_location_v1 : "districtId (direct, ưu tiên)"
+    dim_project }o--|| dim_location_v1 : "districtId (fallback khi listing thiếu)"
     dim_project }o--|| dim_location_v2 : "wardId (active, chưa wired vào gold)"
+    fct_real_estate }o--|| dim_real_estate_type_mapping : "matched_token → real_estate_type"
+    fct_real_estate_rent }o--|| dim_real_estate_type_mapping : "matched_token → real_estate_type"
 
     fct_real_estate {
         string product_id PK
         string projectId FK
+        int districtId FK
         float price_num
         float price_1m2
     }
     fct_real_estate_rent {
         string product_id PK
         string projectId FK
+        int districtId FK
         float price_per_month
     }
     dim_project {
@@ -43,6 +49,10 @@ erDiagram
         string name_ward
         string name_city
     }
+    dim_real_estate_type_mapping {
+        string raw_token PK
+        string real_estate_type
+    }
 ```
 
 **Điểm nói khi thuyết trình:**
@@ -51,9 +61,18 @@ erDiagram
 - `Location` có **2 version tường minh** (v1 = địa giới cũ, v2 = sau sáp nhập hành chính) thay
   vì SCD tổng quát (`valid_from`/`valid_to`) — vì biết trước domain chỉ đổi đúng 1 lần, build
   engine SCD generic là over-engineering.
-- Chi tiết thực tế hay: listing **không join thẳng** vào `Location` bằng districtId/wardId của
-  chính nó — join **qua `Project`** (`projectId` → `Project.districtId`), vì FK district/ward
-  trực tiếp trên listing thiếu dữ liệu nhiều hơn FK qua project.
+- Chi tiết thực tế hay: listing **join thẳng** vào `Location` bằng `districtId` của chính nó
+  (ưu tiên), chỉ fallback qua `Project` (`projectId` → `Project.districtId`) khi `districtId`
+  trên listing là `0`/null. FK trực tiếp đáng tin được là nhờ một fix ở tầng scrape: site trả
+  `districtId=0` (sentinel "chưa resolve địa giới cũ") cho **mọi** listing — kể cả nhà đất
+  không có `projectId` — nếu crawl bằng URL cấp thành phố; crawl riêng từng quận
+  (`src/_web2br/real_estate.py:crawl_city_by_district`) mới ép site trả `districtId`/`wardId`
+  thật. Trước fix đó, FK trực tiếp trên listing đúng là thiếu dữ liệu hơn FK qua project — giờ
+  thì ngược lại.
+- `real_estate_type` cũng đi qua 1 dimension lookup nhỏ — `dim_real_estate_type_mapping` (seed,
+  không phải bảng scrape) — resolve từ token match trong URL slug, dùng chung cho cả 2 fact.
+  Không persist `raw_token`/FK trong `fct_*` (chỉ giữ `real_estate_type` đã resolve), nên đây là
+  lookup áp dụng lúc build silver, không phải quan hệ để downstream tự join.
 
 ## 2. Gold — One Big Table (physical/serving model)
 
@@ -63,10 +82,10 @@ cho đúng nhu cầu của BI tool đang dùng.
 ```mermaid
 flowchart LR
     subgraph Silver["re_silver — star schema"]
-        F[fct_real_estate<br/>fact]
-        P[dim_project<br/>dim]
-        L1[dim_location_v1<br/>dim, legacy district]
-        L2[dim_location_v2<br/>dim, active ward]
+        F[fct_real_estate]
+        P[dim_project]
+        L1["dim_location_v1<br/>(legacy district)"]
+        L2["dim_location_v2<br/>(active ward)"]
     end
 
     subgraph Gold["re_gold — OBT"]
@@ -74,7 +93,8 @@ flowchart LR
     end
 
     F -->|projectId| M
-    P -->|districtId| M
+    F -->|"districtId (ưu tiên)"| M
+    P -->|"districtId (fallback)"| M
     L1 -->|district_name, city_name, lat/lng| M
     L2 -.chưa wired.-> M
 ```

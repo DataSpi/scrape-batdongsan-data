@@ -1,180 +1,162 @@
-# AE - TPF Interview — Script thuyết trình (dự án scrape-batdongsan-data)
+# Interview Prep — scrape-batdongsan-data
 
-Script Show → Why → What-if cho 5 core area, dùng dự án này làm bằng chứng sống. Thời lượng
-theo đề bài: 5 phút overview + 75 phút (15 phút/area, tối đa 3 sub-topic/area, ~5 phút/sub-topic)
+Bám theo `Infinite Lambda Interview Prep.excalidraw`. Mỗi mục: **câu chốt** + vài bullet để nói.
 
-+ 10 phút Q&A.
+## 0. Overview
 
-## 0. Overview (~5 phút)
+```text
+batdongsan.com ──python scraper──▶ BigQuery ──dbt──▶ Looker Studio
+```
 
-+ Dự án cá nhân, 1 mình maintain: scrape bất động sản từ batdongsan.com.vn → BigQuery
-  (`re_bronze` → `re_silver` → `re_gold` qua dbt) → Looker Studio.
-+ Tech stack đúng yêu cầu: **dbt Core** (transform) + **BigQuery** (cloud DWH) + **Looker
-  Studio** (BI, nối trực tiếp `re_gold`).
-+ Thứ tự trình bày: Data Modeling → Data Transformation → Data Governance → Data Insight →
-  DataOps (báo trước cho interviewer theo đúng format đề bài cho phép).
-+ Ràng buộc thiết kế xuyên suốt dự án, nên nhắc ngay từ đầu: batdongsan.com.vn chặn IP
-  cloud/CI runner → scrape bắt buộc chạy từ IP dân dụng → orchestration mặc định là
-  **launchd bare-metal** trên máy cá nhân (`scripts/run_weekly_pipeline.sh` +
-  `.plist`), và vì sao GitHub Actions không chạy scrape thật (chỉ lint/dbt compile/docker
-  build). Airflow self-hosted (docker-compose, từ Stage 2) vẫn còn trong repo như path tuỳ
-  chọn cho ai muốn UI/retry/backfill, nhưng không phải default — chi tiết ở mục 5.
++ Dự án 1 người: scrape BĐS HCM + HN, chạy hằng tuần → BigQuery (`re_bronze` → `re_silver` → `re_gold`) → Looker Studio.
++ Ràng buộc gốc: site chặn IP cloud → scrape phải chạy từ IP nhà (laptop, launchd).
++ **Câu chốt:** *"Dự án nhỏ — điều đáng nói là tôi chọn dừng ở đâu, và sẽ làm khác gì nếu đây là hệ thống của khách hàng."*
 
-## 1. Data Modeling & Architecture (~15 phút)
+## 1. Data Modeling
 
-Chi tiết đầy đủ + mermaid ERD: [data-modeling.md](data-modeling.md). Tóm tắt để nói:
+![Evolution: apartments → projects → districts → cities](figs/data-model-evolution-flow.png)
 
-+ **Show**: silver = star schema (`fct_real_estate` fact, `dim_project`/`dim_location_v1(v2)`
-  dimension). Gold = OBT (`mart_real_estate`, `mart_real_estate_rent`) — pre-join sẵn.
-+ **Why**: OBT ở gold không phải re-model domain, chỉ physicalize lại star schema ở silver
-  cho đúng constraint của Looker Studio (free tier join kém).
-+ **What-if**: volume tăng / nhiều BI tool khác / thêm fact mới → quay lại re-project silver
-  thành star schema thật ở gold, không patch tiếp OBT.
-+ **Show (naming nhất quán xuyên layer — mới)**: prefix `fct_`/`dim_` không chỉ dùng ở silver mà
-  áp cả xuống bronze — `re_bronze.fct_real_estate`/`fct_real_estate_rent`/`fct_project` (raw,
-  event-grain) và `re_bronze.dim_city_v1`/`dim_district_v1`/`dim_ward_v1`/`dim_street_v1`/
-  `dim_project_v1` (+ `_v2` cho hierarchy active) thay cho prefix `m_` (meta) cũ, cộng 3 seed
-  `dim_real_estate_type_mapping`/`dim_district_geo_v1`/`dim_ward_geo_v2`. Lý do đổi: `m_` với
-  `dim_` cùng nói lên đúng 1 việc (bảng lookup/reference), tồn tại song song 2 từ vựng chỉ gây rối
-  chứ không thêm tín hiệu gì — hợp nhất về 1 vocabulary duy nhất xuyên suốt 3 layer, tên bảng lặp
-  lại giữa `re_bronze`/`re_silver` (VD `fct_real_estate` ở cả 2 schema) tự nói lên lineage: cùng 1
-  entity, khác mức độ refine, schema là trục phân biệt layer, prefix là trục phân biệt vai trò
-  (fact/dim) — 2 trục độc lập, không lẫn vào nhau.
-+ **Why (rename tại chỗ, không rebuild)**: đổi tên qua BigQuery `ALTER TABLE ... RENAME TO` thay
-  vì để dbt tự tạo bảng mới rồi bỏ bảng cũ — giữ nguyên toàn bộ data/lịch sử tức thì (không tốn
-  compute quét lại bronze), verify bằng row count trước/sau khớp tuyệt đối, và `dbt snapshot` chạy
-  lại sau đó báo đúng "0 rows changed" — xác nhận rename không vô tình tạo lịch sử SCD2 giả.
++ **v1 (chỉ chung cư):** `apartments → projects → districts → cities`. Join location qua `projectId`, vì:
+    + Năm 2025 sáp nhập địa giới: HN hiển thị theo địa giới cũ (`districtId`), HCM theo địa giới mới (`wardId`), không map 1:1.
+    + `projectId` không đổi qua đợt sáp nhập → dùng làm cầu nối.
++ **v2 (thêm nhà đất):** nhà đất không có `projectId` → sửa ở **tầng scrape**: cào theo từng `districtId` cũ, site trả về đúng version địa giới mình cần.
 
-## 2. Data Transformation (~15 phút)
+![Star schema ở silver](figs/data-model-star-schema.png)
 
-+ **Show**:
-    + Dedup thật bằng `row_number() over (partition by product_id order by scraped_at desc)`
-    trong `fct_real_estate.sql`/`fct_real_estate_rent.sql` — thay cho script Python cũ
-    (`src/_br2sil/`) chỉ log trùng lặp, không thực sự dedup.
-    + Business logic đáng nói: parse số Việt Nam (`.` = phân nghìn, `,` = phân cách thập
-    phân), match `real_estate_type` từ slug URL với thứ tự ưu tiên tránh substring shadowing
-    (comment rõ trong code), seed `dim_real_estate_type_mapping` để chuẩn hoá nhãn.
-    + 5 custom singular test trong `dbt/tests/` (giá/diện tích âm, outlier giá/m2, type lạ
-    chưa map...), có phân biệt `severity: error` vs `warn`.
-+ **Why**: `+materialized: table` cho cả silver + marts (`dbt_project.yml`) — full-refresh mỗi
-  lần chạy, không incremental. Chọn vậy vì data nhỏ, pipeline chạy weekly, và full-refresh
-  đảm bảo mọi thay đổi ở dimension (silver) tự động propagate đúng vào gold mà không cần logic
-  merge riêng.
-+ **Show (kỹ thuật dbt nâng cao — mới)**: `dbt/snapshots/snp_real_estate.sql` +
-  `snp_real_estate_rent.sql` — SCD2 history thật, xây trên `fct_real_estate` (đã dedup) chứ
-  không phải bronze thô. `strategy: check` với `check_cols` liệt kê tường minh (loại cột
-  near-static như `districtId` và cột noisy như `title`, không dùng `'all'`). `hard_deletes=
-  'new_record'`: khi 1 `product_id` biến mất khỏi nguồn (tin bị gỡ/bán), snapshot đóng dòng cũ
-    + insert 1 dòng mới `dbt_is_deleted='True'` làm "trạng thái hiện tại" — đọc qua view
-  `vw_real_estate_current`. Đây trực tiếp trả lời được What-if "cần historical analysis" đặt ra
-  ở mục Data Modeling — không còn là giả thuyết, đã build thật.
-+ **Chính xác cần biết** — snapshot dùng insert-only logic giống incremental nhưng là
-  **resource type riêng** trong dbt DAG (`{% snapshot %}`), **không phải**
-  `materialized='incremental'` trên 1 model thường — 2 khái niệm khác nhau, đừng nhận lầm
-  snapshot là "đã có incremental rồi" nếu bị hỏi.
-+ **Show (đã đóng gap incremental)**: `fct_real_estate.sql`/`fct_real_estate_rent.sql` giờ
-  `materialized='incremental'`, `unique_key='product_id'`. Watermark filter đặt trên
-  `source('bronze', ...)`: `{% if is_incremental() %} where date_scraped > (select
-  max(date_scraped) from {{ this }}) {% endif %}` — dùng `date_scraped` chứ không phải
-  `scraped_at`, vì `scraped_at` bị comment out khỏi select cuối (dòng cuối file) nên không đọc
-  lại được từ `{{ this }}`; `date_scraped` là cột duy nhất còn giữ đủ tín hiệu thời gian ở
-  output. Dedup `row_number()` vẫn chạy như cũ, chỉ scope lại theo từng batch incremental
-  (an toàn cho rerun ghi trùng bronze trong cùng batch). Verify bằng `dbt compile` (không cần
-  chạy thật): `is_incremental()` trả `True` ngay vì bảng đã tồn tại từ lần full-refresh trước
-  — không cần `--full-refresh` khi chuyển, vì bảng cũ đã có đủ lịch sử deduped, chỉ merge thêm
-  batch mới vào từ watermark hiện tại.
-+ **What-if (câu hỏi tự nhiên nhất): "đổi materialization ở silver có làm vỡ mart/snapshot
-  không?"** — Không, cả `mart_real_estate(_rent)` và `snp_real_estate(_rent)` chỉ làm
-  `select * from {{ ref('fct_real_estate') }}`; `ref()` luôn trả về **state đầy đủ, mới nhất**
-  của bảng, bất kể bảng được build bằng incremental merge hay full-refresh table — không cần
-  sửa 1 dòng code nào ở downstream. Đây là điểm đáng nói: dbt `ref()` che giấu physical
-  materialization khỏi consumer, nên đổi materialization ở 1 layer là thay đổi cục bộ, an toàn
-  theo thiết kế. `dim_project`/`dim_location_v1/v2` vẫn để `table` — dữ liệu tham chiếu
-  near-static, incremental không mang lại lợi ích.
++ **Star schema ở silver:** `fct_real_estate`, `fct_real_estate_rent` × `dim_project`, `dim_geo_v1`, `dim_real_estate_type`.
++ **Gold = 2 OBT** (bán, thuê), vì Looker Studio free join rất yếu.
++ **Naming:** `fct_`/`dim_` ở cả bronze lẫn silver. Rename 20 bảng production bằng `ALTER TABLE ... RENAME TO`, verify bằng row count khớp + `dbt snapshot` báo 0 rows changed (reconciliation).
 
-## 3. Data Governance — Quality & Security (~15 phút)
+## 2. Data Transformation
 
-+ **Show (data quality)**: 2 lớp test trong `dbt/`:
-    + Generic tests (`not_null`, `unique`, `relationships` với `severity: warn` cho FK
-    `projectId` — vì ~5% listing thiếu project, không muốn fail cả build vì 1 FK optional).
-    + Contract enforced (`config.contract.enforced: true`) trên cả 2 model gold — dbt sẽ fail
-    build nếu column/type lệch khỏi khai báo trong `_marts.yml`, khoá schema ở đúng biên giữa
-    silver và gold.
-    + 5 custom singular test (mục 2) — business rule không generic test nào cover được (giá âm,
-    outlier giá/m2, type chưa biết).
-+ **Show (sensitive data)**: bronze scrape có PII thật — `agent_name`, `phone` của người đăng
-  tin (`src/_web2br/real_estate.py:101-123`). Ở `fct_real_estate.sql` (silver), 2 cột này được
-  select vào CTE trung gian rồi **comment out khỏi select cuối** (dòng 170-171) — PII bị cắt
-  ngay biên bronze→silver, không bao giờ chạm tới gold/BI. Đây là data minimization, không phải
-  mask/hash — nói rõ sự khác biệt nếu bị hỏi ("tại sao không hash thay vì xoá hẳn": vì listing
-  agent contact không phục vụ bất kỳ metric phân tích nào ở gold, giữ lại chỉ tăng surface lộ
-  dữ liệu mà không tăng giá trị).
-    + Secrets: `gcp_service_account.json` + `dbt/profiles.yml` đều gitignored; CI dùng
-    `GCP_CREDENTIALS_JSON` (GitHub Actions secret, base64) thay vì mount key file
-    (`.github/workflows/dbt-ci.yml`); `GITHUB_TOKEN` trong `docker-build-push` job chỉ xin
-    đúng 2 quyền cần (`contents: read`, `packages: write`) — least privilege.
-+ **What-if (gap thật, chuẩn bị sẵn câu trả lời)**: hiện **không có environment isolation** —
-  `dbt/macros/get_custom_schema_name.sql` override để schema luôn là đúng tên custom
-  (`re_silver`/`re_gold`) bất kể `target`, nghĩa là target `dev` và target thật đang ghi vào
-  **cùng** dataset. Nếu được hỏi "vậy dev/staging tách sao": trả lời thật — chưa tách, vì 1
-  mình dev + data không nhạy cảm ở mức cần isolation; hướng mở rộng tự nhiên là thêm
-  `{{ target.name }}` vào tên schema khi `target != prod`, hoặc dùng project GCP riêng cho dev.
+| Transformation layer | Làm gì | Medallion |
+|---|---|---|
+| python | raw HTML → fields (BeautifulSoup + regex `pageTrackingData`) | **bronze** |
+| intermediate | chuẩn hoá kiểu, flag outlier, dedup | **silver** (+ **snapshot**) |
+| mart | join thành OBT, binning, loại outlier | **gold** |
 
-## 4. Data Insight (~15 phút)
++ **Bug dedup 294 listing:** script pandas cũ dedup theo 10 ký tự cuối của link, nên dính query string `?c=d1` → port sang dbt thì phát hiện ra. Sửa bằng `row_number() over (partition by product_id order by scraped_at desc)`.
++ **Incremental:** `fct_*` chuyển từ `table` sang `incremental`, watermark theo `date_scraped`. Đổi materialization không ảnh hưởng downstream, vì `ref()` che physical layer.
++ **SCD2 snapshot:**
 
-+ **Show**: [Looker Studio dashboard](https://lookerstudio.google.com/reporting/9e21618f-97dc-4480-b101-cbda26b9b2a5)
-  nối **trực tiếp** BigQuery `re_gold.mart_real_estate` bằng BigQuery connector — không qua
-  semantic layer trung gian. Lineage khai báo tường minh bằng dbt exposure
-  (`dbt/models/marts/_exposures.yml`, `depends_on: ref('mart_real_estate')`) — hiện luôn trong
-  `dbt docs generate`/DAG, nối BI vào đúng graph của dbt thay vì là 1 kết nối "vô hình" ngoài
-  version control.
-+ **Why (nối lại với Data Modeling)**: chính vì Looker Studio free tier join kém nên gold được
-  thiết kế OBT — `district_name`, `city_name`, `bin_price`/`bin_price_order` đã được resolve
-  và bin sẵn trong `mart_real_estate.sql`, nghĩa là filter/group theo quận hoặc theo khoảng giá
-  ngay trên Looker Studio **không cần thêm 1 phép join hay CASE WHEN nào ở BI layer** — toàn bộ
-  logic đã test trong dbt.
-+ **Show (SQL logic + business impact)**: metric trung tâm là giá/m2 theo quận/dự án.
-  `is_price_outlier` (`fct_real_estate.sql`) loại các listing có `price_1m2 < 5` hoặc `> 1000`
-  triệu/m2 — bắt lỗi nhập liệu ở nguồn (VD product_id 45698293, lệch đơn vị triệu/tỷ), gold
-  filter hẳn các row này ra (`where not is_price_outlier`) để dashboard không bị outlier kéo
-  lệch trung bình/phân phối giá — business impact: người xem dashboard (kể cả bản thân dùng
-  để viết blog Substack) không bị đánh giá sai thị trường vì 1 vài lỗi nhập liệu hiếm.
-+ **What-if**: thêm 1 metric mới (VD giá thuê/m2 theo quận) — chỉ cần thêm 1 CASE WHEN bin
-  trong `mart_real_estate_rent.sql` (đã có `bin_price_per_month`), không cần đổi gì ở BI vì
-  Looker Studio đọc trực tiếp cột mới ngay sau `dbt run`.
+```sql
+{% snapshot snp_real_estate %}
+{{ config(
+    target_schema='re_silver', unique_key='product_id', strategy='check',
+    check_cols=['price_num','price_1m2','is_price_outlier','area_num','bedrooms',
+                'toilets','real_estate_type','expired','vipType','productType'],
+    hard_deletes='new_record'
+) }}
+select * from {{ ref('fct_real_estate') }}
+{% endsnapshot %}
+```
 
-## 5. DataOps (~15 phút)
+    + Dùng `check` thay vì `timestamp` vì `scraped_at` là lúc *tôi cào*, không phải lúc tin *đổi*.
+    + `check_cols` liệt kê tường minh: bỏ `title` (noisy) và `districtId` (gần như tĩnh).
+    + `hard_deletes='new_record'`: tin bị gỡ → thêm 1 dòng mới `dbt_is_deleted`, đọc qua view `vw_real_estate_current`.
 
-+ **Show (git branching)**: 1 branch/PR riêng cho mỗi stage — `chore/init-claude-md`,
-  `feat/stage2-docker`, `feat/stage2-airflow`, `feat/stage2-cicd`, `feat/stage2-docs` (xem
-  `git log --oneline --graph --all`). Có cả merge commit thật (`af4b83a`) mang fix từ
-  `stage2-docker` sang nhánh `stage2-airflow` trước khi cả 2 lên `main` — không phải fake
-  history.
-+ **Show (CI/CD)**: `.github/workflows/`:
-    + `ci.yml` — lint (`ruff check .`) mọi PR; `docker-build-push` build mọi PR (validate
-    Dockerfile) nhưng **chỉ push GHCR khi merge vào `main`** (`if: github.event_name == 'push'
-    && github.ref == 'refs/heads/main'`), tag cả `latest` và `${{ github.sha }}` — có thể
-    rollback về đúng commit.
-    + `dbt-ci.yml` — path-filtered (`paths: dbt/**`) để PR không đụng dbt không tốn 1 lượt
-    BigQuery round-trip; chạy `dbt compile --target ci` với service-account JSON từ secret,
-    không phải file mount.
-+ **Why**: CI không chạy scrape/pipeline thật vì GitHub-hosted runner bị chặn IP — tách rõ
-  "CI lo fast feedback (lint/compile/build)" khỏi "runtime thật chạy trên máy cá nhân" — đúng
-  ràng buộc IP nhắc ở phần Overview, không phải thiếu sót.
-+ **Cập nhật quan trọng (Giai đoạn 3 — đảo ngược 1 phần Stage 2)**: orchestration mặc định
-  không còn là Airflow self-hosted nữa mà là **launchd bare-metal**
-  (`scripts/run_weekly_pipeline.sh` + `scripts/com.dataspi.batdongsan-weekly.plist`) — không
-  Docker, không process nào chạy 24/7. Lý do đảo ngược: Airflow cần `airflow-scheduler` +
-  Postgres metadata chạy liên tục chỉ để bắn đúng 1 job/tuần — chi phí vận hành không tương
-  xứng với giá trị cho 1 máy cố định chạy 1 job định kỳ. Airflow (`dags/`, docker-compose)
-  **vẫn còn trong repo** như path tuỳ chọn cho ai muốn UI/retry/backfill — không phải xoá bỏ,
-  chỉ không còn là default. Nếu bị hỏi "vậy Stage 2 Docker/Airflow làm gì": vẫn là evidence tốt
-  cho containerize + CI/CD build, chỉ không còn là đường vận hành chính.
-+ **Release process**: image `:latest` + `:sha` vẫn lên GHCR (`ghcr.io/<repo>`) sau khi merge
-  `main`, phục vụ path Docker/Airflow tuỳ chọn. Với vận hành mặc định (launchd), không có khái
-  niệm "deploy image" — chỉ `git pull` code mới trên máy, launchd tự chạy theo lịch
-  (`StartCalendarInterval`, bắn bù nếu máy đang ngủ đúng giờ).
-+ **What-if**: cần rollback nhanh cho path Docker/Airflow — đã có tag theo sha nên chỉ cần đổi
-  tag trong `docker-compose.yml` rồi `docker compose up -d`, không cần rebuild. Cần thêm staging
-  env trước khi lên main — thêm 1 job `docker-build-push` riêng chạy trên branch `develop`, push
-  tag `:staging` thay vì `:latest`.
+## 3. Data Quality
+
+![dbt lineage DAG](figs/dbt-lineage-dag.png)
+
++ **Silver:** `not_null` + `unique` trên khoá.
++ **Gold:** data contract (`contract.enforced`) khoá tên cột + data type → nếu schema lệch thì `dbt run` fail luôn, không đẩy xuống Looker.
++ **5 custom singular test (silver):**
+    + `assert_known_real_estate_type(_rent)`
+    + `assert_no_negative_price_or_area(_rent)`
+    + `assert_no_price_per_m2_outliers`
++ Thêm: source `freshness` (warn 10 ngày / error 21 ngày), FK `projectId` để `severity: warn` (~5% thiếu là hành vi thật của nguồn), hash `phone` ngay tại silver.
++ **Tự nêu gap:** chưa có alert khi test fail, freshness đã khai báo nhưng chưa nằm trong STEPS.
+
+## 4. Data Insights
+
+![Dashboard Looker Studio](figs/looker-studio-dashboard.png)
+
+Blog: <https://spyno.substack.com/p/i-xem-chung-cu-cung-tho-so-p2>
+
+| Metric | Join | Aggregation / Filter | Business impact |
+|---|---|---|---|
+| Giá/m² theo quận | `fct_real_estate` ⋈ `dim_project` ⋈ `dim_location_v1` | bin `price_1m2`, loại `is_price_outlier` (5–1.000 tr/m²) | So giá giữa các quận mà không bị lỗi nhập đơn vị kéo lệch |
+| Phân khúc giá bán | (như trên) | 6 bucket theo `price_num` (tỷ) | Lọc theo ngân sách trên dashboard |
+| Giá thuê/tháng theo quận | `fct_real_estate_rent` ⋈ `dim_project` ⋈ `dim_location_v1` | bin giá thuê, **chưa** có outlier filter | So chi phí thuê; gap được công khai, không giấu |
+| **P/R ratio HCM vs HN** | 2 fact riêng + conformed dimension | `avg(price_1m2)` / giá thuê quy về tr/m², theo `city_name` | HCM ~29.6 năm, HN ~40 năm → giá bán ở HN xa giá trị sử dụng hơn |
+
++ Metric P/R chỉ tính được nhờ conformed dimension. Hiện nó nằm ở blog, chưa lên dashboard. Hướng vá: làm `mart_price_to_rent`.
+
+## 5. DataOps
+
+| Practice | Evidence | Why it matters |
+|---|---|---|
+| 1 branch/PR mỗi stage | `init-claude-md → stage2-docker → stage2-airflow → stage2-cicd → stage2-docs`, merge commit thật `af4b83a` | Giao dần từng phần thật, lịch sử không dựng lại cho đẹp |
+| CI fast feedback, gated push | `ruff` + build Docker mọi PR; chỉ push GHCR khi merge `main` | PR nào cũng được check rẻ; chỉ code đã merge mới ra artifact |
+| dbt CI theo path | `dbt-ci.yml` filter `dbt/**`, `dbt compile --target ci`, SA từ secret | PR không đụng dbt thì không tốn BigQuery; credentials không nằm trên disk |
+| Release gắn tag | `:latest` + `:${{ github.sha }}` | Rollback = đổi tag, không cần rebuild |
+| **Đảo ngược Airflow** | Airflow self-host tốn ~1–1.5GB RAM 24/7 cho 1 job/tuần → chuyển sang launchd bare-metal | Câu chuyện "consultant" nhất: đo chi phí thật rồi đổi. DAG vẫn giữ trong repo |
+
++ Bỏ Airflow thì mất: retry, backfill, lịch sử run → biết tự bù bằng cách nào (backoff quanh `run_step()`, tham số ngày, bảng log run).
+
+## 6. What if... data 10x?
+
+**Giả định:** nguồn là API nội bộ (không lo IP, rate limit), data gấp 10 lần: ~470k rows/run, ~235MB/run.
+
+**Câu chốt:** *10x của small data vẫn là small data → đổi pattern, không đổi tool.*
+
+### 6.1 Hạ tầng & giá
+
+Bỏ laptop + launchd → 1 server Linux chạy Docker image có sẵn trên GHCR.
+
+| Thành phần | Chọn | Giá/tháng |
+|---|---|---|
+| Server | VPS 2vCPU/4GB (Hetzner, DigitalOcean) | ~$5–12 |
+| Object storage | GCS (hoặc MinIO tự host → $0) | < $1 |
+| BigQuery | storage + compute (mục 6.4) | ~$0–10 |
+| Alert / health check | Telegram bot + healthchecks.io | $0 |
+| **Tổng** | | **~$5–20** |
+
++ Thay thế nếu không muốn giữ server: Cloud Run Jobs + Cloud Scheduler (~$0–5, tính theo giây chạy).
+
+### 6.2 Ops: log & alert
+
++ **Lịch:** systemd timer thay launchd (`Persistent=true` → chạy bù nếu lỡ lịch), `flock` chặn 2 run đè nhau.
++ **Retry:** backoff quanh từng step trong `run_pipeline.py`.
++ **Log:** journald + 1 file log theo `run_id`; mỗi step ghi 1 dòng vào bảng BQ `pipeline_runs` (`run_id, step, start, end, status, rows`) → có lịch sử run, cắm được vào Looker Studio.
++ **Alert 2 lớp:**
+    + **Telegram bot** khi fail (`OnFailure=` của systemd): tên step, exit code, 30 dòng log cuối.
+    + **healthchecks.io** (dead man's switch): chạy xong thì ping, quá hạn không ping → alert. Bắt được cả lúc server chết.
++ Warning (test `warn`, freshness) → gom thành digest email hằng tuần, không push → tránh alert fatigue.
+
+### 6.3 Không giữ hết data trong RAM → Parquet
+
+```text
+API ──▶ Python (flush mỗi N trang) ──▶ Parquet ──▶ object storage ──load job──▶ BigQuery re_bronze
+```
+
++ Scraper ghi Parquet theo từng chunk thay vì dồn 1 DataFrame lớn → RAM phẳng, không phụ thuộc volume.
++ File partition theo ngày: `raw/fct_real_estate/date=2026-09-25/part-0001.parquet`.
++ Object storage = lớp raw bất biến → **re-load/backfill** BigQuery mà không phải gọi lại API.
++ Load idempotent: `WRITE_TRUNCATE` vào đúng partition (`fct_real_estate$20260925`) → chạy lại không nhân đôi.
+
+| | GCS (cloud) | MinIO (open source) |
+|---|---|---|
+| Là gì | Object storage của GCP | S3-compatible, tự host bằng Docker trên VPS |
+| Giá | ~$0.02/GB/tháng → < $1 | $0, tốn disk VPS |
+| Nối BigQuery | Load thẳng từ `gs://` (free), hoặc external table | Không load thẳng được → Python đọc file rồi load |
+| Vận hành | Không phải lo | Tự backup, tự lo đầy disk |
+| Khi nào chọn | **Đã ở GCP → chọn cái này** | Khách on-prem / muốn cloud-agnostic / không được đẩy data lên cloud |
+
+### 6.4 Tối ưu giá BigQuery
+
+BigQuery tính tiền **storage + bytes query quét**, không tính data vào/ra: load job free, kết quả query free.
+
+| Việc | Áp dụng |
+|---|---|
+| **Partition** | `partition_by date_scraped` cho bronze + `fct_*` → query/test chỉ quét ngày cần |
+| **Cluster** | `cluster_by product_id` (MERGE nhanh, không quét hết bảng), `cityCode`/`districtId` (filter dashboard) |
+| **Ép filter** | `require_partition_filter=true` ở bronze → không ai lỡ tay quét full |
+| **Test nhẹ** | config `where: "date_scraped >= current_date - 7"` cho test nặng |
+| **Không `select *`** | mart chỉ lấy cột dashboard dùng — BQ tính theo cột |
+| **Rào chắn** | `maximum_bytes_billed` trong profile dbt + budget alert GCP |
+| **Looker Studio** | bật data freshness cache → mỗi lượt xem không = 1 query mới |
+| **Đo** | `INFORMATION_SCHEMA.JOBS` → `total_bytes_billed` trước/sau |
+
+**Verdict:** *Scale bằng config & infra, không phải remodel.*
