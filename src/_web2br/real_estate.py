@@ -142,8 +142,10 @@ def merge_listing_with_tracking_data(df, tracking_data):
 
 def get_urls_list(html_content, base_url):
     """Extract total number of pages from HTML content."""
-    page_num_list = html_content.find_all("a", class_="re__pagination-number")
-    page_num = max([int(i.text.strip()) for i in page_num_list]) if page_num_list else 1
+    # The site renders these as <div data-page="N"> (previously <a>), so match on class only
+    # and prefer data-page. A tag-specific selector silently yields 1 page when markup changes.
+    page_num_list = html_content.find_all(class_="re__pagination-number")
+    page_num = max([int(i.get("data-page") or i.text.strip()) for i in page_num_list]) if page_num_list else 1
     urls = [f"{base_url}/p{i}" for i in range(1, page_num + 1)]
     logger.info(f"Total pages to fetch: {page_num}")
     return urls
