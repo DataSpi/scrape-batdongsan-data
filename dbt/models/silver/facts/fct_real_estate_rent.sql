@@ -1,12 +1,26 @@
--- Rental ("cho thuê") counterpart to stg_real_estate.sql, built from its own bronze
--- table (re_bronze.real_estate_rent, written by src/_web2br/j_real_estate_rent.py -- a
--- separate scraper script from j_real_estate.py) rather than commingled with sale
+-- Rental ("cho thuê") counterpart to fct_real_estate.sql, built from its own bronze
+-- table (re_bronze.fct_real_estate_rent, written by src/_web2br/real_estate_rent.py -- a
+-- separate scraper script from real_estate.py) rather than commingled with sale
 -- listings: a rental price is a monthly rate ("23 triệu/tháng"), never a lump sum (tỷ),
--- so it is not comparable to stg_real_estate.price_num/price_1m2 and must not share
+-- so it is not comparable to fct_real_estate.price_num/price_1m2 and must not share
 -- their bounds/bins downstream (see mart_real_estate_rent.sql).
+--
+-- Incremental: same approach as fct_real_estate.sql -- watermark on date_scraped (the
+-- scrape-date column still exposed in the final select; scraped_at is dropped), rn dedup
+-- still scoped per incremental batch, unique_key=product_id merges in rescraped listings.
+
+{{
+    config(
+        materialized='incremental',
+        unique_key='product_id',
+    )
+}}
 
 with source as (
-    select * from {{ source('bronze', 'real_estate_rent') }}
+    select * from {{ source('bronze', 'fct_real_estate_rent') }}
+    {% if is_incremental() %}
+    where date_scraped > (select max(date_scraped) from {{ this }})
+    {% endif %}
 ),
 
 cleaned_link as (
@@ -34,10 +48,12 @@ type_matched as (
 price_area as (
     select
         *,
-        lower(replace(replace(price, ',', '.'), ' ', '')) as price_clean,
         -- Vietnamese number format: '.' is a thousands separator, ',' is the decimal
         -- point (e.g. "1.030 m²" = 1030, "76,5 m²" = 76.5) -- strip the former before
-        -- converting the latter, or "1.030" parses as the float 1.03.
+        -- converting the latter, or "1.030" parses as the float 1.03. Same treatment as
+        -- price in fct_real_estate.sql -- no rent row hits this today (rents stay well
+        -- under 1000 triệu/tháng), but the bug would be silent if one ever did.
+        lower(replace(replace(replace(price, '.', ''), ',', '.'), ' ', '')) as price_clean,
         replace(replace(area, '.', ''), ',', '.') as area_clean
     from type_matched
 ),
@@ -46,7 +62,7 @@ parsed as (
     select
         *,
         -- Rental cards are always "X triệu/tháng" in practice (never tỷ), but the tỷ
-        -- branch below is kept for parity with stg_real_estate.sql in case a
+        -- branch below is kept for parity with fct_real_estate.sql in case a
         -- source-site data-entry slip ever lists one that way.
         regexp_extract(price_clean, r'^([\d\.]+)(?:tỷ|triệu)') as price_value_str,
         regexp_extract(price_clean, r'^[\d\.]+(tỷ|triệu)') as price_unit,
@@ -72,8 +88,9 @@ final as (
         p.toilets,
         p.location,
         p.description,
-        p.agent_name,
-        p.phone,
+        -- Hashed rather than carried through raw -- see fct_real_estate.sql for the
+        -- rationale (same treatment, same scraper field, separate bronze table).
+        to_hex(sha256(p.phone)) as agent_phone_hash,
         p.intent,
         p.pageType,
         p.productId,
@@ -93,7 +110,7 @@ final as (
         p.date_scraped,
         p.scraped_at
     from parsed p
-    left join {{ ref('real_estate_type_mapping') }} m on p.matched_token = m.raw_token
+    left join {{ ref('dim_real_estate_type_mapping') }} m on p.matched_token = m.raw_token
 ),
 
 with_price_per_m2 as (
@@ -128,7 +145,7 @@ product_id
 , real_estate_type
 , price_per_month
 , price_per_m2_per_month
--- No is_price_outlier column yet -- stg_real_estate's [5,1000] triệu/m2 bound was
+-- No is_price_outlier column yet -- fct_real_estate's [5,1000] triệu/m2 bound was
 -- derived empirically from real sale listings (see that model's comments); there's no
 -- equivalent observed rental price/m2 distribution yet to calibrate a bound from.
 -- Revisit once there's enough real data to eyeball.
@@ -137,8 +154,7 @@ product_id
 , toilets
 -- , location
 -- , description
--- , agent_name
--- , phone
+, agent_phone_hash
 , intent
 -- , pageType
 -- , productId

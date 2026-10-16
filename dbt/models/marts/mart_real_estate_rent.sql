@@ -5,19 +5,19 @@
 -- named bins (bin_price_per_month) instead of reusing those names.
 --
 -- No is_price_outlier equivalent yet: mart_real_estate's bound was derived empirically
--- from real sale listings (see stg_real_estate.sql); there's no equivalent observed
+-- from real sale listings (see fct_real_estate.sql); there's no equivalent observed
 -- rental price/m2 distribution yet to calibrate one from.
 
 with re as (
-    select * from {{ ref('stg_real_estate_rent') }}
+    select * from {{ ref('fct_real_estate_rent') }}
 ),
 
 project as (
-    select * from {{ ref('stg_projects') }}
+    select * from {{ ref('dim_project') }}
 ),
 
 loc_v1 as (
-    select * from {{ ref('stg_locations_v1') }}
+    select * from {{ ref('dim_location_v1') }}
 ),
 
 processed_1 as (
@@ -25,7 +25,7 @@ select
     re.*,
     project.name as project_name,
     -- districtId=0 is batdongsan's IsDisplayNewAddress sentinel for "unresolved" (see
-    -- src/_web2br/j_real_estate.py:crawl_city_by_district), not a real district - treat
+    -- src/_web2br/real_estate.py:crawl_city_by_district), not a real district - treat
     -- it as missing so we fall back to the project's districtId like a NULL would.
     coalesce(nullif(re.districtId, 0), project.districtId) as full_districtId
 from re

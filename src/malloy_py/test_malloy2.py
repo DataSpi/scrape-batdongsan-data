@@ -1,9 +1,11 @@
 import asyncio
+import os
+
+from dotenv import load_dotenv
+from malloy.data.duckdb import DuckDbConnection
 
 import malloy
-from malloy.data.duckdb import DuckDbConnection
-import os 
-from dotenv import load_dotenv
+
 load_dotenv()
 DB_HOST = os.getenv("DB_HOST")
 DB_USER = os.getenv("DB_USER")
@@ -55,7 +57,7 @@ async def main():
 
     dataframe = data.to_dataframe()
     print(dataframe)
-    
-    
+
+
 if __name__ == "__main__":
   asyncio.run(main())

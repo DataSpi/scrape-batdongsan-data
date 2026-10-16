@@ -1,17 +1,17 @@
 import logging
-import time
+import os
 import platform
 import shutil
 import subprocess
-import os
-from typing import List, Tuple, Optional, Union
-from sqlalchemy import create_engine, text, MetaData, Table
-from sqlalchemy.dialects.postgresql import insert as pg_insert
-from sqlalchemy.engine import Engine, Connection
-from sqlalchemy import literal_column
-from sqlalchemy import inspect
+import time
+from typing import List, Optional, Tuple, Union
+
 import pandas as pd
-from dotenv import load_dotenv, find_dotenv
+from dotenv import find_dotenv, load_dotenv
+from sqlalchemy import MetaData, Table, create_engine, inspect, literal_column, text
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.engine import Connection, Engine
+
 load_dotenv(find_dotenv())
 print(f"DEBUG: Project Root .env found at: {find_dotenv()}")
 
@@ -115,7 +115,7 @@ def format_worksheet(worksheet):
     })
 
 class dbConnector:
-        
+
     def connect_to_database(host, port, dbname, user, password) -> Engine:
         try:
             connection = create_engine(
@@ -132,12 +132,12 @@ class dbConnector:
     def execute_query(conn: Union[Engine, Connection], query: str, params: Optional[Tuple] = None, fetch: bool = True) -> Optional[List[Tuple]]:
         """
         Execute a SQL query on the database connection.
-        
+
         Args:
             query (str): SQL query to execute
             params (Optional[Tuple]): Parameters for the query
             fetch (bool): Whether to fetch results (for SELECT queries)
-        
+
         Returns:
             Optional[List[Tuple]]: Query results if fetch=True, None otherwise
         """
@@ -161,11 +161,11 @@ class dbConnector:
     def fetch_to_dataframe(conn: Union[Engine, Connection], query: str, params: Optional[Tuple] = None) -> pd.DataFrame:
         """
         Execute a SQL query and return results as a pandas DataFrame.
-        
+
         Args:
             query (str): SQL query to execute
             params (Optional[Tuple]): Parameters for the query
-        
+
         Returns:
             pd.DataFrame: Query results as DataFrame
         """
@@ -183,7 +183,7 @@ class dbConnector:
             return
 
         engine = conn if isinstance(conn, Engine) else conn.engine
-        
+
         # Check if the table exists before truncating
         inspector = inspect(engine)
         table_exists = inspector.has_table(table, schema=schema)
@@ -205,7 +205,7 @@ class dbConnector:
                 chunksize=1000
             )
             logger.info(f"Successfully wrote {len(df)} rows to {schema}.{table}")
-    
+
 
     def upsert_df_to_table(conn, df, schema, table, conflict_cols):
         if df.empty:
@@ -218,11 +218,11 @@ class dbConnector:
 
         insert_stmt = pg_insert(table_obj).values(records)
         update_cols = {
-            c: insert_stmt.excluded[c] 
-            for c in table_obj.columns.keys() 
+            c: insert_stmt.excluded[c]
+            for c in table_obj.columns.keys()
             if c not in conflict_cols and c != 'id'
         }
-        
+
         # 1. Define the upsert
         upsert_stmt = insert_stmt.on_conflict_do_update(
             index_elements=conflict_cols,
@@ -236,16 +236,16 @@ class dbConnector:
 
         with engine.begin() as connection:
             result = connection.execute(upsert_stmt).fetchall()
-            
+
             # 3. Analyze the results
             # In Postgres, xmax == 0 means it's a fresh INSERT
             # xmax != 0 means it was an UPDATE
             inserts = sum(1 for row in result if row[0] == 0)
             updates = sum(1 for row in result if row[0] != 0)
-            
+
             logger.info(f"Finished: {inserts} new, {updates} updated, {len(df) - len(result)} skipped to {schema}.{table} (attempted {len(df)}).")
             return inserts, updates
-    
+
     def spyno_sb_conn():
         DB_PASSWORD    = os.getenv("DB_PASSWORD")
         DB_USER        = os.getenv("DB_USER")

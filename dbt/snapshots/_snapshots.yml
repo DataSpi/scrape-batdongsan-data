@@ -1,0 +1,38 @@
+version: 2
+
+snapshots:
+  - name: snp_real_estate
+    description: >
+      SCD2 history of sale listings keyed on product_id -- one row per (product_id,
+      dbt_valid_from), new versions inserted only when a tracked column changes.
+      invalidate_hard_deletes marks removed/sold listings as dbt_is_deleted=True instead
+      of dropping them. See vw_real_estate_current for the "current state" read.
+    columns:
+      - name: product_id
+        data_tests:
+          - not_null
+      - name: dbt_valid_from
+        data_tests:
+          - not_null
+      - name: dbt_scd_id
+        description: dbt-generated hash uniquely identifying one SCD2 row version.
+        data_tests:
+          - unique
+          - not_null
+
+  - name: snp_real_estate_rent
+    description: >
+      Rent counterpart to snp_real_estate -- same SCD2 shape, see that model's
+      description.
+    columns:
+      - name: product_id
+        data_tests:
+          - not_null
+      - name: dbt_valid_from
+        data_tests:
+          - not_null
+      - name: dbt_scd_id
+        description: dbt-generated hash uniquely identifying one SCD2 row version.
+        data_tests:
+          - unique
+          - not_null

@@ -5,18 +5,18 @@
 -- deliberately keeps those direct joins commented out because the FK columns on the raw
 -- listing are unreliable (~95% of apartment listings have projectId, districts/wards
 -- resolved off the listing itself are much less complete; see the docstring in
--- src/_web2br/j_real_estate.py:crawl_city_by_district).
+-- src/_web2br/real_estate.py:crawl_city_by_district).
 
 with re as (
-    select * from {{ ref('stg_real_estate') }}
+    select * from {{ ref('fct_real_estate') }}
 ),
 
 project as (
-    select * from {{ ref('stg_projects') }}
+    select * from {{ ref('dim_project') }}
 ),
 
 loc_v1 as (
-    select * from {{ ref('stg_locations_v1') }}
+    select * from {{ ref('dim_location_v1') }}
 ), 
 
 processed_1 as (
@@ -24,7 +24,7 @@ select
     re.*,
     project.name as project_name,
     -- districtId=0 is batdongsan's IsDisplayNewAddress sentinel for "unresolved" (see
-    -- src/_web2br/j_real_estate.py:crawl_city_by_district), not a real district - treat
+    -- src/_web2br/real_estate.py:crawl_city_by_district), not a real district - treat
     -- it as missing so we fall back to the project's districtId like a NULL would.
     coalesce(nullif(re.districtId, 0), project.districtId) as full_districtId
 from re
@@ -69,6 +69,6 @@ select processed_1.* except (full_districtId, is_price_outlier),
     end as bin_price_1m2_order
 from processed_1
 left join loc_v1 on processed_1.full_districtId = loc_v1.districtId
--- Source-data price/m2 errors (see stg_real_estate.is_price_outlier) are excluded from
+-- Source-data price/m2 errors (see fct_real_estate.is_price_outlier) are excluded from
 -- the gold layer rather than reported on.
 where not processed_1.is_price_outlier

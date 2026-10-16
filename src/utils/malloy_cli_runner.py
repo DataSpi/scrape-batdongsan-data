@@ -6,7 +6,6 @@ import sys
 import tempfile
 from pathlib import Path
 
-
 DEFAULT_CONFIG = Path(r"C:\Users\LAP14354\.config\malloy\malloy-config.json")
 
 

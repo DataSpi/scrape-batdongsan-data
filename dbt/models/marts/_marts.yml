@@ -40,7 +40,7 @@ models:
         data_tests:
           - relationships:
               arguments:
-                to: ref('stg_projects')
+                to: ref('dim_project')
                 field: projectId
               config:
                 severity: warn
@@ -93,7 +93,7 @@ models:
     description: >
       Gold layer for rental ("cho thuê") listings -- rent counterpart to
       mart_real_estate, built from its own bronze/silver lineage
-      (re_bronze.real_estate_rent -> stg_real_estate_rent) since rental prices are
+      (re_bronze.fct_real_estate_rent -> fct_real_estate_rent) since rental prices are
       monthly rates, not comparable to sale prices.
     config:
       contract:
@@ -129,7 +129,7 @@ models:
         data_tests:
           - relationships:
               arguments:
-                to: ref('stg_projects')
+                to: ref('dim_project')
                 field: projectId
               config:
                 severity: warn
@@ -163,3 +163,34 @@ models:
         data_type: string
       - name: bin_price_per_month_order
         data_type: int64
+
+  - name: vw_real_estate_current
+    description: >
+      Current-state read over snp_real_estate (the SCD2 sale-listing snapshot): one row
+      per product_id, the dbt snapshot metadata columns swapped for a plain
+      status ('active'/'closed') + status_since. Full price/attribute history stays on
+      snp_real_estate; query that directly for "what changed and when".
+    columns:
+      - name: product_id
+        data_tests:
+          - not_null
+          - unique
+      - name: status
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["active", "closed"]
+
+  - name: vw_real_estate_rent_current
+    description: >
+      Rent counterpart to vw_real_estate_current, built over snp_real_estate_rent.
+    columns:
+      - name: product_id
+        data_tests:
+          - not_null
+          - unique
+      - name: status
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["active", "closed"]

@@ -1,14 +1,14 @@
-from google.cloud import bigquery
-import os
-import pandas as pd
-
 import json
+import os
 from pathlib import Path
+
+from google.cloud import bigquery
 from google.oauth2 import service_account
+
 
 def get_bigquery_client():
     credentials_json = os.environ.get("GCP_CREDENTIALS_JSON")
-    
+
     if credentials_json:
         # GitHub Actions: credentials passed as JSON string in env variable
         credentials_info = json.loads(credentials_json)
@@ -22,7 +22,7 @@ def get_bigquery_client():
         base_dir = Path(__file__).resolve().parents[2]
         os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = str(base_dir / "gcp_service_account.json")
         client = bigquery.Client()
-    
+
     datasets = list(client.list_datasets())
     if datasets:
         print(f"Kết nối thành công! Đã thấy dataset: {datasets[0].dataset_id}")
@@ -46,7 +46,7 @@ def query_to_df(client, query, params=None):
 
 def execute_query(client, query):
     query_job = client.query(query)
-    results = query_job.result()     
+    results = query_job.result()
     if query_job.statement_type == "SELECT":
         return results.to_dataframe()
     return {
@@ -83,7 +83,7 @@ def read_sql_file(file_path):
 
 def get_updated_time(client, schema, table_name):
     query = f"""--sql
-    SELECT 
+    SELECT
     TIMESTAMP_MILLIS(last_modified_time) AS last_updated
     FROM {schema}.__TABLES__
     WHERE table_id = '{table_name}'

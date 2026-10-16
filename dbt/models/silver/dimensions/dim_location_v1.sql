@@ -1,16 +1,16 @@
 -- Ports src/_br2sil/j_locations.py (location_v1) to SQL.
--- Legacy (old-address) hierarchy. m_cities/m_districts are frozen (see _sources.yml).
+-- Legacy (old-address) hierarchy. dim_city_v1/dim_district_v1 are frozen (see _sources.yml).
 
 with district as (
-    select * from {{ source('bronze', 'm_districts') }}
+    select * from {{ source('bronze', 'dim_district_v1') }}
 ),
 
 city as (
-    select * from {{ source('bronze', 'm_cities') }}
+    select * from {{ source('bronze', 'dim_city_v1') }}
 ),
 
 geo as (
-    select * from {{ ref('district_geo_v1') }}
+    select * from {{ ref('dim_district_geo_v1') }}
 )
 
 select

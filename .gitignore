@@ -23,7 +23,10 @@ malloy-config.json
 *.pyc
 *.pyo
 
-dags/
+# Airflow runtime state, not the dags/*.py source itself
+dags/__pycache__/
+airflow/logs/
+airflow/plugins/
 
 # dbt project is version-controlled; only ignore its local/generated state
 dbt/target/

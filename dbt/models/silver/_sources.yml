@@ -1,0 +1,156 @@
+version: 2
+
+sources:
+  - name: bronze
+    database: braided-haiku-465415-k5
+    schema: re_bronze
+    tables:
+      - name: fct_real_estate
+        description: >
+          Raw scraped listings, appended on every scrape run (src/_web2br/real_estate.py).
+          No natural dedup key enforced at write time — multiple rows per listing
+          accumulate across runs; dedup happens in fct_real_estate (silver).
+        config:
+          loaded_at_field: scraped_at
+          freshness:
+            warn_after: {count: 10, period: day}
+            error_after: {count: 21, period: day}
+        # Weekly batch => weekly buckets. Elementary's defaults (daily bucket, 14-day
+        # training) would flag every non-scrape day as a volume drop. warn-only until
+        # ~12 weeks of baseline exist.
+        data_tests:
+          - elementary.volume_anomalies:
+              arguments:
+                timestamp_column: scraped_at
+                time_bucket: {period: week, count: 1}
+                training_period: {period: day, count: 84}
+                detection_period: {period: day, count: 14}
+                anomaly_sensitivity: 3
+              config:
+                severity: warn
+                tags: [elementary]
+          - elementary.freshness_anomalies:
+              arguments:
+                timestamp_column: scraped_at
+                time_bucket: {period: week, count: 1}
+                training_period: {period: day, count: 84}
+              config:
+                severity: warn
+                tags: [elementary]
+          # price/area are raw strings in bronze: null rates catch a scraper whose HTML
+          # selectors silently broke (rows still land, fields come back empty).
+          - elementary.column_anomalies:
+              arguments:
+                column_name: price
+                timestamp_column: scraped_at
+                column_anomalies: [null_percent]
+                time_bucket: {period: week, count: 1}
+                training_period: {period: day, count: 84}
+              config:
+                severity: warn
+                tags: [elementary]
+          - elementary.column_anomalies:
+              arguments:
+                column_name: area
+                timestamp_column: scraped_at
+                column_anomalies: [null_percent]
+                time_bucket: {period: week, count: 1}
+                training_period: {period: day, count: 84}
+              config:
+                severity: warn
+                tags: [elementary]
+        columns:
+          - name: product_id
+            description: Native listing id from batdongsan.com.vn.
+          - name: link
+            description: Relative or absolute URL of the listing.
+          - name: scraped_at
+            description: >
+              UTC timestamp of the scrape run that wrote this row. Added alongside the
+              dbt migration so fct_real_estate (silver) can dedupe to the most recent
+              scrape per listing instead of accumulating duplicates forever. Rows
+              scraped before this column existed will have it NULL.
+      - name: fct_real_estate_rent
+        description: >
+          Raw scraped rental ("cho thuê") listings, written by
+          src/_web2br/real_estate_rent.py -- a separate scraper script from the one
+          that writes `fct_real_estate` (src/_web2br/real_estate.py), so a bug in one
+          pipeline can't affect the other. Kept in its own table rather than appended to
+          `fct_real_estate` because rental prices are monthly rates, not comparable to
+          sale prices -- see fct_real_estate_rent.sql (silver).
+        config:
+          loaded_at_field: scraped_at
+          freshness:
+            warn_after: {count: 10, period: day}
+            error_after: {count: 21, period: day}
+        # Weekly batch => weekly buckets. Elementary's defaults (daily bucket, 14-day
+        # training) would flag every non-scrape day as a volume drop. warn-only until
+        # ~12 weeks of baseline exist.
+        data_tests:
+          - elementary.volume_anomalies:
+              arguments:
+                timestamp_column: scraped_at
+                time_bucket: {period: week, count: 1}
+                training_period: {period: day, count: 84}
+                detection_period: {period: day, count: 14}
+                anomaly_sensitivity: 3
+              config:
+                severity: warn
+                tags: [elementary]
+          - elementary.freshness_anomalies:
+              arguments:
+                timestamp_column: scraped_at
+                time_bucket: {period: week, count: 1}
+                training_period: {period: day, count: 84}
+              config:
+                severity: warn
+                tags: [elementary]
+          # price/area are raw strings in bronze: null rates catch a scraper whose HTML
+          # selectors silently broke (rows still land, fields come back empty).
+          - elementary.column_anomalies:
+              arguments:
+                column_name: price
+                timestamp_column: scraped_at
+                column_anomalies: [null_percent]
+                time_bucket: {period: week, count: 1}
+                training_period: {period: day, count: 84}
+              config:
+                severity: warn
+                tags: [elementary]
+          - elementary.column_anomalies:
+              arguments:
+                column_name: area
+                timestamp_column: scraped_at
+                column_anomalies: [null_percent]
+                time_bucket: {period: week, count: 1}
+                training_period: {period: day, count: 84}
+              config:
+                severity: warn
+                tags: [elementary]
+        columns:
+          - name: product_id
+            description: Native listing id from batdongsan.com.vn.
+          - name: link
+            description: Relative or absolute URL of the listing.
+          - name: scraped_at
+            description: UTC timestamp of the scrape run that wrote this row.
+      - name: fct_project
+        description: Raw scraped project pages (src/_web2br/projects.py). Not yet consumed downstream.
+      - name: dim_city_v1
+        description: "Legacy (v1/old address scheme) city reference table. Frozen — no longer refreshed by src/_web2br/metadata.py."
+      - name: dim_district_v1
+        description: "Legacy (v1) district reference table. Frozen — no longer refreshed."
+      - name: dim_ward_v1
+        description: "Legacy (v1) ward reference table. Frozen — no longer refreshed."
+      - name: dim_street_v1
+        description: "Legacy (v1) street reference table. Frozen — no longer refreshed."
+      - name: dim_project_v1
+        description: "Legacy (v1) project reference table. Frozen — no longer refreshed."
+      - name: dim_city_v2
+        description: Active (post-address-reform) city reference table, refreshed by src/_web2br/metadata.py.
+      - name: dim_ward_v2
+        description: Active (v2) ward reference table, refreshed by src/_web2br/metadata.py.
+      - name: dim_street_v2
+        description: Active (v2) street reference table, refreshed by src/_web2br/metadata.py.
+      - name: dim_project_v2
+        description: Active (v2) project reference table, refreshed by src/_web2br/metadata.py.
