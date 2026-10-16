@@ -24,6 +24,7 @@ rebuild when reference data actually changes.
 Sale ("ban") and rental ("cho thue") listings are scraped by separate scripts so a
 bug in one can't affect the other -- kept as separate tasks here for the same reason.
 """
+
 from datetime import timedelta
 
 import pendulum
@@ -60,7 +61,6 @@ with DAG(
     default_args=default_args,
     tags=["pipeline", "weekly"],
 ) as dag:
-
     scrape_real_estate_hcm = BashOperator(
         task_id="scrape_real_estate_hcm",
         bash_command="python -m src._web2br.real_estate --mode district",

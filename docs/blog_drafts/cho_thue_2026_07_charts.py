@@ -50,19 +50,22 @@ def q(client: bigquery.Client, sql: str) -> pd.DataFrame:
 
 
 def setup_style() -> None:
-    sns.set_theme(style="white", rc={
-        "axes.facecolor": SURFACE,
-        "figure.facecolor": SURFACE,
-        "savefig.facecolor": SURFACE,
-        "axes.edgecolor": BASELINE,
-        "axes.labelcolor": INK_SECONDARY,
-        "text.color": INK,
-        "xtick.color": INK_MUTED,
-        "ytick.color": INK_MUTED,
-        "grid.color": GRIDLINE,
-        "font.family": "sans-serif",
-        "font.sans-serif": ["DejaVu Sans", "Arial", "Helvetica"],
-    })
+    sns.set_theme(
+        style="white",
+        rc={
+            "axes.facecolor": SURFACE,
+            "figure.facecolor": SURFACE,
+            "savefig.facecolor": SURFACE,
+            "axes.edgecolor": BASELINE,
+            "axes.labelcolor": INK_SECONDARY,
+            "text.color": INK,
+            "xtick.color": INK_MUTED,
+            "ytick.color": INK_MUTED,
+            "grid.color": GRIDLINE,
+            "font.family": "sans-serif",
+            "font.sans-serif": ["DejaVu Sans", "Arial", "Helvetica"],
+        },
+    )
 
 
 def save(fig: plt.Figure, name: str) -> None:
@@ -85,6 +88,7 @@ def style_bar_axes(ax, ylabel: str = "") -> None:
 
 # ---------------------------------------------------------------- queries --
 
+
 def fetch_bucket_supply(client) -> pd.DataFrame:
     sql = f"""
     WITH base AS (SELECT * FROM re_gold.mart_real_estate_rent WHERE {RENT_FILTER})
@@ -105,17 +109,23 @@ def fetch_bucket_supply(client) -> pd.DataFrame:
 
 
 def fetch_city_overall(client) -> pd.DataFrame:
-    rent = q(client, f"""
+    rent = q(
+        client,
+        f"""
         SELECT city_name, ROUND(AVG(price_per_month),2) rent_thang,
                ROUND(AVG(price_per_m2_per_month),3) rent_m2
         FROM re_gold.mart_real_estate_rent WHERE {RENT_FILTER}
         GROUP BY city_name
-    """)
-    sale = q(client, f"""
+    """,
+    )
+    sale = q(
+        client,
+        f"""
         SELECT city_name, ROUND(AVG(price_1m2),2) sale_m2
         FROM re_gold.mart_real_estate WHERE {SALE_FILTER}
         GROUP BY city_name
-    """)
+    """,
+    )
     df = rent.merge(sale, on="city_name")
     df = df[df.city_name.isin([HCM, HN])].copy()
     df["pr_ratio"] = df.sale_m2 / (df.rent_m2 * 12)
@@ -140,11 +150,7 @@ def fetch_top_district(client, n_min: int = 30, top_n: int = 5) -> pd.DataFrame:
     FROM rent_d r LEFT JOIN sale_d s USING(city_name, district_name)
     """
     df = q(client, sql)
-    return (
-        df.sort_values(["city_name", "rent_m2"], ascending=[True, False])
-        .groupby("city_name")
-        .head(top_n)
-    )
+    return df.sort_values(["city_name", "rent_m2"], ascending=[True, False]).groupby("city_name").head(top_n)
 
 
 def fetch_bedroom_summary(client) -> pd.DataFrame:
@@ -185,24 +191,19 @@ def fetch_bedroom_district(client, bedroom: str, top_n: int = 5) -> pd.DataFrame
     """
     df = q(client, sql)
     df["pct"] = df.groupby("city_name")["n"].transform(lambda s: s / s.sum() * 100)
-    return (
-        df.sort_values(["city_name", "n"], ascending=[True, False])
-        .groupby("city_name")
-        .head(top_n)
-    )
+    return df.sort_values(["city_name", "n"], ascending=[True, False]).groupby("city_name").head(top_n)
 
 
 # ----------------------------------------------------------------- charts --
 
+
 def chart_nguon_cung(df: pd.DataFrame) -> None:
     fig, ax = plt.subplots(figsize=(7, 4.5))
-    sns.barplot(data=df, x="bucket", y="pct", hue="city_name", ax=ax,
-                palette=CITY_COLOR, hue_order=[HCM, HN])
+    sns.barplot(data=df, x="bucket", y="pct", hue="city_name", ax=ax, palette=CITY_COLOR, hue_order=[HCM, HN])
     for cont in ax.containers:
         ax.bar_label(cont, fmt="%.1f%%", padding=2, color=INK_SECONDARY, fontsize=9)
     style_bar_axes(ax, ylabel="% tổng tin (theo TP)")
-    ax.set_title("Phân bổ nguồn cung theo khoảng giá thuê (tr/tháng)",
-                 color=INK, fontsize=13, loc="left", pad=12)
+    ax.set_title("Phân bổ nguồn cung theo khoảng giá thuê (tr/tháng)", color=INK, fontsize=13, loc="left", pad=12)
     ax.legend(title="", frameon=False, loc="upper right")
     save(fig, "01_nguon_cung_gia_thue.png")
 
@@ -217,14 +218,12 @@ def chart_gia_hcm_hn(df: pd.DataFrame) -> None:
     ]
     fig, axes = plt.subplots(1, 4, figsize=(14, 4))
     for ax, (col, title, fmt) in zip(axes, panels):
-        bars = ax.bar(df.city_name, df[col], color=[CITY_COLOR[c] for c in df.city_name],
-                       width=0.55)
+        bars = ax.bar(df.city_name, df[col], color=[CITY_COLOR[c] for c in df.city_name], width=0.55)
         ax.bar_label(bars, fmt=fmt, padding=3, color=INK_SECONDARY, fontsize=9)
         style_bar_axes(ax)
         ax.set_title(title, color=INK, fontsize=10.5, loc="left")
         ax.margins(y=0.18)
-    fig.suptitle("Giá thuê & giá bán chung cư — HCM vs HN", color=INK, fontsize=13,
-                 x=0.02, ha="left", y=1.04)
+    fig.suptitle("Giá thuê & giá bán chung cư — HCM vs HN", color=INK, fontsize=13, x=0.02, ha="left", y=1.04)
     save(fig, "02_gia_hcm_vs_hn.png")
 
 
@@ -236,9 +235,14 @@ def chart_top_district(df: pd.DataFrame) -> None:
         colors = [SEQ_CMAP(0.35 + 0.65 * v) for v in norm]
         bars = ax.barh(sub.district_name, sub.rent_m2, color=colors, height=0.6)
         for bar, pr in zip(bars, sub.pr_ratio):
-            ax.text(bar.get_width() + sub.rent_m2.max() * 0.02, bar.get_y() + bar.get_height() / 2,
-                    f"{bar.get_width():.3f} · P/R {pr:.1f}", va="center", fontsize=9,
-                    color=INK_SECONDARY)
+            ax.text(
+                bar.get_width() + sub.rent_m2.max() * 0.02,
+                bar.get_y() + bar.get_height() / 2,
+                f"{bar.get_width():.3f} · P/R {pr:.1f}",
+                va="center",
+                fontsize=9,
+                color=INK_SECONDARY,
+            )
         ax.spines[["top", "right", "left"]].set_visible(False)
         ax.spines["bottom"].set_color(BASELINE)
         ax.xaxis.grid(True, color=GRIDLINE, linewidth=1)
@@ -246,23 +250,30 @@ def chart_top_district(df: pd.DataFrame) -> None:
         ax.tick_params(length=0)
         ax.set_xlim(0, sub.rent_m2.max() * 1.5)
         ax.set_title(f"{city} — top quận theo giá thuê/m²", color=INK, fontsize=11, loc="left")
-    fig.suptitle("Giá thuê/m² và P/R ratio theo quận (n ≥ 30 tin/quận)",
-                 color=INK, fontsize=13, x=0.02, ha="left", y=1.02)
+    fig.suptitle(
+        "Giá thuê/m² và P/R ratio theo quận (n ≥ 30 tin/quận)", color=INK, fontsize=13, x=0.02, ha="left", y=1.02
+    )
     save(fig, "03_top_quan_gia_thue.png")
 
 
 def chart_pr_by_bedroom(df: pd.DataFrame) -> None:
     fig, ax = plt.subplots(figsize=(7.5, 4.5))
-    sns.barplot(data=df, x="bedrooms", y="pr_ratio", hue="city_name", ax=ax,
-                palette=CITY_COLOR, hue_order=[HCM, HN],
-                order=["1 PN", "2 PN", "3 PN"])
+    sns.barplot(
+        data=df,
+        x="bedrooms",
+        y="pr_ratio",
+        hue="city_name",
+        ax=ax,
+        palette=CITY_COLOR,
+        hue_order=[HCM, HN],
+        order=["1 PN", "2 PN", "3 PN"],
+    )
     for cont in ax.containers:
         ax.bar_label(cont, fmt="%.1f", padding=2, color=INK_SECONDARY, fontsize=9)
     ax.axhline(20, color=INK_MUTED, linewidth=1, linestyle="--")
-    ax.text(0.6, 21.3, "ngưỡng \"nên thuê\" (20)", color=INK_MUTED, fontsize=8.5, ha="center")
+    ax.text(0.6, 21.3, 'ngưỡng "nên thuê" (20)', color=INK_MUTED, fontsize=8.5, ha="center")
     style_bar_axes(ax, ylabel="P/R ratio (năm)")
-    ax.set_title("P/R ratio theo phân khúc phòng ngủ — HCM vs HN",
-                 color=INK, fontsize=13, loc="left", pad=12)
+    ax.set_title("P/R ratio theo phân khúc phòng ngủ — HCM vs HN", color=INK, fontsize=13, loc="left", pad=12)
     ax.legend(title="", frameon=False, loc="upper left")
     save(fig, "04_pr_ratio_theo_phong_ngu.png")
 
@@ -280,8 +291,14 @@ def chart_bedroom_district(df: pd.DataFrame, bedroom_label: str, filename: str) 
         ax.tick_params(length=0)
         ax.set_xlim(0, sub.pct.max() * 1.25)
         ax.set_title(city, color=INK, fontsize=11, loc="left")
-    fig.suptitle(f"Phân bổ nguồn cung {bedroom_label} cho thuê theo quận (% trong TP)",
-                 color=INK, fontsize=13, x=0.02, ha="left", y=1.03)
+    fig.suptitle(
+        f"Phân bổ nguồn cung {bedroom_label} cho thuê theo quận (% trong TP)",
+        color=INK,
+        fontsize=13,
+        x=0.02,
+        ha="left",
+        y=1.03,
+    )
     save(fig, filename)
 
 

@@ -14,6 +14,7 @@ Requires GOOGLE_MAPS_API_KEY in .env, scoped to the Geocoding API only. The Geoc
 API only accepts an API key -- it does not accept the GCP service account credentials
 used elsewhere in this repo (utils/gcp_conn.py), so this is a separate credential.
 """
+
 import csv
 import os
 import time
@@ -50,11 +51,13 @@ def geocode_rows(rows: list[dict], id_col: str, label_col: str, api_key: str) ->
     for row in rows:
         address = f"{row[label_col]}, Việt Nam"
         result = geocode(address, api_key)
-        out.append({
-            id_col: row[id_col],
-            "lat": result[0] if result else "",
-            "lng": result[1] if result else "",
-        })
+        out.append(
+            {
+                id_col: row[id_col],
+                "lat": result[0] if result else "",
+                "lng": result[1] if result else "",
+            }
+        )
         time.sleep(REQUEST_DELAY_SECONDS)
     return out
 
@@ -75,20 +78,26 @@ def main() -> None:
 
     client = get_bigquery_client()
 
-    districts = query_to_df(client, """--sql
+    districts = query_to_df(
+        client,
+        """--sql
         select d.districtId, concat(d.name, ', ', c.name) as label
         from re_bronze.dim_district_v1 d
         left join re_bronze.dim_city_v1 c on d.cityCode = c.code
-    """).to_dict(orient="records")
+    """,
+    ).to_dict(orient="records")
     logger.info(f"Geocoding {len(districts)} v1 districts...")
     district_geo = geocode_rows(districts, "districtId", "label", api_key)
     write_csv(SEEDS_DIR / "dim_district_geo_v1.csv", district_geo, ["districtId", "lat", "lng"])
 
-    wards = query_to_df(client, """--sql
+    wards = query_to_df(
+        client,
+        """--sql
         select w.wardId, concat(w.name, ', ', c.name) as label
         from re_bronze.dim_ward_v2 w
         left join re_bronze.dim_city_v2 c on w.cityCode = c.code
-    """).to_dict(orient="records")
+    """,
+    ).to_dict(orient="records")
     logger.info(f"Geocoding {len(wards)} v2 wards...")
     ward_geo = geocode_rows(wards, "wardId", "label", api_key)
     write_csv(SEEDS_DIR / "dim_ward_geo_v2.csv", ward_geo, ["wardId", "lat", "lng"])

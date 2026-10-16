@@ -24,9 +24,11 @@ def _load_html_template() -> Template:
 def _is_scalar(value: object) -> bool:
     return value is None or isinstance(value, (str, int, float, bool))
 
+
 def _format_number(value: int | float) -> str:
     """Round to integer and format with thousand separators for readability."""
     return f"{round(value):,}"
+
 
 def _json_value_to_html(value: object) -> str:
     """Render a JSON-compatible value into nested HTML."""
@@ -38,25 +40,15 @@ def _json_value_to_html(value: object) -> str:
             columns = list(value.keys())
             header = "".join(f"<th>{escape(str(col))}</th>" for col in columns)
             cells = "".join(f"<td>{_json_value_to_html(value.get(col))}</td>" for col in columns)
-            return (
-                '<table class="leaf-table">'
-                f"<thead><tr>{header}</tr></thead>"
-                f"<tbody><tr>{cells}</tr></tbody>"
-                "</table>"
-            )
+            return f'<table class="leaf-table"><thead><tr>{header}</tr></thead><tbody><tr>{cells}</tr></tbody></table>'
 
         rows: list[str] = []
         for key, val in value.items():
-            rows.append(
-                "<tr>"
-                f"<th>{escape(str(key))}</th>"
-                f"<td>{_json_value_to_html(val)}</td>"
-                "</tr>"
-            )
+            rows.append(f"<tr><th>{escape(str(key))}</th><td>{_json_value_to_html(val)}</td></tr>")
 
         return (
             '<table class="kv-table">'
-            '<thead><tr><th>Field</th><th>Value</th></tr></thead>'
+            "<thead><tr><th>Field</th><th>Value</th></tr></thead>"
             f"<tbody>{''.join(rows)}</tbody>"
             "</table>"
         )
@@ -76,9 +68,7 @@ def _json_value_to_html(value: object) -> str:
             body_rows: list[str] = []
 
             for item in value:
-                cells = "".join(
-                    f"<td>{_json_value_to_html(item.get(col))}</td>" for col in columns
-                )
+                cells = "".join(f"<td>{_json_value_to_html(item.get(col))}</td>" for col in columns)
                 body_rows.append(f"<tr>{cells}</tr>")
 
             return (
@@ -104,11 +94,13 @@ def _json_value_to_html(value: object) -> str:
 
     return escape(str(value))
 
+
 def malloy_result_to_html(result: dict | list, title: str = "Malloy Query Result") -> str:
     """Convert Malloy JSON output into a styled HTML document."""
     content = _json_value_to_html(result)
     template = _load_html_template()
     return template.safe_substitute(title=escape(title), content=content)
+
 
 def export_malloy_result_html(
     result: dict | list,
@@ -121,6 +113,7 @@ def export_malloy_result_html(
     output_file.write_text(malloy_result_to_html(result, title=title), encoding="utf-8")
     return output_file
 
+
 def build_report(
     malloy_file_path: str,
     output_path: str,
@@ -130,6 +123,7 @@ def build_report(
     """Execute a Malloy file and export the result into an HTML report."""
     result = run_malloy_file(model_path=malloy_file_path, query_name=query_name)
     return export_malloy_result_html(result=result, output_path=output_path, title=title)
+
 
 if __name__ == "__main__":
     by_project_rp = build_report(

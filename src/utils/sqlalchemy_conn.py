@@ -15,14 +15,16 @@ from sqlalchemy.engine import Connection, Engine
 load_dotenv(find_dotenv())
 print(f"DEBUG: Project Root .env found at: {find_dotenv()}")
 
+
 def setup_logging():
     logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s %(levelname)s %(message)s',
-        handlers=[logging.StreamHandler()]
+        level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s", handlers=[logging.StreamHandler()]
     )
     return logging.getLogger(__name__)
+
+
 logger = setup_logging()
+
 
 def prevent_sleep():
     system = platform.system().lower()
@@ -30,16 +32,9 @@ def prevent_sleep():
         return subprocess.Popen(["caffeinate"])
     if system == "linux" and shutil.which("systemd-inhibit"):
         proc = subprocess.Popen(
-            [
-                "systemd-inhibit",
-                "--what=sleep",
-                "--why=Scraping",
-                "--mode=block",
-                "sleep",
-                "infinity"
-            ],
+            ["systemd-inhibit", "--what=sleep", "--why=Scraping", "--mode=block", "sleep", "infinity"],
             stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL
+            stderr=subprocess.DEVNULL,
         )
         time.sleep(0.2)
         if proc.poll() is not None:
@@ -49,79 +44,58 @@ def prevent_sleep():
     logging.getLogger(__name__).warning("Sleep prevention not available on this system.")
     return None
 
+
 def stop_sleep(proc):
     if proc:
         proc.terminate()
 
+
 def format_worksheet(worksheet):
-    worksheet.spreadsheet.batch_update({
-        "requests": [
-            # Resize column F
-            {
-                "updateDimensionProperties": {
-                    "range": {
-                        "sheetId": worksheet.id,
-                        "dimension": "COLUMNS",
-                        "startIndex": 5,
-                        "endIndex": 6
-                    },
-                    "properties": {"pixelSize": 500},
-                    "fields": "pixelSize"
-                }
-            },
-            # Resize column A & B
-            {
-                "updateDimensionProperties": {
-                    "range": {
-                        "sheetId": worksheet.id,
-                        "dimension": "COLUMNS",
-                        "startIndex": 0,
-                        "endIndex": 2
-                    },
-                    "properties": {"pixelSize": 500},
-                    "fields": "pixelSize"
-                }
-            },
-            # Resize image column
-            {
-                "updateDimensionProperties": {
-                    "range": {
-                        "sheetId": worksheet.id,
-                        "dimension": "COLUMNS",
-                        "startIndex": 10,
-                        "endIndex": 20
-                    },
-                    "properties": {"pixelSize": 200},
-                    "fields": "pixelSize"
-                }
-            },
-            # Enable text wrapping
-            {
-                "repeatCell": {
-                    "range": {
-                        "sheetId": worksheet.id,
-                        "startColumnIndex": 0,
-                        "endColumnIndex": 20
-                    },
-                    "cell": {
-                        "userEnteredFormat": {
-                            "wrapStrategy": "WRAP"
-                        }
-                    },
-                    "fields": "userEnteredFormat.wrapStrategy"
-                }
-            }
-        ]
-    })
+    worksheet.spreadsheet.batch_update(
+        {
+            "requests": [
+                # Resize column F
+                {
+                    "updateDimensionProperties": {
+                        "range": {"sheetId": worksheet.id, "dimension": "COLUMNS", "startIndex": 5, "endIndex": 6},
+                        "properties": {"pixelSize": 500},
+                        "fields": "pixelSize",
+                    }
+                },
+                # Resize column A & B
+                {
+                    "updateDimensionProperties": {
+                        "range": {"sheetId": worksheet.id, "dimension": "COLUMNS", "startIndex": 0, "endIndex": 2},
+                        "properties": {"pixelSize": 500},
+                        "fields": "pixelSize",
+                    }
+                },
+                # Resize image column
+                {
+                    "updateDimensionProperties": {
+                        "range": {"sheetId": worksheet.id, "dimension": "COLUMNS", "startIndex": 10, "endIndex": 20},
+                        "properties": {"pixelSize": 200},
+                        "fields": "pixelSize",
+                    }
+                },
+                # Enable text wrapping
+                {
+                    "repeatCell": {
+                        "range": {"sheetId": worksheet.id, "startColumnIndex": 0, "endColumnIndex": 20},
+                        "cell": {"userEnteredFormat": {"wrapStrategy": "WRAP"}},
+                        "fields": "userEnteredFormat.wrapStrategy",
+                    }
+                },
+            ]
+        }
+    )
+
 
 class dbConnector:
-
     def connect_to_database(host, port, dbname, user, password) -> Engine:
         try:
             connection = create_engine(
-                f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{dbname}",
-                pool_pre_ping=True,
-                future=True
+                f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{dbname}", pool_pre_ping=True, future=True
             )
             logger.info("Successfully connected to the database")
             return connection
@@ -129,7 +103,9 @@ class dbConnector:
             logger.error(f"Unexpected error: {e}")
             raise
 
-    def execute_query(conn: Union[Engine, Connection], query: str, params: Optional[Tuple] = None, fetch: bool = True) -> Optional[List[Tuple]]:
+    def execute_query(
+        conn: Union[Engine, Connection], query: str, params: Optional[Tuple] = None, fetch: bool = True
+    ) -> Optional[List[Tuple]]:
         """
         Execute a SQL query on the database connection.
 
@@ -177,7 +153,9 @@ class dbConnector:
             logger.error(f"Unexpected error fetching to DataFrame: {e}")
             raise
 
-    def write_df_to_table(conn: Union[Engine, Connection], df: pd.DataFrame, schema: str, table: str, truncate: bool = False):
+    def write_df_to_table(
+        conn: Union[Engine, Connection], df: pd.DataFrame, schema: str, table: str, truncate: bool = False
+    ):
         if df.empty:
             logger.info(f"Write skipped: DataFrame is empty for {schema}.{table}")
             return
@@ -202,10 +180,9 @@ class dbConnector:
                 if_exists="append",
                 index=False,
                 method="multi",
-                chunksize=1000
+                chunksize=1000,
             )
             logger.info(f"Successfully wrote {len(df)} rows to {schema}.{table}")
-
 
     def upsert_df_to_table(conn, df, schema, table, conflict_cols):
         if df.empty:
@@ -218,16 +195,12 @@ class dbConnector:
 
         insert_stmt = pg_insert(table_obj).values(records)
         update_cols = {
-            c: insert_stmt.excluded[c]
-            for c in table_obj.columns.keys()
-            if c not in conflict_cols and c != 'id'
+            c: insert_stmt.excluded[c] for c in table_obj.columns.keys() if c not in conflict_cols and c != "id"
         }
 
         # 1. Define the upsert
         upsert_stmt = insert_stmt.on_conflict_do_update(
-            index_elements=conflict_cols,
-            set_=update_cols,
-            where=text(f'("{table}".*) IS DISTINCT FROM (EXCLUDED.*)')
+            index_elements=conflict_cols, set_=update_cols, where=text(f'("{table}".*) IS DISTINCT FROM (EXCLUDED.*)')
         )
 
         # 2. Add RETURNING clause to detect if it was an insert or update
@@ -243,20 +216,18 @@ class dbConnector:
             inserts = sum(1 for row in result if row[0] == 0)
             updates = sum(1 for row in result if row[0] != 0)
 
-            logger.info(f"Finished: {inserts} new, {updates} updated, {len(df) - len(result)} skipped to {schema}.{table} (attempted {len(df)}).")
+            logger.info(
+                f"Finished: {inserts} new, {updates} updated, {len(df) - len(result)} skipped to {schema}.{table} (attempted {len(df)})."
+            )
             return inserts, updates
 
     def spyno_sb_conn():
-        DB_PASSWORD    = os.getenv("DB_PASSWORD")
-        DB_USER        = os.getenv("DB_USER")
-        DB_PORT        = os.getenv("DB_PORT")
-        DB_HOST        = os.getenv("DB_HOST")
-        DB_DB_NAME     = os.getenv("DB_NAME")
+        DB_PASSWORD = os.getenv("DB_PASSWORD")
+        DB_USER = os.getenv("DB_USER")
+        DB_PORT = os.getenv("DB_PORT")
+        DB_HOST = os.getenv("DB_HOST")
+        DB_DB_NAME = os.getenv("DB_NAME")
         sb_conn = dbConnector.connect_to_database(
-            host=DB_HOST,
-            port=DB_PORT,
-            dbname=DB_DB_NAME,
-            user=DB_USER,
-            password=DB_PASSWORD
+            host=DB_HOST, port=DB_PORT, dbname=DB_DB_NAME, user=DB_USER, password=DB_PASSWORD
         )
         return sb_conn

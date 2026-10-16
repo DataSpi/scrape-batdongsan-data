@@ -13,8 +13,7 @@ def get_bigquery_client():
         # GitHub Actions: credentials passed as JSON string in env variable
         credentials_info = json.loads(credentials_json)
         credentials = service_account.Credentials.from_service_account_info(
-            credentials_info,
-            scopes=["https://www.googleapis.com/auth/cloud-platform"]
+            credentials_info, scopes=["https://www.googleapis.com/auth/cloud-platform"]
         )
         client = bigquery.Client(credentials=credentials, project=credentials_info["project_id"])
     else:
@@ -28,6 +27,7 @@ def get_bigquery_client():
         print(f"Kết nối thành công! Đã thấy dataset: {datasets[0].dataset_id}")
     return client
 
+
 _BQ_PARAM_TYPES = {str: "STRING", int: "INT64", float: "FLOAT64", bool: "BOOL"}
 
 
@@ -38,11 +38,14 @@ def query_to_df(client, query, params=None):
     """
     job_config = None
     if params:
-        job_config = bigquery.QueryJobConfig(query_parameters=[
-            bigquery.ScalarQueryParameter(name, _BQ_PARAM_TYPES[type(value)], value)
-            for name, value in params.items()
-        ])
+        job_config = bigquery.QueryJobConfig(
+            query_parameters=[
+                bigquery.ScalarQueryParameter(name, _BQ_PARAM_TYPES[type(value)], value)
+                for name, value in params.items()
+            ]
+        )
     return client.query(query, job_config=job_config).to_dataframe()
+
 
 def execute_query(client, query):
     query_job = client.query(query)
@@ -52,7 +55,7 @@ def execute_query(client, query):
     return {
         "statement_type": query_job.statement_type,
         "affected_rows": query_job.num_dml_affected_rows,
-        "job_id": query_job.job_id
+        "job_id": query_job.job_id,
     }
 
 
@@ -64,6 +67,7 @@ def upload_df_to_bigquery(
     allow_field_addition=False,
 ):
     from google.cloud.bigquery import LoadJobConfig
+
     job_config = LoadJobConfig(
         write_disposition=write_disposition,
         autodetect=(write_disposition == "WRITE_TRUNCATE" or allow_field_addition),
@@ -76,7 +80,7 @@ def upload_df_to_bigquery(
 
 
 def read_sql_file(file_path):
-    with open(file_path, 'r', encoding='utf-8') as file:
+    with open(file_path, "r", encoding="utf-8") as file:
         sql_query = file.read()
     return sql_query
 
@@ -88,7 +92,6 @@ def get_updated_time(client, schema, table_name):
     FROM {schema}.__TABLES__
     WHERE table_id = '{table_name}'
     """
-    updated_time = query_to_df(client, query)\
-        .iloc[0]['last_updated'].strftime("%Y-%m-%d %H:%M:%S")
+    updated_time = query_to_df(client, query).iloc[0]["last_updated"].strftime("%Y-%m-%d %H:%M:%S")
 
     return updated_time

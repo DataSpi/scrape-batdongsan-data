@@ -10,6 +10,7 @@ for that.
 Requires GOOGLE_MAPS_API_KEY in .env (Geocoding API key, separate from the BigQuery
 service account -- see src/_geocode/geocode_locations.py docstring).
 """
+
 import pendulum
 from airflow.operators.bash import BashOperator
 
@@ -28,7 +29,6 @@ with DAG(
     catchup=False,
     tags=["pipeline", "manual"],
 ) as dag:
-
     geocode_locations = BashOperator(
         task_id="geocode_locations",
         bash_command="python -m src._geocode.geocode_locations",

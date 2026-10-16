@@ -35,6 +35,7 @@ re_bronze.fct_real_estate_rent) and built through separate silver/gold models --
 prices are monthly rates, not comparable to sale prices, so they never share a table or
 a price bound/bin with the sale lineage. See dbt/models/silver/facts/fct_real_estate_rent.sql.
 """
+
 import subprocess
 import sys
 from pathlib import Path
@@ -86,8 +87,12 @@ STEPS = [
 def run_step(name: str, cmd: list[str]) -> bool:
     logger.info(f"=== Start: {name} ({' '.join(cmd)}) ===")
     process = subprocess.Popen(
-        cmd, cwd=PROJECT_ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-        text=True, bufsize=1,
+        cmd,
+        cwd=PROJECT_ROOT,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1,
     )
     for line in process.stdout:
         logger.info(f"[{name}] {line.rstrip()}")

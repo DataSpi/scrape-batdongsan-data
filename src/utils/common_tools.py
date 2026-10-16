@@ -13,12 +13,13 @@ from psycopg2.extras import execute_batch, execute_values
 
 def setup_logging():
     logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s %(levelname)s %(message)s',
-        handlers=[logging.StreamHandler()]
+        level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s", handlers=[logging.StreamHandler()]
     )
     return logging.getLogger(__name__)
+
+
 logger = setup_logging()
+
 
 def prevent_sleep():
     system = platform.system().lower()
@@ -26,16 +27,9 @@ def prevent_sleep():
         return subprocess.Popen(["caffeinate"])
     if system == "linux" and shutil.which("systemd-inhibit"):
         proc = subprocess.Popen(
-            [
-                "systemd-inhibit",
-                "--what=sleep",
-                "--why=Scraping",
-                "--mode=block",
-                "sleep",
-                "infinity"
-            ],
+            ["systemd-inhibit", "--what=sleep", "--why=Scraping", "--mode=block", "sleep", "infinity"],
             stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL
+            stderr=subprocess.DEVNULL,
         )
         time.sleep(0.2)
         if proc.poll() is not None:
@@ -45,82 +39,57 @@ def prevent_sleep():
     logging.getLogger(__name__).warning("Sleep prevention not available on this system.")
     return None
 
+
 def stop_sleep(proc):
     if proc:
         proc.terminate()
 
+
 def format_worksheet(worksheet):
-    worksheet.spreadsheet.batch_update({
-        "requests": [
-            # Resize column F
-            {
-                "updateDimensionProperties": {
-                    "range": {
-                        "sheetId": worksheet.id,
-                        "dimension": "COLUMNS",
-                        "startIndex": 5,
-                        "endIndex": 6
-                    },
-                    "properties": {"pixelSize": 500},
-                    "fields": "pixelSize"
-                }
-            },
-            # Resize column A & B
-            {
-                "updateDimensionProperties": {
-                    "range": {
-                        "sheetId": worksheet.id,
-                        "dimension": "COLUMNS",
-                        "startIndex": 0,
-                        "endIndex": 2
-                    },
-                    "properties": {"pixelSize": 500},
-                    "fields": "pixelSize"
-                }
-            },
-            # Resize image column
-            {
-                "updateDimensionProperties": {
-                    "range": {
-                        "sheetId": worksheet.id,
-                        "dimension": "COLUMNS",
-                        "startIndex": 10,
-                        "endIndex": 20
-                    },
-                    "properties": {"pixelSize": 200},
-                    "fields": "pixelSize"
-                }
-            },
-            # Enable text wrapping
-            {
-                "repeatCell": {
-                    "range": {
-                        "sheetId": worksheet.id,
-                        "startColumnIndex": 0,
-                        "endColumnIndex": 20
-                    },
-                    "cell": {
-                        "userEnteredFormat": {
-                            "wrapStrategy": "WRAP"
-                        }
-                    },
-                    "fields": "userEnteredFormat.wrapStrategy"
-                }
-            }
-        ]
-    })
+    worksheet.spreadsheet.batch_update(
+        {
+            "requests": [
+                # Resize column F
+                {
+                    "updateDimensionProperties": {
+                        "range": {"sheetId": worksheet.id, "dimension": "COLUMNS", "startIndex": 5, "endIndex": 6},
+                        "properties": {"pixelSize": 500},
+                        "fields": "pixelSize",
+                    }
+                },
+                # Resize column A & B
+                {
+                    "updateDimensionProperties": {
+                        "range": {"sheetId": worksheet.id, "dimension": "COLUMNS", "startIndex": 0, "endIndex": 2},
+                        "properties": {"pixelSize": 500},
+                        "fields": "pixelSize",
+                    }
+                },
+                # Resize image column
+                {
+                    "updateDimensionProperties": {
+                        "range": {"sheetId": worksheet.id, "dimension": "COLUMNS", "startIndex": 10, "endIndex": 20},
+                        "properties": {"pixelSize": 200},
+                        "fields": "pixelSize",
+                    }
+                },
+                # Enable text wrapping
+                {
+                    "repeatCell": {
+                        "range": {"sheetId": worksheet.id, "startColumnIndex": 0, "endColumnIndex": 20},
+                        "cell": {"userEnteredFormat": {"wrapStrategy": "WRAP"}},
+                        "fields": "userEnteredFormat.wrapStrategy",
+                    }
+                },
+            ]
+        }
+    )
+
 
 class dbConnector:
-
     def connect_to_database(host, port, dbname, user, password) -> psycopg2.extensions.connection:
         try:
-            connection = psycopg2.connect(
-                host=host,
-                port=port,
-                dbname=dbname,
-                user=user,
-                password=password
-            )
+            connection = psycopg2.connect(host=host, port=port, dbname=dbname, user=user, password=password)
             logger.info("Successfully connected to the database")
             return connection
         except psycopg2.Error as e:
@@ -208,7 +177,7 @@ class dbConnector:
                 cur,
                 f'INSERT INTO "{schema}"."{table}" ({col_names}) VALUES ({placeholders})',
                 df.itertuples(index=False, name=None),
-                page_size=1000
+                page_size=1000,
             )
         conn.commit()
 
@@ -241,27 +210,21 @@ class dbConnector:
                 # df.to_records(index=False), # Converts DF to list of tuples
                 data,
                 template=None,
-                page_size=1000
+                page_size=1000,
             )
 
             # Now cur.rowcount will correctly return the total number of affected rows
             affected_rows = cur.rowcount
-            logger.info(
-                f"Upserted {affected_rows} rows into {schema}.{table} (attempted {len(df)})."
-            )
+            logger.info(f"Upserted {affected_rows} rows into {schema}.{table} (attempted {len(df)}).")
         conn.commit()
 
     def spyno_sb_conn():
-        DB_PASSWORD    = os.getenv("DB_PASSWORD")
-        DB_USER        = os.getenv("DB_USER")
-        DB_PORT        = os.getenv("DB_PORT")
-        DB_HOST        = os.getenv("DB_HOST")
-        DB_DB_NAME     = os.getenv("DB_DB_NAME")
+        DB_PASSWORD = os.getenv("DB_PASSWORD")
+        DB_USER = os.getenv("DB_USER")
+        DB_PORT = os.getenv("DB_PORT")
+        DB_HOST = os.getenv("DB_HOST")
+        DB_DB_NAME = os.getenv("DB_DB_NAME")
         sb_conn = dbConnector.connect_to_database(
-            host=DB_HOST,
-            port=DB_PORT,
-            dbname=DB_DB_NAME,
-            user=DB_USER,
-            password=DB_PASSWORD
+            host=DB_HOST, port=DB_PORT, dbname=DB_DB_NAME, user=DB_USER, password=DB_PASSWORD
         )
         return sb_conn
