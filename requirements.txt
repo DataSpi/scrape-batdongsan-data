@@ -3,6 +3,7 @@ python-dotenv
 numpy
 curl_cffi
 requests
+patchright
 beautifulsoup4
 sqlalchemy
 psycopg2-binary
@@ -11,7 +12,8 @@ google-cloud-bigquery
 pyarrow
 db-dtypes
 pandas-gbq
-dbt-bigquery
+dbt-bigquery~=1.11.0
+elementary-data[bigquery]~=0.26.0
 # Report generation
 malloy[postgres]
 plotly

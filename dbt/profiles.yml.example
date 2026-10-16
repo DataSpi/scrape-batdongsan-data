@@ -13,5 +13,42 @@ batdongsan:
       # invocation time (not against this file's location), which differs
       # between `python -m src.orchestrator.run_pipeline` (repo root) and
       # running `dbt` directly from dbt/ -- use an absolute path to avoid that.
+      #
+      # This path is also environment-specific: bare-metal/local runs need the
+      # host absolute path (e.g. /Users/you/scrape-batdongsan-data/gcp_service_account.json),
+      # while dags/*.py running inside the Airflow containers (docker-compose)
+      # need the path as mounted in-container: /opt/airflow/repo/gcp_service_account.json.
+      # Since dbt/profiles.yml is gitignored (one file, one machine/context),
+      # pick whichever matches how you actually invoke dbt.
+      keyfile: /absolute/path/to/scrape-batdongsan-data/gcp_service_account.json
+      threads: 4
+
+    # Used by .github/workflows/ci.yml only -- GitHub-hosted runners can't reach
+    # batdongsan.com.vn to scrape, so CI never runs the real pipeline against this
+    # target, just `dbt compile`/`dbt test` for fast SQL/Jinja feedback on PRs.
+    # keyfile_json takes the service account JSON inline (base64-decoded from the
+    # GCP_CREDENTIALS_JSON secret), same env var src/utils/gcp_conn.py already
+    # reads for its GitHub Actions code path -- no temp keyfile needed.
+    ci:
+      type: bigquery
+      method: service-account-json
+      project: your-gcp-project-id
+      dataset: re_silver
+      location: asia-southeast1
+      keyfile_json: "{{ env_var('GCP_CREDENTIALS_JSON') }}"
+      threads: 4
+
+# Profile used by the `edr` CLI (Elementary report). Its name must match the `profile`
+# declared by the elementary package's target in dbt_project.yml (default: `elementary`),
+# and `schema` must be the dataset Elementary writes to (re_elementary -- dbt appends the
+# custom schema, so edr needs the final dataset name directly).
+elementary:
+  outputs:
+    default:
+      type: bigquery
+      method: service-account
+      project: your-gcp-project-id
+      dataset: re_elementary
+      location: asia-southeast1
       keyfile: /absolute/path/to/scrape-batdongsan-data/gcp_service_account.json
       threads: 4

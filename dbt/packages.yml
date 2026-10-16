@@ -1,0 +1,5 @@
+packages:
+  # Observability: stores every run/test result in BigQuery (re_elementary) and adds
+  # anomaly tests (volume/freshness/column) on top of the bronze scrape output.
+  - package: elementary-data/elementary
+    version: 0.26.0

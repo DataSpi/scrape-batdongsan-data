@@ -8,6 +8,7 @@ model-paths: ["models"]
 seed-paths: ["seeds"]
 macro-paths: ["macros"]
 test-paths: ["tests"]
+snapshot-paths: ["snapshots"]
 
 target-path: "target"
 clean-targets:
@@ -16,12 +17,14 @@ clean-targets:
 
 models:
   batdongsan:
-    staging:
+    silver:
       +schema: re_silver
       +materialized: table
     marts:
       +schema: re_gold
       +materialized: table
+  elementary:
+    +schema: re_elementary
 
 seeds:
   batdongsan:

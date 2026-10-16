@@ -1,0 +1,39 @@
+# Static validation of the dbt project: YAML, ref()/source(), Jinja and macros via
+# `dbt parse` with a dummy profile (dbt/ci/profiles.yml). It never connects to
+# BigQuery, so it needs no secrets and also works for fork PRs. The real weekly
+# dbt run/test happens on the local machine (scripts/run_weekly_pipeline.sh).
+name: dbt CI
+
+on:
+  pull_request:
+    paths:
+      - "dbt/**"
+      - "requirements.txt"
+      - ".github/workflows/dbt-ci.yml"
+  push:
+    branches: [main]
+    paths:
+      - "dbt/**"
+
+jobs:
+  dbt-parse:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: requirements.txt
+
+      # Only the dbt adapter, with the version pinned in requirements.txt.
+      - name: Install dbt
+        run: pip install "$(grep '^dbt-bigquery' requirements.txt)"
+
+      - name: dbt deps
+        working-directory: dbt
+        run: dbt deps --profiles-dir ci
+
+      - name: dbt parse
+        working-directory: dbt
+        run: dbt parse --target ci --profiles-dir ci

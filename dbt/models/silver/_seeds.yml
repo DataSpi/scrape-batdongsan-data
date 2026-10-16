@@ -1,0 +1,43 @@
+version: 2
+
+seeds:
+  - name: dim_real_estate_type_mapping
+    description: >
+      Lookup for normalizing the real_estate_type slug matched out of a listing's link
+      into a canonical Vietnamese label. Ported from the `whitelist` + `type_mapping`
+      dict in src/_br2sil/j_real_estate.py. Two whitelist entries (`ban-nha-rieng`,
+      `ban-can-ho-chung-cu`) were intentionally dropped: in the legacy Python loop they
+      were always shadowed by an earlier, broader substring match (`nha-rieng` /
+      `can-ho-chung-cu` respectively) and could never actually be returned, so keeping
+      them would just be dead rows.
+    columns:
+      - name: raw_token
+        data_tests:
+          - unique
+          - not_null
+      - name: real_estate_type
+        data_tests:
+          - not_null
+
+  - name: dim_district_geo_v1
+    description: >
+      Lat/lng for each legacy (v1) district, geocoded once via
+      src/_geocode/geocode_locations.py (Google Geocoding API). Not refreshed on a
+      schedule -- districts are static; re-run the script and `dbt seed` manually if
+      new districts ever show up. lat/lng are blank (NULL after seed) when the API
+      couldn't resolve an address.
+    columns:
+      - name: districtId
+        data_tests:
+          - unique
+          - not_null
+
+  - name: dim_ward_geo_v2
+    description: >
+      Lat/lng for each active (v2) ward, geocoded once via
+      src/_geocode/geocode_locations.py. Same caveats as dim_district_geo_v1.
+    columns:
+      - name: wardId
+        data_tests:
+          - unique
+          - not_null

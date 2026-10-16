@@ -1,87 +1,110 @@
 # Quickstart
 
-Tài liệu này giúp bạn chạy dự án nhanh trên máy cá nhân.
+Tài liệu này giúp bạn chạy dự án nhanh trên máy cá nhân. Cách chạy mặc định (giai đoạn 3) là
+**bare-metal + launchd** — không cần Docker. Có mục
+[chạy qua Docker + Airflow](#6-cách-khác--docker--airflow-self-hosted) ở cuối nếu bạn muốn UI
+theo dõi/retry tự động, đánh đổi lấy việc phải giữ `airflow-scheduler` chạy liên tục.
 
 ## 1) Yêu cầu trước khi bắt đầu
 
-- Python 3.10 trở lên (nên dùng môi trường conda riêng).
-- Có quyền truy cập database Supabase/PostgreSQL.
-- Tạo file `.env` (hoặc thiết lập biến môi trường) với các biến tối thiểu:
-  - `DB_HOST`
-  - `DB_PORT`
-  - `DB_DB_NAME`
-  - `DB_USER`
-  - `DB_PASSWORD`
+- Python 3.12 (conda hoặc venv đều được).
+- File service account BigQuery: `gcp_service_account.json` ở repo root (liên hệ
+  maintainer nếu bạn không có project GCP riêng).
+- **batdongsan.com.vn chặn IP của cloud/CI runner** — pipeline này bắt buộc chạy từ
+  máy cá nhân (IP dân dụng), không chạy được trên VM cloud thông thường — xem
+  [technical-guides.md](technical-guides.md) để biết chi tiết.
 
 ## 2) Cài đặt
 
 ```bash
+git clone https://github.com/DataSpi/scrape-batdongsan-data.git
+cd scrape-batdongsan-data
+cp .env.example .env            # điền GOOGLE_MAPS_API_KEY nếu cần rebuild location lineage
+cp dbt/profiles.yml.example dbt/profiles.yml   # sửa `project` + `keyfile` cho đúng máy bạn
+# đặt gcp_service_account.json ở repo root
+
+python -m venv venv && source venv/bin/activate   # hoặc conda create -n scrape_bds python=3.12
 pip install -r requirements.txt
 ```
 
-Nếu dùng conda:
-
-```bash
-conda create -n bds_scraper python=3.10 -y
-conda activate bds_scraper
-pip install -r requirements.txt
-```
-
-## 3) Chạy pipeline cơ bản
-
-Chạy toàn bộ pipeline (scrape -> dbt seed/run/test) bằng một lệnh:
+## 3) Chạy thử thủ công
 
 ```bash
 python -m src.orchestrator.run_pipeline
 ```
 
-Hoặc chạy từng bước riêng lẻ khi cần debug:
+Chạy tuần tự: scrape sale HCM/HN → scrape rent HCM/HN → scrape projects HCM/HN → scrape
+metadata → `dbt run` → `dbt snapshot` (SCD2 history, xem
+[technical-guides.md mục 1b](technical-guides.md#1b-lịch-sử-thay-đổi-listing-scd2cdc)) → `dbt
+test`. Dừng ngay khi có bước lỗi.
 
-### 3.1 Thu thập listings
-
-```bash
-python -m src._web2br.j_real_estate
-```
-
-### 3.2 Thu thập dự án
+## 4) Cài đặt chạy định kỳ (launchd)
 
 ```bash
-python -m src._web2br.j_projects
+cp scripts/com.dataspi.batdongsan-weekly.plist ~/Library/LaunchAgents/
+# sửa các path /Users/spinokiem/... trong file plist + trong
+# scripts/run_weekly_pipeline.sh cho khớp máy bạn (repo path, conda env path)
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.dataspi.batdongsan-weekly.plist
+
+# test ngay không cần đợi tới lịch (Thứ 2, 9h sáng):
+launchctl kickstart gui/$(id -u)/com.dataspi.batdongsan-weekly
 ```
 
-### 3.3 Lấy metadata
+Dùng `bootstrap`, không dùng `launchctl load` (lệnh cũ) -- trên macOS hiện đại (xác nhận trên
+15.x Sequoia) `load` báo lỗi mù mờ "Input/output error" không rõ nguyên nhân, còn `bootstrap`
+báo lỗi rõ ràng hơn hẳn. Gỡ job: `launchctl bootout gui/$(id -u)/com.dataspi.batdongsan-weekly`.
 
-```bash
-python -m src._web2br.j_metadata
-```
-
-### 3.4 Làm sạch dữ liệu (Bronze -> Silver -> Gold, dbt)
-
-```bash
-cd dbt && dbt seed && dbt run && dbt test
-```
-
-Copy `dbt/profiles.yml.example` thành `dbt/profiles.yml` (đã gitignore) trước khi chạy lần đầu.
-
-## 4) Tạo báo cáo
-
-```bash
-python src/reports/report_builder.py
-```
-
-Báo cáo sẽ được lưu trong thư mục `docs/reports/`.
+Khác cron thật: nếu máy đang ngủ đúng giờ trigger, launchd tự chạy bù khi máy thức dậy thay vì
+bỏ qua hẳn lần chạy đó. Log mỗi lần chạy nằm ở `logs/pipeline_<timestamp>.log`.
 
 ## 5) Kiểm tra nhanh
 
-- Có dữ liệu trong schema Bronze/Silver trên database.
-- Có file HTML báo cáo mới trong `docs/reports/`.
-- Xem báo cáo mẫu: [HCM-HN_prj.html](reports/HCM-HN_prj.html)
+- Chạy `python -m src.orchestrator.run_pipeline` (hoặc `launchctl kickstart ...`) thấy log chạy hết
+  cả 10 bước, exit code 0.
+- Có dữ liệu mới trong BigQuery `re_bronze`/`re_silver`/`re_gold`.
+- `re_silver.snp_real_estate` có dòng với `dbt_valid_from` = thời điểm vừa chạy.
 
-## 6) Xử lý lỗi thường gặp
+## 6) Cách khác — Docker + Airflow (self-hosted)
 
-- Lỗi kết nối DB: kiểm tra lại `.env` và quyền truy cập Supabase.
-- Lỗi package: chạy lại `pip install -r requirements.txt` trong đúng environment.
-- Không có listing: website nguồn có thể đã đổi cấu trúc, cần cập nhật lại selector scraper.
+Nếu muốn theo dõi qua UI, retry tự động, hoặc backfill — dùng Airflow tự host thay vì launchd.
+Đánh đổi: `airflow-scheduler` + Postgres metadata phải chạy liên tục (~1–1.5GB RAM) chỉ để bắn 1
+job/tuần, xem [CLAUDE.md § Giai đoạn 3](../CLAUDE.md).
+
+```bash
+docker compose build
+docker compose up airflow-init      # migrate DB metadata Airflow + tạo user admin (chạy 1 lần)
+docker compose up -d                # bật scheduler + webserver + metadata DB
+```
+
+Mở [http://localhost:8080](http://localhost:8080) (đăng nhập `admin` / `admin`, đổi
+sau khi dùng thật). Có 2 DAG:
+
+- `pipeline_weekly` — scrape + dbt run/snapshot/test, lịch mặc định Thứ 2 9h sáng (đồng bộ với
+  launchd ở mục 4). Có thể trigger tay để chạy thử ngay.
+- `lineage_rebuild` — chỉ trigger thủ công, dùng khi cần geocode lại district/ward
+  hoặc có district/ward mới (xem [technical-guides.md](technical-guides.md) mục 3).
+
+## 7) Tạo báo cáo
+
+```bash
+python src/reports/report_builder.py   # hoặc: docker compose run --rm pipeline python src/reports/report_builder.py
+```
+
+Báo cáo được lưu vào `docs/reports/`.
+
+## 8) Xử lý lỗi thường gặp
+
+- **Không kết nối được BigQuery**: kiểm tra `gcp_service_account.json` có ở repo root và
+  `dbt/profiles.yml` trỏ đúng file.
+- **launchd job không chạy / không thấy log mới**: xem
+  [technical-guides.md mục 10](technical-guides.md#10-troubleshooting).
+- **`dbt run`/`dbt test` báo lỗi credentials trong Airflow**: `dbt/profiles.yml` có
+  path `keyfile` tuyệt đối — path này khác nhau giữa bare-metal và trong container
+  Airflow (`/opt/airflow/repo/gcp_service_account.json`), xem `dbt/profiles.yml.example`.
+- **DAG không xuất hiện trên Airflow UI**: kiểm tra `docker compose logs airflow-scheduler`
+  và `airflow dags list-import-errors` (chạy qua `docker compose exec airflow-scheduler ...`).
+- **Không có listing mới sau khi scrape**: website nguồn có thể đã đổi cấu trúc, cần
+  cập nhật lại selector trong `src/_web2br/`.
 
 ## Điều hướng
 

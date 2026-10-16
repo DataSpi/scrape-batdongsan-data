@@ -2,9 +2,9 @@ import argparse
 
 from sqlalchemy import inspect
 
-from src.utils.sqlalchemy_conn import dbConnector as db
-from src.utils.gcp_conn import get_bigquery_client, upload_df_to_bigquery
 from src.utils.common_tools import setup_logging
+from src.utils.gcp_conn import get_bigquery_client, upload_df_to_bigquery
+from src.utils.sqlalchemy_conn import dbConnector as db
 
 logger = setup_logging()
 
@@ -27,7 +27,9 @@ def migrate_table(pg_conn, bq_client, schema, table):
 
     table_id = f"{bq_client.project}.{schema}.{table}"
     rows = upload_df_to_bigquery(
-        bq_client, df, table_id,
+        bq_client,
+        df,
+        table_id,
         write_disposition="WRITE_TRUNCATE",
         allow_field_addition=True,
     )
@@ -60,9 +62,16 @@ def main(schemas: list[str], tables: list[str] | None = None):
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Migrate Supabase (Postgres) re_bronze/re_silver schemas to BigQuery datasets of the same name.")
+    parser = argparse.ArgumentParser(
+        description="Migrate Supabase (Postgres) re_bronze/re_silver schemas to BigQuery datasets of the same name."
+    )
     parser.add_argument("--schemas", nargs="+", default=SCHEMAS, help="Schemas to migrate. Default: %(default)s")
-    parser.add_argument("--tables", nargs="+", default=None, help="Only migrate these table names (applies across all --schemas). Default: all tables.")
+    parser.add_argument(
+        "--tables",
+        nargs="+",
+        default=None,
+        help="Only migrate these table names (applies across all --schemas). Default: all tables.",
+    )
     return parser.parse_args()
 
 

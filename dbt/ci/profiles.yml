@@ -1,0 +1,37 @@
+# Dummy profile for CI: dbt parse needs a loadable profile but never connects to BigQuery.
+batdongsan:
+  target: ci
+  outputs:
+    ci:
+      type: bigquery
+      method: service-account-json
+      project: fake-project
+      dataset: re_silver
+      location: asia-southeast1
+      threads: 1
+      keyfile_json:
+        type: service_account
+        project_id: fake-project
+        private_key_id: x
+        private_key: "-----BEGIN PRIVATE KEY-----\nx\n-----END PRIVATE KEY-----\n"
+        client_email: x@fake-project.iam.gserviceaccount.com
+        client_id: "1"
+        token_uri: https://oauth2.googleapis.com/token
+elementary:
+  target: ci
+  outputs:
+    ci:
+      type: bigquery
+      method: service-account-json
+      project: fake-project
+      dataset: re_elementary
+      location: asia-southeast1
+      threads: 1
+      keyfile_json:
+        type: service_account
+        project_id: fake-project
+        private_key_id: x
+        private_key: "-----BEGIN PRIVATE KEY-----\nx\n-----END PRIVATE KEY-----\n"
+        client_email: x@fake-project.iam.gserviceaccount.com
+        client_id: "1"
+        token_uri: https://oauth2.googleapis.com/token

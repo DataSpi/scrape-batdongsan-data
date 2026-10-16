@@ -6,7 +6,6 @@ import sys
 import tempfile
 from pathlib import Path
 
-
 DEFAULT_CONFIG = Path(r"C:\Users\LAP14354\.config\malloy\malloy-config.json")
 
 
@@ -49,9 +48,11 @@ def ml_go(args: list[str], config_path: Path = DEFAULT_CONFIG) -> int:
     # return completed.returncode
     return json.loads(completed.stdout)
 
+
 def run_malloy_file(model_path: str, query_name: str | None = None) -> dict | list:
-    results=ml_go(args = ["run", model_path, query_name] if query_name else ["run", model_path])
+    results = ml_go(args=["run", model_path, query_name] if query_name else ["run", model_path])
     return results
+
 
 def run_direct_query(model_path: str, query: str) -> dict | list:
     """

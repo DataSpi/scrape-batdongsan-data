@@ -1,29 +1,32 @@
 import time
 
 import pandas as pd
-from curl_cffi import requests
-from src.utils.gcp_conn import get_bigquery_client, upload_df_to_bigquery
+
 from src.utils.common_tools import setup_logging
+from src.utils.gcp_conn import get_bigquery_client, upload_df_to_bigquery
+from src.utils.scrape_session import request_with_cf_bypass
+
 logger = setup_logging()
 
 MAX_ATTEMPTS = 3
 RETRY_BACKOFF_SECONDS = 2
 
+
 def custom_request(url):
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9',
-    }
-    response = requests.get(url, headers=headers, impersonate="chrome124")
-    return response
+    return request_with_cf_bypass(url)
+
 
 def response_to_df(response):
     json_data = response.json()
     df = pd.DataFrame(json_data)
     return df
 
-def get_children_infos(parents_df: pd.DataFrame, key_column: str, url_template="https://batdongsan.com.vn/Product/ProductSearch/GetWardsByDistrictIds?districtIds={}"):
+
+def get_children_infos(
+    parents_df: pd.DataFrame,
+    key_column: str,
+    url_template="https://batdongsan.com.vn/Product/ProductSearch/GetWardsByDistrictIds?districtIds={}",
+):
     df_all = pd.DataFrame()
     for parent in parents_df.itertuples():
         parent_id = getattr(parent, key_column)
@@ -41,7 +44,9 @@ def get_children_infos(parents_df: pd.DataFrame, key_column: str, url_template="
                 break
             except Exception as e:
                 if attempt < MAX_ATTEMPTS:
-                    logger.warning(f"{key_column}={parent_id} attempt {attempt}/{MAX_ATTEMPTS} failed ({e}), retrying...")
+                    logger.warning(
+                        f"{key_column}={parent_id} attempt {attempt}/{MAX_ATTEMPTS} failed ({e}), retrying..."
+                    )
                     time.sleep(RETRY_BACKOFF_SECONDS)
                 else:
                     logger.error(f"{key_column}={parent_id} failed after {MAX_ATTEMPTS} attempts ({e}), skipping.")
@@ -73,36 +78,52 @@ def get_children_infos(parents_df: pd.DataFrame, key_column: str, url_template="
     "GetCities": "/Product/ProductSearch/GetCitiesV2",
     "GetWardsByCityCode": "/Product/ProductSearch/GetWardsByCityCodeV2",
     "GetStreetsByWardIdV2": "/Product/ProductSearch/GetStreetsByWardIdV2",
-    "GetProjectsByWardId": "/Product/ProductSearch/GetProjectsByWardIdV2"
+    "GetProjectsByWardId": "/Product/ProductSearch/GetProjectsByWardIdV2",
 }
 
-ward_sg = response_to_df(custom_request("https://batdongsan.com.vn/Product/ProductSearch/GetWardsByCityCodeV2?cityCode=SG"))
+ward_sg = response_to_df(
+    custom_request("https://batdongsan.com.vn/Product/ProductSearch/GetWardsByCityCodeV2?cityCode=SG")
+)
 
 response_to_df(custom_request("https://batdongsan.com.vn/Product/ProductSearch/GetProjectsByWardIdV2?wardId=1036"))
 
 
-
-
 cities_v2 = response_to_df(custom_request("https://batdongsan.com.vn/Product/ProductSearch/GetCitiesV2"))
-wards_v2 = get_children_infos(cities_v2, key_column="code", url_template="https://batdongsan.com.vn/Product/ProductSearch/GetWardsByCityCodeV2?cityCode={}")
-streets_v2 = get_children_infos(wards_v2, key_column="wardId", url_template="https://batdongsan.com.vn/Product/ProductSearch/GetStreetsByWardIdV2?wardId={}")
-projects_v2 = get_children_infos(wards_v2, key_column="wardId", url_template="https://batdongsan.com.vn/Product/ProductSearch/GetProjectsByWardIdV2?wardId={}")
-
-
-
-
+wards_v2 = get_children_infos(
+    cities_v2,
+    key_column="code",
+    url_template="https://batdongsan.com.vn/Product/ProductSearch/GetWardsByCityCodeV2?cityCode={}",
+)
+streets_v2 = get_children_infos(
+    wards_v2,
+    key_column="wardId",
+    url_template="https://batdongsan.com.vn/Product/ProductSearch/GetStreetsByWardIdV2?wardId={}",
+)
+projects_v2 = get_children_infos(
+    wards_v2,
+    key_column="wardId",
+    url_template="https://batdongsan.com.vn/Product/ProductSearch/GetProjectsByWardIdV2?wardId={}",
+)
 
 
 # write to BigQuery
 bq_client = get_bigquery_client()
-# upload_df_to_bigquery(bq_client, cities, f"{bq_client.project}.re_bronze.m_cities", write_disposition="WRITE_TRUNCATE")
-# upload_df_to_bigquery(bq_client, districts, f"{bq_client.project}.re_bronze.m_districts", write_disposition="WRITE_TRUNCATE")
-# upload_df_to_bigquery(bq_client, wards_all, f"{bq_client.project}.re_bronze.m_wards", write_disposition="WRITE_TRUNCATE")
-# upload_df_to_bigquery(bq_client, streets_all, f"{bq_client.project}.re_bronze.m_streets", write_disposition="WRITE_TRUNCATE")
-# upload_df_to_bigquery(bq_client, projects_all, f"{bq_client.project}.re_bronze.m_projects", write_disposition="WRITE_TRUNCATE")
+# upload_df_to_bigquery(bq_client, cities, f"{bq_client.project}.re_bronze.dim_city_v1", write_disposition="WRITE_TRUNCATE")
+# upload_df_to_bigquery(bq_client, districts, f"{bq_client.project}.re_bronze.dim_district_v1", write_disposition="WRITE_TRUNCATE")
+# upload_df_to_bigquery(bq_client, wards_all, f"{bq_client.project}.re_bronze.dim_ward_v1", write_disposition="WRITE_TRUNCATE")
+# upload_df_to_bigquery(bq_client, streets_all, f"{bq_client.project}.re_bronze.dim_street_v1", write_disposition="WRITE_TRUNCATE")
+# upload_df_to_bigquery(bq_client, projects_all, f"{bq_client.project}.re_bronze.dim_project_v1", write_disposition="WRITE_TRUNCATE")
 
 
-upload_df_to_bigquery(bq_client, cities_v2, f"{bq_client.project}.re_bronze.m_cities_v2", write_disposition="WRITE_TRUNCATE")
-upload_df_to_bigquery(bq_client, wards_v2, f"{bq_client.project}.re_bronze.m_wards_v2", write_disposition="WRITE_TRUNCATE")
-upload_df_to_bigquery(bq_client, streets_v2, f"{bq_client.project}.re_bronze.m_streets_v2", write_disposition="WRITE_TRUNCATE")
-upload_df_to_bigquery(bq_client, projects_v2, f"{bq_client.project}.re_bronze.m_projects_v2", write_disposition="WRITE_TRUNCATE")
+upload_df_to_bigquery(
+    bq_client, cities_v2, f"{bq_client.project}.re_bronze.dim_city_v2", write_disposition="WRITE_TRUNCATE"
+)
+upload_df_to_bigquery(
+    bq_client, wards_v2, f"{bq_client.project}.re_bronze.dim_ward_v2", write_disposition="WRITE_TRUNCATE"
+)
+upload_df_to_bigquery(
+    bq_client, streets_v2, f"{bq_client.project}.re_bronze.dim_street_v2", write_disposition="WRITE_TRUNCATE"
+)
+upload_df_to_bigquery(
+    bq_client, projects_v2, f"{bq_client.project}.re_bronze.dim_project_v2", write_disposition="WRITE_TRUNCATE"
+)

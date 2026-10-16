@@ -2,11 +2,11 @@
 -- active (v2) project reference tables on projectId.
 
 with p1 as (
-    select * from {{ source('bronze', 'm_projects') }}
+    select * from {{ source('bronze', 'dim_project_v1') }}
 ),
 
 p2 as (
-    select projectId, wardId from {{ source('bronze', 'm_projects_v2') }}
+    select projectId, wardId from {{ source('bronze', 'dim_project_v2') }}
 )
 
 select

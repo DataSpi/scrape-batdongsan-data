@@ -1,16 +1,16 @@
 -- Ports src/_br2sil/j_locations.py (location_v2) to SQL.
--- Active (post-address-reform) hierarchy, refreshed by src/_web2br/j_metadata.py.
+-- Active (post-address-reform) hierarchy, refreshed by src/_web2br/metadata.py.
 
 with ward as (
-    select * from {{ source('bronze', 'm_wards_v2') }}
+    select * from {{ source('bronze', 'dim_ward_v2') }}
 ),
 
 city as (
-    select * from {{ source('bronze', 'm_cities_v2') }}
+    select * from {{ source('bronze', 'dim_city_v2') }}
 ),
 
 geo as (
-    select * from {{ ref('ward_geo_v2') }}
+    select * from {{ ref('dim_ward_geo_v2') }}
 )
 
 select

@@ -1,13 +1,8 @@
 name: Setup Python Environment
-description: Checkout, set up Python 3.14, install dependencies, and decode GCP/ENV secrets.
-
-inputs:
-  gcp-sa-key:
-    description: Base64-encoded GCP service account key
-    required: true
-  env-file:
-    description: Base64-encoded .env file contents
-    required: true
+description: >-
+  Set up Python 3.12 and install project + dev dependencies.
+  Caller must `actions/checkout` first -- a local composite action (uses: ./...)
+  can only be resolved after the repo is already checked out on the runner.
 
 runs:
   using: composite
@@ -18,10 +13,5 @@ runs:
         cache: 'pip'
 
     - name: Install dependencies
-      run: pip install -r requirements.txt
-      shell: bash
-
-    - name: Decode secrets
-      run: |
-        echo "${{ inputs.env-file }}" | base64 --decode > .env
+      run: pip install -r requirements.txt -r requirements-dev.txt
       shell: bash
