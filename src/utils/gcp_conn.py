@@ -82,6 +82,31 @@ def upload_df_to_bigquery(
     return job.output_rows
 
 
+def delete_existing_batch(client, table_id, df, key_col="product_id", date_col="date_scraped"):
+    """Make a WRITE_APPEND load idempotent: drop rows already in `table_id` for the same
+    (date_col, key_col) as `df` before appending, so re-running a scrape on the same day
+    replaces its rows instead of duplicating them. Scoped by key, not by date alone, because
+    HCM and HN scrapes append to the same table on the same day. Not atomic with the
+    following load: if the load fails, re-run the scrape. Returns the number of rows deleted."""
+    if df.empty or key_col not in df:
+        return 0
+    keys = df[key_col].dropna().astype(str).unique().tolist()
+    if not keys:
+        return 0
+    job_config = bigquery.QueryJobConfig(
+        query_parameters=[
+            bigquery.ScalarQueryParameter("d", "DATE", df[date_col].iloc[0]),
+            bigquery.ArrayQueryParameter("keys", "STRING", keys),
+        ]
+    )
+    job = client.query(
+        f"DELETE FROM `{table_id}` WHERE {date_col} = @d AND CAST({key_col} AS STRING) IN UNNEST(@keys)",
+        job_config=job_config,
+    )
+    job.result()
+    return job.num_dml_affected_rows or 0
+
+
 def read_sql_file(file_path):
     with open(file_path, "r", encoding="utf-8") as file:
         sql_query = file.read()

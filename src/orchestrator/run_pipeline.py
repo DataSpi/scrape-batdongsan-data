@@ -41,10 +41,12 @@ swallowed with a warning -- they never affect the pipeline.
 """
 
 import argparse
+import os
 import re
 import signal
 import subprocess
 import sys
+import threading
 import time
 import uuid
 from collections import deque
@@ -98,6 +100,9 @@ STEPS = [
 ROWS_LOADED_RE = re.compile(r"PIPELINE_METRIC rows_loaded=(\d+)")
 ERROR_TAIL_LINES = 20
 ERROR_TAIL_MAX_CHARS = 4000
+# Per-step wall-clock cap. A scrape step takes ~1 min and dbt a few, so an hour only trips on a
+# genuine hang (stuck Cloudflare warm-up, dead socket, BigQuery job that never returns).
+STEP_TIMEOUT_S = int(os.getenv("PIPELINE_STEP_TIMEOUT_S", "3600"))
 
 
 def run_step(name: str, cmd: list[str]) -> dict:
@@ -107,6 +112,8 @@ def run_step(name: str, cmd: list[str]) -> dict:
     t0 = time.monotonic()
     tail = deque(maxlen=ERROR_TAIL_LINES)
     rows_loaded = None
+    # Own session/process group, so a timeout (or our own SIGTERM) can kill the step together
+    # with everything it spawned (dbt workers, patchright's Chrome) -- not just the direct child.
     process = subprocess.Popen(
         cmd,
         cwd=PROJECT_ROOT,
@@ -114,17 +121,35 @@ def run_step(name: str, cmd: list[str]) -> dict:
         stderr=subprocess.STDOUT,
         text=True,
         bufsize=1,
+        start_new_session=True,
     )
-    for line in process.stdout:
-        line = line.rstrip()
-        logger.info(f"[{name}] {line}")
-        tail.append(line)
-        if m := ROWS_LOADED_RE.search(line):
-            rows_loaded = (rows_loaded or 0) + int(m.group(1))
-    process.wait()
+    timed_out = threading.Event()
+
+    def on_timeout():
+        timed_out.set()
+        _kill_group(process)
+
+    timer = threading.Timer(STEP_TIMEOUT_S, on_timeout)
+    timer.start()
+    try:
+        # Killing the group closes stdout, which ends this loop.
+        for line in process.stdout:
+            line = line.rstrip()
+            logger.info(f"[{name}] {line}")
+            tail.append(line)
+            if m := ROWS_LOADED_RE.search(line):
+                rows_loaded = (rows_loaded or 0) + int(m.group(1))
+        process.wait()
+    finally:
+        timer.cancel()
+        if process.poll() is None:  # interrupted (SIGTERM -> SystemExit): don't leave orphans
+            _kill_group(process)
 
     ok = process.returncode == 0
-    if ok:
+    if timed_out.is_set():
+        tail.append(f"TIMEOUT: step killed after {STEP_TIMEOUT_S}s")
+        logger.error(f"=== Failed: {name} (timeout after {STEP_TIMEOUT_S}s) ===")
+    elif ok:
         logger.info(f"=== Done: {name} ===")
     else:
         logger.error(f"=== Failed: {name} (exit code {process.returncode}) ===")
@@ -137,6 +162,19 @@ def run_step(name: str, cmd: list[str]) -> dict:
         "rows_loaded": rows_loaded,
         "error_tail": None if ok else "\n".join(tail)[-ERROR_TAIL_MAX_CHARS:],
     }
+
+
+def _kill_group(process: subprocess.Popen) -> None:
+    """SIGTERM the step's whole process group, SIGKILL whatever survives 10s."""
+    try:
+        pgid = os.getpgid(process.pid)
+        os.killpg(pgid, signal.SIGTERM)
+        try:
+            process.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            os.killpg(pgid, signal.SIGKILL)
+    except ProcessLookupError:
+        pass
 
 
 def main(only: str | None = None) -> int:
