@@ -13,6 +13,7 @@ pyarrow
 db-dtypes
 pandas-gbq
 dbt-bigquery
+elementary-data[bigquery]
 # Report generation
 malloy[postgres]
 plotly

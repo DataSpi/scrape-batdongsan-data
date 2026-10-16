@@ -69,6 +69,8 @@ Các bước chạy tuần tự, **dừng ngay khi có bước lỗi** (`STEPS` 
 6. `dbt_snapshot` — `dbt snapshot --select fct_real_estate+ fct_real_estate_rent+` (SCD2 history,
    xem mục 1b bên dưới)
 7. `dbt_test` — `dbt test --select fct_real_estate+ fct_real_estate_rent+`
+8. `dbt_run_elementary` / `dbt_test_anomalies` — observability, **không chặn pipeline** nếu lỗi
+   (xem mục 4b). Trước `dbt_run` còn có `dbt_source_freshness` (cũng non-fatal).
 
 Sale ("bán") và cho thuê tách script/task riêng để bug ở nhánh này không ảnh hưởng nhánh kia —
 2 schema BigQuery riêng (`re_bronze.fct_real_estate` vs `re_bronze.fct_real_estate_rent`), giá thuê là
@@ -181,6 +183,22 @@ Chạy test cho riêng một nhánh (khớp với phạm vi `dbt run` tương �
 ```bash
 dbt test --select fct_real_estate+
 ```
+
+## 4b) Observability — Elementary + dbt artifacts
+
+- **Elementary** (`dbt/packages.yml`, cần `dbt deps` một lần sau khi clone): ghi lịch sử mọi
+  `dbt run/test/snapshot` (run results, test results, invocations) vào dataset BigQuery
+  `re_elementary`. Tạo bảng lần đầu: `dbt run --select elementary`.
+- **Anomaly test** trên bronze (`dbt/models/silver/_sources.yml`, tag `elementary`, severity
+  `warn`): `volume_anomalies`, `freshness_anomalies` trên `scraped_at`, và `column_anomalies`
+  (`null_percent` của `price`/`area`) — bắt trường hợp scrape "thành công" nhưng ít row hoặc
+  selector HTML hỏng. Bucket **tuần** (batch chạy 1 lần/tuần; default theo ngày sẽ báo sai) và
+  cần ~10–12 tuần baseline mới ổn định. Chạy: `dbt test --select tag:elementary`.
+- **Artifacts thô**: `scripts/run_weekly_pipeline.sh` copy `run_results.json` + `manifest.json`
+  vào `logs/dbt_artifacts/<timestamp>/` sau mỗi lần chạy (target/ bị ghi đè lần sau).
+- **Report HTML**: `edr report` (cần profile `elementary` trong `dbt/profiles.yml`, xem
+  `.example`) ghi ra `logs/elementary_report.html` — best-effort cuối script tuần.
+- Airflow: `dbt/` được mount nên `dbt deps` chạy trên host là đủ; DAG có task tương ứng.
 
 ## 5) dbt docs (xem lineage & catalog)
 

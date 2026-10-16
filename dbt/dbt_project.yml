@@ -23,6 +23,8 @@ models:
     marts:
       +schema: re_gold
       +materialized: table
+  elementary:
+    +schema: re_elementary
 
 seeds:
   batdongsan:

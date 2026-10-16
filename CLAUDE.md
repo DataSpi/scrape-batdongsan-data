@@ -145,3 +145,14 @@ DAG resolve đúng bảng mới (`fct_real_estate` incremental MERGE 0 rows — 
 `dbt snapshot` báo đúng 0 rows changed — rename không vô tình tạo lịch sử SCD2 giả); 28/31 test
 pass, 3 warning còn lại (outlier giá/m2, FK `projectId` thiếu ~5%) là hành vi đã biết từ trước,
 không liên quan tới rename.
+
+## Giai đoạn 5 — Observability: Elementary + dbt artifacts (`feat/elementary-observability`)
+
+Thêm `dbt/packages.yml` (Elementary 0.26.0, dataset `re_elementary`), anomaly test tuần
+(volume/freshness/null-rate `price`/`area`) trên bronze `fct_real_estate*` trong
+`dbt/models/silver/_sources.yml` (tag `elementary`, severity warn), step non-fatal
+`dbt_source_freshness`/`dbt_run_elementary`/`dbt_test_anomalies` trong `run_pipeline.py` + DAG
+(`STEPS` hỗ trợ phần tử thứ 3 `fatal=False`), archive `run_results.json`/`manifest.json` +
+`edr report` trong `scripts/run_weekly_pipeline.sh`, `dbt deps` trong `dbt-ci.yml`.
+**Chưa chạy lên production BigQuery**: cần `dbt deps`, `dbt run --select elementary`, thêm profile
+`elementary` vào `dbt/profiles.yml`, rồi chờ ~10–12 tuần để baseline anomaly ổn định.

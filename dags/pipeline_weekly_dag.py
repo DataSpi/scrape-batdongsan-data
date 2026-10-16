@@ -91,6 +91,13 @@ with DAG(
         bash_command=f"python -m src._web2br.projects --url {HN_PROJECTS_URL}",
         cwd=REPO_DIR,
     )
+    # Observability tasks (source freshness / Elementary) swallow failures with `|| true`,
+    # mirroring the non-fatal steps in run_pipeline.py STEPS.
+    dbt_source_freshness = BashOperator(
+        task_id="dbt_source_freshness",
+        bash_command=f"dbt source freshness {DBT_FLAGS} || true",
+        cwd=REPO_DIR,
+    )
     dbt_run = BashOperator(
         task_id="dbt_run",
         bash_command=f"dbt run {DBT_FLAGS} --select {DBT_SELECT} --exclude {DBT_CURRENT_VIEWS}",
@@ -111,6 +118,16 @@ with DAG(
         bash_command=f"dbt test {DBT_FLAGS} --select {DBT_SELECT}",
         cwd=REPO_DIR,
     )
+    dbt_run_elementary = BashOperator(
+        task_id="dbt_run_elementary",
+        bash_command=f"dbt run {DBT_FLAGS} --select elementary || true",
+        cwd=REPO_DIR,
+    )
+    dbt_test_anomalies = BashOperator(
+        task_id="dbt_test_anomalies",
+        bash_command=f"dbt test {DBT_FLAGS} --select tag:elementary || true",
+        cwd=REPO_DIR,
+    )
 
     (
         scrape_real_estate_hcm
@@ -119,8 +136,11 @@ with DAG(
         >> scrape_real_estate_rent_hn
         >> scrape_projects_hcm
         >> scrape_projects_hn
+        >> dbt_source_freshness
         >> dbt_run
         >> dbt_snapshot
         >> dbt_run_current_views
         >> dbt_test
+        >> dbt_run_elementary
+        >> dbt_test_anomalies
     )

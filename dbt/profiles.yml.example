@@ -37,3 +37,18 @@ batdongsan:
       location: asia-southeast1
       keyfile_json: "{{ env_var('GCP_CREDENTIALS_JSON') }}"
       threads: 4
+
+# Profile used by the `edr` CLI (Elementary report). Its name must match the `profile`
+# declared by the elementary package's target in dbt_project.yml (default: `elementary`),
+# and `schema` must be the dataset Elementary writes to (re_elementary -- dbt appends the
+# custom schema, so edr needs the final dataset name directly).
+elementary:
+  outputs:
+    default:
+      type: bigquery
+      method: service-account
+      project: your-gcp-project-id
+      dataset: re_elementary
+      location: asia-southeast1
+      keyfile: /absolute/path/to/scrape-batdongsan-data/gcp_service_account.json
+      threads: 4

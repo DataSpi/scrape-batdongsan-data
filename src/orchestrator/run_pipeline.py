@@ -9,7 +9,8 @@ unlike the Airflow DAG kept at dags/pipeline_weekly_dag.py as an optional altern
 
     python -m src.orchestrator.run_pipeline
 
-Steps run strictly in order and the pipeline stops at the first failure -- dbt models
+Steps run strictly in order and the pipeline stops at the first failure (except steps
+marked non-fatal, i.e. the observability ones: source freshness + Elementary) -- dbt models
 depend on bronze data existing, dbt snapshot depends on dbt run having built this
 week's staging tables, and dbt test depends on both having completed.
 
@@ -68,10 +69,17 @@ STEPS = [
     ("scrape_real_estate_rent_hn", [sys.executable, "-m", "src._web2br.real_estate_rent", "--url", HN_RENT_URL]),
     ("scrape_projects_hcm", [sys.executable, "-m", "src._web2br.projects"]),
     ("scrape_projects_hn", [sys.executable, "-m", "src._web2br.projects", "--url", HN_PROJECTS_URL]),
+    # Observability steps are non-fatal (third element False): a broken Elementary
+    # package or a stale freshness warning must not block the real data pipeline.
+    ("dbt_source_freshness", ["dbt", "source", "freshness", *DBT_FLAGS], False),
     ("dbt_run", ["dbt", "run", *DBT_FLAGS, "--select", *DBT_SELECT, "--exclude", *DBT_CURRENT_VIEWS]),
     ("dbt_snapshot", ["dbt", "snapshot", *DBT_FLAGS, "--select", *DBT_SELECT]),
     ("dbt_run_current_views", ["dbt", "run", *DBT_FLAGS, "--select", *DBT_CURRENT_VIEWS]),
     ("dbt_test", ["dbt", "test", *DBT_FLAGS, "--select", *DBT_SELECT]),
+    # Elementary: build/refresh its own models, then run the bronze anomaly tests
+    # (weekly volume/freshness/null-rate); results land in re_elementary.
+    ("dbt_run_elementary", ["dbt", "run", *DBT_FLAGS, "--select", "elementary"], False),
+    ("dbt_test_anomalies", ["dbt", "test", *DBT_FLAGS, "--select", "tag:elementary"], False),
 ]
 
 
@@ -93,8 +101,12 @@ def run_step(name: str, cmd: list[str]) -> bool:
 
 
 def main() -> int:
-    for name, cmd in STEPS:
+    for name, cmd, *rest in STEPS:
+        fatal = rest[0] if rest else True
         if not run_step(name, cmd):
+            if not fatal:
+                logger.warning(f"Non-fatal step failed, continuing: {name}")
+                continue
             logger.error(f"Pipeline stopped at step: {name}")
             return 1
     logger.info("Pipeline completed successfully")

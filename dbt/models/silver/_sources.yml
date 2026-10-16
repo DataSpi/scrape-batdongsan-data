@@ -15,6 +15,50 @@ sources:
           freshness:
             warn_after: {count: 10, period: day}
             error_after: {count: 21, period: day}
+        # Weekly batch => weekly buckets. Elementary's defaults (daily bucket, 14-day
+        # training) would flag every non-scrape day as a volume drop. warn-only until
+        # ~12 weeks of baseline exist.
+        data_tests:
+          - elementary.volume_anomalies:
+              arguments:
+                timestamp_column: scraped_at
+                time_bucket: {period: week, count: 1}
+                training_period: {period: day, count: 84}
+                detection_period: {period: day, count: 14}
+                anomaly_sensitivity: 3
+              config:
+                severity: warn
+                tags: [elementary]
+          - elementary.freshness_anomalies:
+              arguments:
+                timestamp_column: scraped_at
+                time_bucket: {period: week, count: 1}
+                training_period: {period: day, count: 84}
+              config:
+                severity: warn
+                tags: [elementary]
+          # price/area are raw strings in bronze: null rates catch a scraper whose HTML
+          # selectors silently broke (rows still land, fields come back empty).
+          - elementary.column_anomalies:
+              arguments:
+                column_name: price
+                timestamp_column: scraped_at
+                column_anomalies: [null_percent]
+                time_bucket: {period: week, count: 1}
+                training_period: {period: day, count: 84}
+              config:
+                severity: warn
+                tags: [elementary]
+          - elementary.column_anomalies:
+              arguments:
+                column_name: area
+                timestamp_column: scraped_at
+                column_anomalies: [null_percent]
+                time_bucket: {period: week, count: 1}
+                training_period: {period: day, count: 84}
+              config:
+                severity: warn
+                tags: [elementary]
         columns:
           - name: product_id
             description: Native listing id from batdongsan.com.vn.
@@ -39,6 +83,50 @@ sources:
           freshness:
             warn_after: {count: 10, period: day}
             error_after: {count: 21, period: day}
+        # Weekly batch => weekly buckets. Elementary's defaults (daily bucket, 14-day
+        # training) would flag every non-scrape day as a volume drop. warn-only until
+        # ~12 weeks of baseline exist.
+        data_tests:
+          - elementary.volume_anomalies:
+              arguments:
+                timestamp_column: scraped_at
+                time_bucket: {period: week, count: 1}
+                training_period: {period: day, count: 84}
+                detection_period: {period: day, count: 14}
+                anomaly_sensitivity: 3
+              config:
+                severity: warn
+                tags: [elementary]
+          - elementary.freshness_anomalies:
+              arguments:
+                timestamp_column: scraped_at
+                time_bucket: {period: week, count: 1}
+                training_period: {period: day, count: 84}
+              config:
+                severity: warn
+                tags: [elementary]
+          # price/area are raw strings in bronze: null rates catch a scraper whose HTML
+          # selectors silently broke (rows still land, fields come back empty).
+          - elementary.column_anomalies:
+              arguments:
+                column_name: price
+                timestamp_column: scraped_at
+                column_anomalies: [null_percent]
+                time_bucket: {period: week, count: 1}
+                training_period: {period: day, count: 84}
+              config:
+                severity: warn
+                tags: [elementary]
+          - elementary.column_anomalies:
+              arguments:
+                column_name: area
+                timestamp_column: scraped_at
+                column_anomalies: [null_percent]
+                time_bucket: {period: week, count: 1}
+                training_period: {period: day, count: 84}
+              config:
+                severity: warn
+                tags: [elementary]
         columns:
           - name: product_id
             description: Native listing id from batdongsan.com.vn.

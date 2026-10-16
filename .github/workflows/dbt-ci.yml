@@ -19,6 +19,10 @@ jobs:
       - name: Write CI dbt profile
         run: cp dbt/profiles.yml.example dbt/profiles.yml
 
+      - name: dbt deps
+        working-directory: dbt
+        run: dbt deps
+
       - name: dbt compile
         working-directory: dbt
         env:
