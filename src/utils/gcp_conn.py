@@ -76,7 +76,35 @@ def upload_df_to_bigquery(
         job_config.schema_update_options = [bigquery.SchemaUpdateOption.ALLOW_FIELD_ADDITION]
     job = client.load_table_from_dataframe(df, table_id, job_config=job_config)
     job.result()
+    # Machine-readable marker: src/orchestrator/run_pipeline.py parses it from the step's
+    # output to record rows_loaded in re_meta.pipeline_step_runs.
+    print(f"PIPELINE_METRIC rows_loaded={job.output_rows} table={table_id}", flush=True)
     return job.output_rows
+
+
+def delete_existing_batch(client, table_id, df, key_col="product_id", date_col="date_scraped"):
+    """Make a WRITE_APPEND load idempotent: drop rows already in `table_id` for the same
+    (date_col, key_col) as `df` before appending, so re-running a scrape on the same day
+    replaces its rows instead of duplicating them. Scoped by key, not by date alone, because
+    HCM and HN scrapes append to the same table on the same day. Not atomic with the
+    following load: if the load fails, re-run the scrape. Returns the number of rows deleted."""
+    if df.empty or key_col not in df:
+        return 0
+    keys = df[key_col].dropna().astype(str).unique().tolist()
+    if not keys:
+        return 0
+    job_config = bigquery.QueryJobConfig(
+        query_parameters=[
+            bigquery.ScalarQueryParameter("d", "DATE", df[date_col].iloc[0]),
+            bigquery.ArrayQueryParameter("keys", "STRING", keys),
+        ]
+    )
+    job = client.query(
+        f"DELETE FROM `{table_id}` WHERE {date_col} = @d AND CAST({key_col} AS STRING) IN UNNEST(@keys)",
+        job_config=job_config,
+    )
+    job.result()
+    return job.num_dml_affected_rows or 0
 
 
 def read_sql_file(file_path):

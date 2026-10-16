@@ -9,8 +9,10 @@ doesn't help either: it always sets `navigator.webdriver = True`, which is
 exactly what that check looks for. `patchright` (a stealth-patched Playwright
 build) hides that flag and clears the challenge; `headless=True` still gets
 detected on other signals, so the browser has to run headed -- pushed
-off-screen (`--window-position`) so it doesn't pop up a visible window. This
-only works because these scrapers run on the maintainer's own Mac
+out of sight (minimized via CDP right after launch) so it doesn't pop up a
+visible window. `--window-position` can't do that on macOS: it clamps any
+off-screen coordinate back onto a display (on a multi-monitor setup that lands
+on the other screen). This only works because these scrapers run on the maintainer's own Mac
 (launchd/bare-metal), which has a real GUI session to open a window in.
 
 The resulting `cf_clearance` cookie is valid site-wide (confirmed against
@@ -59,31 +61,45 @@ def _is_fresh(session_data, ttl_seconds=TTL_SECONDS):
     return session_data is not None and time.time() - session_data.get("warmed_at", 0) < ttl_seconds
 
 
+def _minimize_window(ctx, page):
+    """Minimize the headed Chrome window. Cosmetic only: never let a failure here abort the warm-up."""
+    try:
+        cdp = ctx.new_cdp_session(page)
+        window_id = cdp.send("Browser.getWindowForTarget")["windowId"]
+        cdp.send("Browser.setWindowBounds", {"windowId": window_id, "bounds": {"windowState": "minimized"}})
+    except Exception as e:
+        logger.warning(f"Could not minimize warm-up browser window: {e}")
+
+
 def _warm_up():
-    """Solve Cloudflare's managed challenge in a real, off-screen Chrome and
+    """Solve Cloudflare's managed challenge in a real, minimized Chrome and
     return {"cookies": {...}, "user_agent": "...", "warmed_at": <epoch>}."""
     from patchright.sync_api import sync_playwright  # only the warm-up path needs a browser
 
-    logger.info("Cloudflare session missing/stale -- warming up via off-screen Chrome...")
+    logger.info("Cloudflare session missing/stale -- warming up via minimized Chrome...")
     with sync_playwright() as p:
         profile_dir = tempfile.mkdtemp(prefix="bds_cf_profile_")
         ctx = p.chromium.launch_persistent_context(
             profile_dir,
             headless=False,
             no_viewport=True,
-            args=["--window-position=-2400,-2400", "--window-size=1280,800"],
+            args=["--window-size=1280,800"],
         )
         try:
             page = ctx.new_page()
+            _minimize_window(ctx, page)
             user_agent = page.evaluate("navigator.userAgent")  # grab before navigating away
             page.goto(WARM_URL, wait_until="domcontentloaded", timeout=30000)
-            for _ in range(15):
-                if "Just a moment" not in page.title():
+            # Wait for the cookie itself, not just for the challenge title to go away: when
+            # Cloudflare serves an invisible challenge the page loads at once (no "Just a
+            # moment") and cf_clearance only lands a few seconds later.
+            for _ in range(20):
+                cookies = {c["name"]: c["value"] for c in ctx.cookies()}
+                if "cf_clearance" in cookies and "Just a moment" not in page.title():
                     break
                 page.wait_for_timeout(1000)
             else:
-                raise RuntimeError("Cloudflare challenge did not clear within 15s")
-            cookies = {c["name"]: c["value"] for c in ctx.cookies()}
+                raise RuntimeError("Cloudflare challenge did not clear within 20s")
         finally:
             ctx.close()
 

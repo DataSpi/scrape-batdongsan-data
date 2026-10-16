@@ -59,12 +59,22 @@ finish() {
     slack ":white_check_mark: batdongsan weekly pipeline OK ($(date '+%d/%m %H:%M'))"
   else
     local failed
-    failed="$(grep -o 'Pipeline stopped at step: .*' "$LOG_FILE" | tail -1 || true)"
+    failed="$(grep -oE 'Pipeline (stopped at step|skipped): .*' "$LOG_FILE" | tail -1 || true)"
     slack ":x: batdongsan weekly pipeline FAILED (exit $rc). ${failed:-no step info (killed/crashed?)} -- log: $LOG_FILE"
   fi
 }
 trap 'finish $?' EXIT
 trap 'exit 143' TERM INT
+
+# Overlap lock: a previous run that hung (or a manual run) must not be trampled by this one.
+# macOS has no flock(1); perl's flock on an inherited fd works the same. The lock belongs to the
+# open file description on fd 9, so the kernel releases it when this script and everything it
+# spawned are gone -- a crashed/killed run can never leave a stale lock behind (no PID files).
+exec 9>"$PROJECT_ROOT/logs/.pipeline.lock"
+if ! perl -MFcntl=:flock -e 'open(my $fh, ">&=", 9) or exit 2; flock($fh, LOCK_EX | LOCK_NB) or exit 1'; then
+  echo "Pipeline skipped: previous run still holds $PROJECT_ROOT/logs/.pipeline.lock" >> "$LOG_FILE"
+  exit 75  # EX_TEMPFAIL -> EXIT trap pings the healthcheck as failed + Slack alert
+fi
 
 hc_ping start
 
@@ -72,7 +82,7 @@ hc_ping start
 # Elementary already stores run/test history in BigQuery (re_elementary); this local copy
 # of run_results.json/manifest.json is a safety net independent of the warehouse, since
 # dbt/target/ is overwritten by the next run.
-caffeinate -i "$CONDA_ENV_BIN/python" -m src.orchestrator.run_pipeline >> "$LOG_FILE" 2>&1 || STATUS=$?
+PIPELINE_TRIGGER=launchd caffeinate -i "$CONDA_ENV_BIN/python" -m src.orchestrator.run_pipeline >> "$LOG_FILE" 2>&1 || STATUS=$?
 
 finish 0
 

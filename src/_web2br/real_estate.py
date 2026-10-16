@@ -10,7 +10,7 @@ from bs4 import BeautifulSoup
 from curl_cffi.requests import AsyncSession
 
 from src.utils.common_tools import setup_logging
-from src.utils.gcp_conn import get_bigquery_client, query_to_df, upload_df_to_bigquery
+from src.utils.gcp_conn import delete_existing_batch, get_bigquery_client, query_to_df, upload_df_to_bigquery
 from src.utils.scrape_session import async_get_with_cf_bypass, get_session, request_with_cf_bypass
 
 logger = setup_logging()
@@ -354,10 +354,14 @@ if __name__ == "__main__":
     df_final.to_csv(args.output, index=False)
     df_final["scraped_at"] = pd.Timestamp.now("UTC")
     df_final["date_scraped"] = df_final["scraped_at"].dt.date
+    table_id = f"{bq_client.project}.re_bronze.fct_real_estate"
+    # Idempotent re-run: replace today's rows for these listings instead of duplicating them.
+    deleted = delete_existing_batch(bq_client, table_id, df_final)
+    logger.info(f"Removed {deleted} rows already loaded today for these listings")
     upload_df_to_bigquery(
         bq_client,
         df_final,
-        f"{bq_client.project}.re_bronze.fct_real_estate",
+        table_id,
         write_disposition="WRITE_APPEND",
         allow_field_addition=True,
     )
