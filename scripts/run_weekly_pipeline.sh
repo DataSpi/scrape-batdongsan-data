@@ -54,9 +54,15 @@ finish() {
   FINISHED=1
   local rc=$STATUS
   [ "$rc" -eq 0 ] && [ "${1:-0}" -ne 0 ] && rc=$1
-  hc_ping "$rc"
+  # Exit 3 = the run got through (dbt ran) but a scrape step was partial/failed. The job itself
+  # worked, so healthchecks gets a success ping and Slack a warning rather than a failure.
+  if [ "$rc" -eq 3 ]; then hc_ping 0; else hc_ping "$rc"; fi
   if [ "$rc" -eq 0 ]; then
     slack ":white_check_mark: batdongsan weekly pipeline OK ($(date '+%d/%m %H:%M'))"
+  elif [ "$rc" -eq 3 ]; then
+    local degraded
+    degraded="$(grep -oE '(Partial|Failed): scrape_[a-z_]+' "$LOG_FILE" | sort -u | paste -sd, - || true)"
+    slack ":warning: batdongsan weekly pipeline finished with PARTIAL data (${degraded:-see log}) -- log: $LOG_FILE"
   else
     local failed
     failed="$(grep -oE 'Pipeline (stopped at step|skipped): .*' "$LOG_FILE" | tail -1 || true)"

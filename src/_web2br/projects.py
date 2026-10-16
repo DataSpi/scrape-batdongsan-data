@@ -2,6 +2,7 @@ import argparse
 import asyncio
 import json
 import os
+import sys
 
 import pandas as pd
 from bs4 import BeautifulSoup
@@ -9,14 +10,15 @@ from curl_cffi.requests import AsyncSession
 
 from src.utils.common_tools import setup_logging
 from src.utils.gcp_conn import get_bigquery_client, upload_df_to_bigquery
+from src.utils.scrape_health import ScrapeHealth
 from src.utils.scrape_session import async_get_with_cf_bypass, get_session
 
 logger = setup_logging()
 
 
-MAX_CONCURRENCY = 5
+MAX_CONCURRENCY = 3
 BATCH_SIZE = 100
-BATCH_DELAY_SECONDS = 0
+BATCH_DELAY_SECONDS = 10
 URL = os.getenv("URL", "https://batdongsan.com.vn/du-an-bat-dong-san-tp-hcm")
 # URL = os.getenv("URL", "")
 
@@ -122,7 +124,7 @@ async def fetch_all_pages(urls: list, batch_size: int = BATCH_SIZE, batch_delay_
     return all_results
 
 
-async def main(url=URL):
+async def main(url=URL, health=None):
     # Fetch first page to get total pages
     semaphore = asyncio.Semaphore(1)
     headers, cookies = get_session()
@@ -142,10 +144,17 @@ async def main(url=URL):
 
     # Combine all dataframes
     df_total = df.copy()
+    failed_pages = 0
     for result_df, _ in results[1:]:
-        if result_df is not None:
+        if result_df is None:
+            failed_pages += 1
+        else:
             df_total = pd.concat([df_total, result_df], ignore_index=True)
 
+    if failed_pages:
+        logger.warning(f"{failed_pages}/{len(urls)} pages could not be fetched for {url}")
+    if health is not None:
+        health.record_pages(total=len(urls), failed=failed_pages)
     return df_total
 
 
@@ -158,7 +167,9 @@ def parse_args():
 if __name__ == "__main__":
     args = parse_args()
     bq_client = get_bigquery_client()
-    df_final = asyncio.run(main(url=args.url))
+    health = ScrapeHealth()
+    df_final = asyncio.run(main(url=args.url, health=health))
     upload_df_to_bigquery(
         bq_client, df_final, f"{bq_client.project}.re_bronze.fct_project", write_disposition="WRITE_APPEND"
     )
+    sys.exit(health.finish(df_final))

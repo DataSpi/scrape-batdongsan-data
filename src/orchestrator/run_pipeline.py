@@ -10,9 +10,15 @@ scrape step needs a headed Chrome and cannot run inside a container).
     python -m src.orchestrator.run_pipeline [--only scrape_]
 
 Steps run strictly in order and the pipeline stops at the first failure (except steps
-marked non-fatal, i.e. the observability ones: source freshness + Elementary) -- dbt models
-depend on bronze data existing, dbt snapshot depends on dbt run having built this
+marked non-fatal, i.e. the scrapes and the observability ones: source freshness + Elementary)
+-- dbt models depend on bronze data existing, dbt snapshot depends on dbt run having built this
 week's staging tables, and dbt test depends on both having completed.
+
+Scrape steps are non-fatal individually so one blocked city doesn't discard the others, and a
+scraper can exit 2 (src/utils/scrape_health.py) meaning "partial": it loaded what it got, some
+pages failed. Before the first non-scrape step a gate checks that at least one of the sale/rent
+scrapes (the ones dbt builds from) succeeded or was partial; if none did, the run stops there.
+A run that got through but with any scrape partial/failed ends as status "partial" (exit 3).
 
 dbt run/snapshot/test are scoped to `fct_real_estate+`/`fct_real_estate_rent+` on purpose:
 dim_location_v1/v2 and dim_project are built from near-static reference data
@@ -54,6 +60,7 @@ from pathlib import Path
 
 from src.utils import pipeline_log
 from src.utils.common_tools import setup_logging
+from src.utils.scrape_health import EXIT_PARTIAL
 
 logger = setup_logging()
 
@@ -69,6 +76,17 @@ HN_REAL_ESTATE_URL = "https://batdongsan.com.vn/ban-can-ho-chung-cu-ha-noi"
 HN_PROJECTS_URL = "https://batdongsan.com.vn/du-an-bat-dong-san-ha-noi"
 HN_RENT_URL = "https://batdongsan.com.vn/cho-thue-can-ho-chung-cu-ha-noi"
 
+SCRAPE_PREFIX = "scrape_"
+# dbt only builds fct_real_estate+/fct_real_estate_rent+, so only these scrapes feed it.
+# Projects feed dim_project, which the weekly dbt run doesn't rebuild.
+DBT_FEEDING_SCRAPES = {
+    "scrape_real_estate_hcm",
+    "scrape_real_estate_hn",
+    "scrape_real_estate_rent_hcm",
+    "scrape_real_estate_rent_hn",
+}
+EXIT_RUN_PARTIAL = 3  # run finished and dbt ran, but a scrape step was partial or failed
+
 DBT_SELECT = ["fct_real_estate+", "fct_real_estate_rent+"]
 # vw_real_estate_current/vw_real_estate_rent_current (in DBT_SELECT's downstream graph)
 # select from the snp_real_estate/snp_real_estate_rent snapshots, which don't exist yet
@@ -77,12 +95,17 @@ DBT_SELECT = ["fct_real_estate+", "fct_real_estate_rent+"]
 DBT_CURRENT_VIEWS = ["vw_real_estate_current", "vw_real_estate_rent_current"]
 
 STEPS = [
-    ("scrape_real_estate_hcm", [sys.executable, "-m", "src._web2br.real_estate", "--mode", "district"]),
-    ("scrape_real_estate_hn", [sys.executable, "-m", "src._web2br.real_estate", "--url", HN_REAL_ESTATE_URL]),
-    ("scrape_real_estate_rent_hcm", [sys.executable, "-m", "src._web2br.real_estate_rent", "--mode", "district"]),
-    ("scrape_real_estate_rent_hn", [sys.executable, "-m", "src._web2br.real_estate_rent", "--url", HN_RENT_URL]),
-    ("scrape_projects_hcm", [sys.executable, "-m", "src._web2br.projects"]),
-    ("scrape_projects_hn", [sys.executable, "-m", "src._web2br.projects", "--url", HN_PROJECTS_URL]),
+    # Scrapes are non-fatal (third element False): see the gate in main().
+    ("scrape_real_estate_hcm", [sys.executable, "-m", "src._web2br.real_estate", "--mode", "district"], False),
+    ("scrape_real_estate_hn", [sys.executable, "-m", "src._web2br.real_estate", "--url", HN_REAL_ESTATE_URL], False),
+    (
+        "scrape_real_estate_rent_hcm",
+        [sys.executable, "-m", "src._web2br.real_estate_rent", "--mode", "district"],
+        False,
+    ),
+    ("scrape_real_estate_rent_hn", [sys.executable, "-m", "src._web2br.real_estate_rent", "--url", HN_RENT_URL], False),
+    ("scrape_projects_hcm", [sys.executable, "-m", "src._web2br.projects"], False),
+    ("scrape_projects_hn", [sys.executable, "-m", "src._web2br.projects", "--url", HN_PROJECTS_URL], False),
     # Observability steps are non-fatal (third element False): a broken Elementary
     # package or a stale freshness warning must not block the real data pipeline.
     ("dbt_source_freshness", ["dbt", "source", "freshness", *DBT_FLAGS], False),
@@ -146,15 +169,18 @@ def run_step(name: str, cmd: list[str]) -> dict:
             _kill_group(process)
 
     ok = process.returncode == 0
+    partial = name.startswith(SCRAPE_PREFIX) and process.returncode == EXIT_PARTIAL
     if timed_out.is_set():
         tail.append(f"TIMEOUT: step killed after {STEP_TIMEOUT_S}s")
         logger.error(f"=== Failed: {name} (timeout after {STEP_TIMEOUT_S}s) ===")
     elif ok:
         logger.info(f"=== Done: {name} ===")
+    elif partial:
+        logger.warning(f"=== Partial: {name} (exit code {process.returncode}) ===")
     else:
         logger.error(f"=== Failed: {name} (exit code {process.returncode}) ===")
     return {
-        "status": "success" if ok else "failed",
+        "status": "success" if ok else "partial" if partial else "failed",
         "exit_code": process.returncode,
         "started_at": started_at,
         "ended_at": pipeline_log.now_utc(),
@@ -177,6 +203,15 @@ def _kill_group(process: subprocess.Popen) -> None:
         pass
 
 
+def _scrape_gate_failure(scrape_status: dict[str, str]) -> str | None:
+    """None if at least one dbt-feeding scrape succeeded or was partial; otherwise the first
+    scrape step that failed (what the run reports as its failed_step)."""
+    if any(scrape_status.get(name) in ("success", "partial") for name in DBT_FEEDING_SCRAPES):
+        return None
+    failed = [name for name, result in scrape_status.items() if result == "failed"]
+    return failed[0] if failed else next(iter(scrape_status))
+
+
 def main(only: str | None = None) -> int:
     # launchd/shell wrapper stops the job with SIGTERM: turn it into SystemExit so the
     # `finally` below still records the run as interrupted instead of leaving it dangling.
@@ -189,12 +224,22 @@ def main(only: str | None = None) -> int:
     logger.info(f"Pipeline run_id={run_id}")
 
     status, failed_step, steps_total, steps_failed = "interrupted", None, 0, 0
+    scrape_status: dict[str, str] = {}
+    gate_checked = False
     try:
         for order, (name, cmd, *rest) in enumerate(selected, start=1):
             fatal = rest[0] if rest else True
+            if scrape_status and not gate_checked and not name.startswith(SCRAPE_PREFIX):
+                gate_checked = True
+                if failed_step := _scrape_gate_failure(scrape_status):
+                    logger.error(f"Pipeline stopped at step: {failed_step} (no sale/rent scrape produced usable data)")
+                    status = "failed"
+                    return 1
             result = run_step(name, cmd)
             steps_total += 1
             pipeline_log.log_step(run_id, step_order=order, step_name=name, fatal=fatal, **result)
+            if name.startswith(SCRAPE_PREFIX):
+                scrape_status[name] = result["status"]
             if result["status"] == "failed":
                 steps_failed += 1
                 if not fatal:
@@ -203,6 +248,15 @@ def main(only: str | None = None) -> int:
                 logger.error(f"Pipeline stopped at step: {name}")
                 status, failed_step = "failed", name
                 return 1
+        if scrape_status and not gate_checked:  # --only scrape_: no later step to gate
+            if failed_step := _scrape_gate_failure(scrape_status):
+                logger.error(f"Pipeline stopped at step: {failed_step} (no sale/rent scrape produced usable data)")
+                status = "failed"
+                return 1
+        if any(result != "success" for result in scrape_status.values()):
+            status = "partial"
+            logger.warning("Pipeline completed with partial data: see the Partial/Failed scrape steps above")
+            return EXIT_RUN_PARTIAL
         status = "success"
         logger.info("Pipeline completed successfully")
         return 0
