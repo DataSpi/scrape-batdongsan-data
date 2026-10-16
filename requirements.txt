@@ -12,8 +12,8 @@ google-cloud-bigquery
 pyarrow
 db-dtypes
 pandas-gbq
-dbt-bigquery
-elementary-data[bigquery]
+dbt-bigquery~=1.11.0
+elementary-data[bigquery]~=0.26.0
 # Report generation
 malloy[postgres]
 plotly
