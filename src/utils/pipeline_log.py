@@ -6,7 +6,7 @@ Two append-only tables (load jobs, not DML/streaming: works on the free tier and
 streaming-buffer lock):
 
     re_meta.pipeline_runs       2 rows per run: event='start' (status=running) and event='end'
-                                (status=success|failed|interrupted). A run with no 'end' row
+                                (status=success|partial|failed|interrupted). A run with no 'end' row
                                 was killed hard (power loss, SIGKILL) -- vw_pipeline_runs shows it as
                                 'running'/'unfinished'.
     re_meta.pipeline_step_runs  1 row per executed step, written when the step ends.
@@ -39,7 +39,7 @@ RUNS_SCHEMA = [
     bigquery.SchemaField("run_id", "STRING", mode="REQUIRED"),
     bigquery.SchemaField("event", "STRING", mode="REQUIRED", description="start | end"),
     bigquery.SchemaField("event_ts", "TIMESTAMP", mode="REQUIRED"),
-    bigquery.SchemaField("status", "STRING", description="running | success | failed | interrupted"),
+    bigquery.SchemaField("status", "STRING", description="running | success | partial | failed | interrupted"),
     bigquery.SchemaField("trigger", "STRING", description="launchd | manual (env PIPELINE_TRIGGER)"),
     bigquery.SchemaField("host", "STRING"),
     bigquery.SchemaField("git_commit", "STRING"),
@@ -54,7 +54,7 @@ STEP_RUNS_SCHEMA = [
     bigquery.SchemaField("step_order", "INT64"),
     bigquery.SchemaField("step_name", "STRING", mode="REQUIRED"),
     bigquery.SchemaField("fatal", "BOOL"),
-    bigquery.SchemaField("status", "STRING", description="success | failed"),
+    bigquery.SchemaField("status", "STRING", description="success | partial | failed"),
     bigquery.SchemaField("exit_code", "INT64"),
     bigquery.SchemaField("started_at", "TIMESTAMP"),
     bigquery.SchemaField("ended_at", "TIMESTAMP"),

@@ -63,15 +63,25 @@ finish() {
   FINISHED=1
   local rc=$STATUS
   [ "$rc" -eq 0 ] && [ "${1:-0}" -ne 0 ] && rc=$1
-  hc_ping "$rc"
+  # Exit 3 = the run got through (dbt ran) but a scrape step was partial/failed. The job itself
+  # worked, so healthchecks gets a success ping and Slack a warning rather than a failure.
+  if [ "$rc" -eq 3 ]; then hc_ping 0; else hc_ping "$rc"; fi
   if [ "$INTERACTIVE" -eq 1 ]; then
     local msg="Pipeline OK"
-    [ "$rc" -eq 0 ] || msg="Pipeline FAILED (exit $rc): $(grep -o 'Pipeline stopped at step: .*' "$LOG_FILE" | tail -1 || true)"
+    if [ "$rc" -eq 3 ]; then
+      msg="Pipeline finished with PARTIAL data (see the Partial/Failed lines)"
+    elif [ "$rc" -ne 0 ]; then
+      msg="Pipeline FAILED (exit $rc): $(grep -o 'Pipeline stopped at step: .*' "$LOG_FILE" | tail -1 || true)"
+    fi
     echo "$msg -- log: $LOG_FILE"
     osascript -e "display notification \"$msg\" with title \"batdongsan pipeline\"" >/dev/null 2>&1 || true
   fi
   if [ "$rc" -eq 0 ]; then
     slack ":white_check_mark: batdongsan weekly pipeline OK ($(date '+%d/%m %H:%M'))"
+  elif [ "$rc" -eq 3 ]; then
+    local degraded
+    degraded="$(grep -oE '(Partial|Failed): scrape_[a-z_]+' "$LOG_FILE" | sort -u | paste -sd, - || true)"
+    slack ":warning: batdongsan weekly pipeline finished with PARTIAL data (${degraded:-see log}) -- log: $LOG_FILE"
   else
     local failed
     failed="$(grep -oE 'Pipeline (stopped at step|skipped): .*' "$LOG_FILE" | tail -1 || true)"
@@ -102,7 +112,7 @@ if [ "$INTERACTIVE" -eq 1 ]; then
   # (command trimmed) so the terminal stays readable. The pipeline's exit code is PIPESTATUS[0].
   set +e
   caffeinate -i "$CONDA_ENV_BIN/python" -m src.orchestrator.run_pipeline 2>&1 | tee -a "$LOG_FILE" \
-    | awk '/=== (Start|Done|Failed)|Pipeline stopped/ { sub(/ \(.*\) ===/, " ==="); print; fflush() }'
+    | awk '/=== (Start|Done|Partial|Failed)|Pipeline stopped/ { sub(/ \(.*\) ===/, " ==="); print; fflush() }'
   STATUS=${PIPESTATUS[0]}
   set -e
 else

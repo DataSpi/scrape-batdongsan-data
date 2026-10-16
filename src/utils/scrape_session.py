@@ -21,9 +21,11 @@ browser only needs to run once per TTL window -- every fast curl_cffi
 request for the rest of a crawl just reuses the cached cookie.
 """
 
+import asyncio
 import concurrent.futures
 import json
 import os
+import random
 import tempfile
 import time
 
@@ -36,6 +38,15 @@ logger = setup_logging()
 CACHE_PATH = os.path.join("data", "cf_session_cache.json")
 TTL_SECONDS = int(os.getenv("CF_SESSION_TTL_SECONDS", "1200"))
 WARM_URL = "https://batdongsan.com.vn/"
+
+# Transient statuses worth retrying: 429 is the site rate-limiting us, 5xx are server hiccups.
+# 403 is handled separately (cookie went stale -> re-warm the Cloudflare session).
+RETRY_STATUSES = {429, 500, 502, 503, 504}
+MAX_RETRIES = 4
+BACKOFF_BASE_SECONDS = 2.0
+BACKOFF_MAX_SECONDS = 60.0
+# Random pause before each async request, so concurrent coroutines don't fire in lockstep.
+REQUEST_JITTER_SECONDS = (0.3, 1.0)
 
 DEFAULT_ACCEPT = "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8"
 DEFAULT_ACCEPT_LANGUAGE = "en-US,en;q=0.9"
@@ -147,14 +158,32 @@ def get_session(force_refresh: bool = False):
     return headers, session_data["cookies"]
 
 
+def _retry_delay(attempt, response):
+    """Seconds to wait before retry number `attempt` (0-based): the server's Retry-After when it
+    sends a number, else exponential backoff; capped, plus jitter."""
+    try:
+        base = float(response.headers.get("Retry-After"))
+    except (TypeError, ValueError):
+        base = BACKOFF_BASE_SECONDS * 2**attempt
+    return min(base, BACKOFF_MAX_SECONDS) + random.uniform(0, 1)
+
+
 def request_with_cf_bypass(url, **kwargs):
     """Sync GET via curl_cffi, attaching a Cloudflare session and retrying
-    once with a freshly-warmed one if the first attempt comes back 403."""
+    once with a freshly-warmed one if the first attempt comes back 403, and
+    with backoff on 429/5xx."""
     headers, cookies = get_session()
     response = curl_requests.get(url, headers=headers, cookies=cookies, impersonate="chrome124", **kwargs)
     if response.status_code == 403:
         logger.warning(f"403 for {url}, refreshing Cloudflare session and retrying once")
         headers, cookies = get_session(force_refresh=True)
+        response = curl_requests.get(url, headers=headers, cookies=cookies, impersonate="chrome124", **kwargs)
+    for attempt in range(MAX_RETRIES):
+        if response.status_code not in RETRY_STATUSES:
+            break
+        delay = _retry_delay(attempt, response)
+        logger.warning(f"{response.status_code} for {url}, retry {attempt + 1}/{MAX_RETRIES} in {delay:.1f}s")
+        time.sleep(delay)
         response = curl_requests.get(url, headers=headers, cookies=cookies, impersonate="chrome124", **kwargs)
     return response
 
@@ -162,10 +191,19 @@ def request_with_cf_bypass(url, **kwargs):
 async def async_get_with_cf_bypass(session, url, **kwargs):
     """Async GET via an existing curl_cffi AsyncSession (expected to already
     carry a warmed Cloudflare session as its default headers/cookies), retrying
-    once with a freshly-warmed session if the first attempt comes back 403."""
+    once with a freshly-warmed session if the first attempt comes back 403, and
+    with backoff on 429/5xx. A short random pause precedes every request."""
+    await asyncio.sleep(random.uniform(*REQUEST_JITTER_SECONDS))
     response = await session.get(url, impersonate="chrome124", **kwargs)
     if response.status_code == 403:
         logger.warning(f"403 for {url}, refreshing Cloudflare session and retrying once")
         headers, cookies = get_session(force_refresh=True)
         response = await session.get(url, headers=headers, cookies=cookies, impersonate="chrome124", **kwargs)
+    for attempt in range(MAX_RETRIES):
+        if response.status_code not in RETRY_STATUSES:
+            break
+        delay = _retry_delay(attempt, response)
+        logger.warning(f"{response.status_code} for {url}, retry {attempt + 1}/{MAX_RETRIES} in {delay:.1f}s")
+        await asyncio.sleep(delay)
+        response = await session.get(url, impersonate="chrome124", **kwargs)
     return response
