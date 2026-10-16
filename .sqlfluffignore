@@ -1,0 +1,4 @@
+dbt/dbt_packages/
+dbt/target/
+# {% snapshot %} blocks are not parseable by the plain jinja templater
+dbt/snapshots/

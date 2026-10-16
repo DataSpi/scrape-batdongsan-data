@@ -16,8 +16,35 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: ./.github/actions/setup-python-env
-      - run: ruff check .
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: requirements-dev.txt
+      # Lint tools only; no need to install the full runtime stack (dbt, patchright, ...).
+      - run: pip install -r requirements-dev.txt
+      - name: Python lint
+        run: ruff check .
+      - name: Python format
+        run: ruff format --check .
+      - name: Python syntax (no imports; scraper modules have import-time side effects)
+        run: python -m compileall -q src dags
+      - name: SQL lint (dbt models/tests)
+        run: sqlfluff lint dbt/models dbt/tests
+      - name: Shell scripts
+        run: |
+          bash -n scripts/run_weekly_pipeline.sh
+          shellcheck scripts/*.sh
+      - name: launchd plist is well-formed
+        run: python -c "import plistlib,sys; [plistlib.load(open(p,'rb')) for p in sys.argv[1:]]" scripts/*.plist
+      - name: docker compose config
+        run: docker compose config -q
+
+  actionlint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: raven-actions/actionlint@v2
 
   docker-build-push:
     runs-on: ubuntu-latest

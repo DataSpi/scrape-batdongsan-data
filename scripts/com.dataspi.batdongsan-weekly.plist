@@ -7,12 +7,12 @@
 
       launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.dataspi.batdongsan-weekly.plist
 
-  Use `bootstrap`, not the legacy `launchctl load` -- on modern macOS (confirmed on 15.x
+  Use `bootstrap`, not the legacy `launchctl load` - on modern macOS (confirmed on 15.x
   Sequoia) `load` fails with an unhelpful "Input/output error" that gives no indication
   of the actual problem, while `bootstrap` reports errors clearly. To remove:
   `launchctl bootout gui/$(id -u)/com.dataspi.batdongsan-weekly`.
 
-  StartCalendarInterval fires Monday 9am, same schedule the Airflow DAG uses -- and
+  StartCalendarInterval fires Monday 9am, same schedule the Airflow DAG uses - and
   unlike plain cron, launchd runs a missed job as soon as the machine wakes if it was
   asleep at the scheduled time, instead of silently skipping it.
 
