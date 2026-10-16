@@ -28,10 +28,10 @@ xem mục 6.
 
 Orchestration mặc định (giai đoạn 3) là **launchd bare-metal**: 1 job launchd gọi thẳng
 `src/orchestrator/run_pipeline.py` qua `scripts/run_weekly_pipeline.sh`, không qua Docker, không
-có process nào chạy liên tục giữa các lần. Airflow tự host (docker-compose, xem mục 2b) vẫn còn
-trong repo như phương án thay thế cho ai muốn UI/retry/backfill của Airflow, đánh đổi lấy
-`airflow-scheduler` + Postgres metadata phải chạy 24/7 chỉ để bắn 1 job/tuần — xem lý do đầy đủ ở
-[CLAUDE.md § Giai đoạn 3](../CLAUDE.md).
+có process nào chạy liên tục giữa các lần. Airflow từng là scheduler của dự án (git tag
+`airflow-final` giữ lại bản đó) nhưng đã bị bỏ: `airflow-scheduler` + Postgres metadata phải chạy
+24/7 chỉ để bắn 1 job/tuần, và bước scrape cần Chrome headed (Cloudflare) nên không chạy được
+trong container.
 
 ## 2) Vận hành định kỳ — launchd bare-metal (mặc định)
 
@@ -106,32 +106,13 @@ where product_id = '...'
 order by dbt_valid_from;
 ```
 
-## 2b) Vận hành định kỳ (tuỳ chọn) — Airflow self-hosted, docker-compose
-
-**Vì sao tự host thay vì Airflow managed/cloud**: batdongsan.com.vn chặn IP của cloud/CI
-runner — bước scrape bắt buộc phải chạy từ IP dân dụng (máy cá nhân). Container Docker chạy
-trên máy local vẫn ra internet bằng IP của máy đó (NAT qua Docker Engine), nên Airflow ở đây
-chạy self-hosted qua `docker-compose.yml` (LocalExecutor — một máy, task vốn đã tuần tự do
-ràng buộc 1 IP scrape, không cần CeleryExecutor/Redis) thay vì managed Airflow trên cloud.
-
-Setup lần đầu / chạy hằng ngày: xem
-[Quickstart mục 6](quickstart.md#6-cách-khác--docker--airflow-self-hosted).
-
-DAG chính — `dags/pipeline_weekly_dag.py`, lịch `0 9 * * 1` (Thứ 2, 9h sáng, đồng bộ với lịch
-launchd ở mục 2), `catchup=False`, `retries=2`. Các task giống hệt danh sách 7 bước ở mục 2, chạy
-tuần tự và **dừng ngay khi có task lỗi**.
-
-Debug khi có task lỗi: mở Airflow UI (`localhost:8080`) → DAG → task → Logs, hoặc
-`docker compose logs airflow-scheduler`.
-
 ## 3) Vận hành thủ công: rebuild location lineage
 
 **Khi nào cần chạy mục này:** có quận/phường mới xuất hiện (VD: sáp nhập hành chính), hoặc
 vừa geocode lại lat/lng cho `dim_district_geo_v1` / `dim_ward_geo_v2`.
 
-Cách chạy chính: trigger DAG `lineage_rebuild` (`dags/lineage_rebuild_dag.py`) thủ công trên
-Airflow UI — `schedule=None`, không nằm trong lịch tuần. Các bước bên dưới mô tả đúng những gì
-DAG đó chạy, hữu ích khi debug từng bước hoặc chạy bare-metal.
+Chạy thủ công theo thứ tự các bước bên dưới (geocode → `dbt seed` → `dbt run` → `dbt test` trên
+`dim_location_v1+ dim_location_v2+ dim_project+`); không nằm trong lịch tuần.
 
 ### 3.1 Geocode district/ward mới (nếu cần)
 
@@ -198,7 +179,6 @@ dbt test --select fct_real_estate+
   vào `logs/dbt_artifacts/<timestamp>/` sau mỗi lần chạy (target/ bị ghi đè lần sau).
 - **Report HTML**: `edr report` (cần profile `elementary` trong `dbt/profiles.yml`, xem
   `.example`) ghi ra `logs/elementary_report.html` — best-effort cuối script tuần.
-- Airflow: `dbt/` được mount nên `dbt deps` chạy trên host là đủ; DAG có task tương ứng.
 
 ## 5) dbt docs (xem lineage & catalog)
 
@@ -224,32 +204,28 @@ sample data/column stats cho model đó.
   hiện tại là artifact đông cứng từ lần build cuối (2026-05-20), không còn regenerate. Xem mục
   nợ kỹ thuật trong [CLAUDE.md](../CLAUDE.md) — dọn dẹp ở Stage 5.
 
-## 7) Docker & Airflow — layout container
+## 7) Docker — layout container
 
-*Chỉ cần đọc mục này nếu bạn dùng path Airflow tuỳ chọn (mục 2b) hoặc muốn build/test bằng
-Docker — pipeline chạy mặc định (mục 2) không phụ thuộc gì ở đây.*
+*Chỉ cần đọc mục này nếu muốn build/test bằng Docker — pipeline chạy mặc định (mục 2) không
+phụ thuộc gì ở đây. Lưu ý: bước scrape cần Chrome headed (Cloudflare) nên không chạy được trong
+container; image chủ yếu dùng để build/validate và chạy các bước dbt.*
 
 - `Dockerfile` (root): image `pipeline` — Python 3.12 + `requirements.txt` + dbt CLI, dùng cho
-  cả `docker run` trực tiếp lẫn task Airflow. `PYTHONPATH=/app` set sẵn trong image (trước đây
-  chỉ set trong `.vscode/settings.json`, hỏng ngoài VS Code).
-- `airflow/Dockerfile`: extend `apache/airflow` với `requirements.txt` cài vào venv của chính
-  image Airflow (không dùng `pip install --user` — image Airflow chạy trong venv riêng, user
-  site-packages không thấy được).
-- `docker-compose.yml`: service `pipeline` (chạy pipeline độc lập) + cụm Airflow
-  (`airflow-metadata-db` — Postgres **riêng**, không liên quan `DB_*`/Supabase cũ của Malloy;
-  `airflow-init`, `airflow-webserver`, `airflow-scheduler`).
+  `docker run` trực tiếp. `PYTHONPATH=/app` set sẵn trong image (trước đây chỉ set trong
+  `.vscode/settings.json`, hỏng ngoài VS Code).
+- `docker-compose.yml`: service `pipeline` (chạy pipeline độc lập).
 - Secrets: `env_file: .env` + bind-mount read-only `gcp_service_account.json` — không bake vào
   image layer nào (xem `.dockerignore`).
 - `data/` bị gitignore (dump scrape output) nên không có sẵn khi clone mới — image tự tạo
   thư mục này (`RUN mkdir -p data` trong `Dockerfile`) và `docker-compose.yml` bind-mount
-  `./data` vào cả service `pipeline` lẫn các container Airflow, vì `src/_web2br/*.py` ghi CSV
-  ra path tương đối `data/...` theo mặc định.
+  `./data` vào service `pipeline`, vì `src/_web2br/*.py` ghi CSV ra path tương đối `data/...`
+  theo mặc định.
 
 ## 8) CI/CD — GitHub Actions
 
 GitHub-hosted runner **không** tới được batdongsan.com.vn (bị chặn) — CI không bao giờ chạy
-scrape thật hay orchestration, việc đó ở lại hoàn toàn trên máy local (launchd, mục 2 — hoặc
-Airflow, mục 2b, nếu bạn chọn path đó). CI chỉ làm 3 việc, đều là fast feedback trước khi merge:
+scrape thật hay orchestration, việc đó ở lại hoàn toàn trên máy local (launchd, mục 2). CI chỉ
+làm 3 việc, đều là fast feedback trước khi merge:
 
 - `.github/workflows/ci.yml`:
   - job `lint` — `ruff check .` (cấu hình ở `pyproject.toml`).
@@ -279,13 +255,13 @@ Sau khi có báo cáo mới trong `docs/reports/`, thêm một card link trong p
 
 - **Lỗi kết nối BigQuery**: kiểm tra `gcp_service_account.json` tồn tại ở root và
   `dbt/profiles.yml` (copy từ `dbt/profiles.yml.example`) trỏ đúng file.
-- **`dbt run`/`dbt test` lỗi credentials khi chạy qua Airflow nhưng OK khi chạy bare-metal**:
+- **`dbt run`/`dbt test` lỗi credentials khi chạy trong container nhưng OK khi chạy bare-metal**:
   `dbt/profiles.yml` có path `keyfile` tuyệt đối, path này khác nhau giữa bare-metal và trong
-  container Airflow (`/opt/airflow/repo/gcp_service_account.json`) — xem comment trong
+  container `pipeline` (`/app/gcp_service_account.json`) — xem comment trong
   `dbt/profiles.yml.example`.
 - **Task scrape lỗi `OSError: Cannot save file into a non-existent directory: 'data'`**:
   `data/` bị gitignore nên không có sẵn ở máy mới — kiểm tra `docker-compose.yml` đã mount
-  `./data` vào đúng service/container chưa (xem mục 7).
+  `./data` vào service `pipeline` chưa (xem mục 7).
 - **`launchctl load` báo "Input/output error"**: lệnh cũ, báo lỗi mù mờ trên macOS hiện đại —
   dùng `launchctl bootstrap gui/$(id -u) <path plist>` thay thế, lỗi sẽ rõ hơn nhiều (thường là
   file plist chưa được copy vào `~/Library/LaunchAgents/`, hoặc job đã load rồi).
@@ -296,10 +272,9 @@ Sau khi có báo cáo mới trong `docs/reports/`, thêm một card link trong p
   `logs/launchd.err.log` (path set trong
   `StandardErrorPath` của plist) — thường là do path conda env trong
   `scripts/run_weekly_pipeline.sh` không khớp máy đang chạy.
-- **DAG không xuất hiện trên Airflow UI hoặc báo import error**: `docker compose exec
-  airflow-scheduler airflow dags list-import-errors`.
 - **`dbt run` báo thiếu source table**: bước scrape (`src/_web2br/*.py`) chưa chạy hoặc chạy
-  lỗi — kiểm tra log của đúng bước đó trước khi rerun dbt (Airflow UI → task → Logs).
+  lỗi — kiểm tra log của đúng bước đó (`logs/pipeline_*.log`, hoặc bảng `re_meta.pipeline_step_runs`
+  nếu đã có) trước khi rerun dbt.
 - **Geocode script báo `GOOGLE_MAPS_API_KEY not set`**: thêm key vào `.env`, khóa này tách
   biệt với service account BigQuery.
 - **Không có listing mới sau khi scrape**: website nguồn có thể đã đổi cấu trúc HTML, cần cập

@@ -16,8 +16,8 @@ batdongsan:
       #
       # This path is also environment-specific: bare-metal/local runs need the
       # host absolute path (e.g. /Users/you/scrape-batdongsan-data/gcp_service_account.json),
-      # while dags/*.py running inside the Airflow containers (docker-compose)
-      # need the path as mounted in-container: /opt/airflow/repo/gcp_service_account.json.
+      # while the `pipeline` container (docker-compose) needs the path as mounted
+      # in-container: /app/gcp_service_account.json.
       # Since dbt/profiles.yml is gitignored (one file, one machine/context),
       # pick whichever matches how you actually invoke dbt.
       keyfile: /absolute/path/to/scrape-batdongsan-data/gcp_service_account.json

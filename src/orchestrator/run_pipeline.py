@@ -3,9 +3,9 @@ Entrypoint for the whole scrape -> dbt pipeline, triggered weekly by a launchd j
 the local machine (see scripts/run_weekly_pipeline.sh + scripts/com.dataspi.
 batdongsan-weekly.plist) -- batdongsan.com.vn blocks cloud/CI IPs, so scraping has to
 run here; dbt only talks to BigQuery so it runs here too rather than splitting the
-pipeline across two machines/schedulers. No standing process needed between runs,
-unlike the Airflow DAG kept at dags/pipeline_weekly_dag.py as an optional alternative
-(that path needs airflow-scheduler running continuously; see its docstring).
+pipeline across two machines/schedulers. No standing process needed between runs
+(an Airflow alternative existed until git tag `airflow-final`; it was removed because the
+scrape step needs a headed Chrome and cannot run inside a container).
 
     python -m src.orchestrator.run_pipeline [--only scrape_]
 
