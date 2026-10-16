@@ -29,7 +29,9 @@
 with source as (
     select * from {{ source('bronze', 'fct_real_estate') }}
     {% if is_incremental() %}
-    where date_scraped > (select max(date_scraped) from {{ this }})
+    {# >= not >: re-read the newest day too, so rows loaded for it after the last dbt run
+       (a partial scrape topped up the same day) are picked up. Safe: unique_key merges by product_id. #}
+    where date_scraped >= (select max(date_scraped) from {{ this }})
     {% endif %}
 ),
 

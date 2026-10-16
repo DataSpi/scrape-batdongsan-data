@@ -107,6 +107,20 @@ def delete_existing_batch(client, table_id, df, key_col="product_id", date_col="
     return job.num_dml_affected_rows or 0
 
 
+def load_scrape_batch(client, df, table_id, scraped_at):
+    """Stamp a scraped batch with `scraped_at`/`date_scraped` and load it idempotently: today's
+    rows for the same listings are deleted first (see delete_existing_batch), so a re-run, or a
+    later batch that overlaps an earlier one, replaces rows instead of duplicating them. Callers
+    use one `scraped_at` for a whole run so every batch of it lands on the same date_scraped.
+    Returns (rows_deleted, rows_loaded); an empty df is a no-op."""
+    if df.empty:
+        return 0, 0
+    df = df.assign(scraped_at=scraped_at, date_scraped=scraped_at.date())
+    deleted = delete_existing_batch(client, table_id, df)
+    loaded = upload_df_to_bigquery(client, df, table_id, write_disposition="WRITE_APPEND", allow_field_addition=True)
+    return deleted, loaded
+
+
 def read_sql_file(file_path):
     with open(file_path, "r", encoding="utf-8") as file:
         sql_query = file.read()

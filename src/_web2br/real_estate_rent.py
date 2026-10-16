@@ -15,6 +15,7 @@ import asyncio
 import json
 import os
 import re
+import sys
 import unicodedata
 
 import pandas as pd
@@ -22,13 +23,14 @@ from bs4 import BeautifulSoup
 from curl_cffi.requests import AsyncSession
 
 from src.utils.common_tools import setup_logging
-from src.utils.gcp_conn import delete_existing_batch, get_bigquery_client, query_to_df, upload_df_to_bigquery
+from src.utils.gcp_conn import get_bigquery_client, load_scrape_batch, query_to_df
+from src.utils.scrape_health import ScrapeHealth
 from src.utils.scrape_session import async_get_with_cf_bypass, get_session
 
 logger = setup_logging()
 
 
-MAX_CONCURRENCY = 5
+MAX_CONCURRENCY = 3
 BATCH_SIZE = 100
 BATCH_DELAY_SECONDS = 10
 CATEGORY_URL = "https://batdongsan.com.vn/cho-thue-can-ho-chung-cu"
@@ -243,7 +245,7 @@ async def fetch_all_pages(urls: list, batch_size: int = BATCH_SIZE, batch_delay_
     return all_results
 
 
-async def main(url=URL):
+async def main(url=URL, health=None):
     # Fetch first page to get total pages
     semaphore = asyncio.Semaphore(1)
     headers, cookies = get_session()
@@ -263,14 +265,23 @@ async def main(url=URL):
 
     # Combine all dataframes (listing + tracking metadata)
     df_total = df_combined_first.copy()
+    failed_pages = 0
     for result_df, _ in results[1:]:
-        if result_df is not None:
+        if result_df is None:
+            failed_pages += 1
+        else:
             df_total = pd.concat([df_total, result_df], ignore_index=True)
 
+    if failed_pages:
+        logger.warning(f"{failed_pages}/{len(urls)} pages could not be fetched for {url}")
+    if health is not None:
+        health.record_pages(total=len(urls), failed=failed_pages)
     return df_total
 
 
-async def crawl_city_by_district(city_code: str) -> pd.DataFrame:
+async def crawl_city_by_district(
+    city_code: str, health=None, on_district=None, limit_districts: int | None = None
+) -> pd.DataFrame:
     """
     Crawl every district of a city individually instead of the single
     city-level aggregate URL. batdongsan.com.vn forces IsDisplayNewAddress=true
@@ -281,6 +292,11 @@ async def crawl_city_by_district(city_code: str) -> pd.DataFrame:
     Districts come from re_bronze.dim_district_v1, filtered by cityCode. Districts
     whose derived slug doesn't resolve to a clean district page are skipped
     (logged as a warning) rather than silently mixing in wrong data.
+
+    `on_district(df)` is called with each district's listings as soon as that district is
+    scraped (the caller loads it into BigQuery there), so a failure later in the crawl doesn't
+    lose the districts already done. `health` counts failed pages / skipped districts.
+    `limit_districts` only crawls the first N districts (for testing).
     """
     bq_client = get_bigquery_client()
     districts = query_to_df(
@@ -289,6 +305,8 @@ async def crawl_city_by_district(city_code: str) -> pd.DataFrame:
         params={"city_code": city_code},
     )
     logger.info(f"Found {len(districts)} districts for cityCode={city_code}")
+    if limit_districts:
+        districts = districts.head(limit_districts)
 
     all_dfs = []
     headers, cookies = get_session()
@@ -296,16 +314,22 @@ async def crawl_city_by_district(city_code: str) -> pd.DataFrame:
         for _, district_row in districts.iterrows():
             url = await resolve_district_url(session, district_row)
             if url is None:
+                if health is not None:
+                    health.record_skipped_district(district_row["name"])
                 continue
 
             logger.info(f"Crawling district '{district_row['name']}' (id={district_row['districtId']}) at {url}")
             try:
-                df_district = await main(url=url)
+                df_district = await main(url=url, health=health)
             except AssertionError as e:
                 logger.warning(f"Skipping district '{district_row['name']}': {e}")
+                if health is not None:
+                    health.record_skipped_district(district_row["name"])
                 continue
 
             df_district["crawled_district_id"] = district_row["districtId"]
+            if on_district is not None:
+                on_district(df_district)
             all_dfs.append(df_district)
 
     if not all_dfs:
@@ -328,6 +352,12 @@ def parse_args():
         "--city-code", default=CITY_CODE, help="City code, e.g. SG, HN (mode=district). Default: %(default)s"
     )
     parser.add_argument(
+        "--limit-districts",
+        type=int,
+        default=None,
+        help="mode=district only: crawl just the first N districts (for testing). Default: all",
+    )
+    parser.add_argument(
         "--output", default="data/real_estate_listings_rent.csv", help="CSV output path. Default: %(default)s"
     )
     return parser.parse_args()
@@ -336,21 +366,25 @@ def parse_args():
 if __name__ == "__main__":
     args = parse_args()
     bq_client = get_bigquery_client()
-    if args.mode == "district":
-        df_final = asyncio.run(crawl_city_by_district(args.city_code))
-    else:
-        df_final = asyncio.run(main(url=args.url))
-    df_final.to_csv(args.output, index=False)
-    df_final["scraped_at"] = pd.Timestamp.now("UTC")
-    df_final["date_scraped"] = df_final["scraped_at"].dt.date
     table_id = f"{bq_client.project}.re_bronze.{BRONZE_TABLE}"
-    # Idempotent re-run: replace today's rows for these listings instead of duplicating them.
-    deleted = delete_existing_batch(bq_client, table_id, df_final)
-    logger.info(f"Removed {deleted} rows already loaded today for these listings")
-    upload_df_to_bigquery(
-        bq_client,
-        df_final,
-        table_id,
-        write_disposition="WRITE_APPEND",
-        allow_field_addition=True,
-    )
+    # One timestamp for the whole run, so every per-district batch lands on the same date_scraped.
+    scraped_at = pd.Timestamp.now("UTC")
+    health = ScrapeHealth()
+
+    def load_batch(df):
+        # Idempotent: replaces today's rows for these listings instead of duplicating them.
+        deleted, loaded = load_scrape_batch(bq_client, df, table_id, scraped_at)
+        logger.info(f"Loaded {loaded} rows ({deleted} already loaded today were replaced)")
+
+    if args.mode == "district":
+        df_final = asyncio.run(
+            crawl_city_by_district(
+                args.city_code, health=health, on_district=load_batch, limit_districts=args.limit_districts
+            )
+        )
+        df_final.to_csv(args.output, index=False)
+    else:
+        df_final = asyncio.run(main(url=args.url, health=health))
+        df_final.to_csv(args.output, index=False)
+        load_batch(df_final)
+    sys.exit(health.finish(df_final))
