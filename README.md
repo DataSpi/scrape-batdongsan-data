@@ -43,10 +43,10 @@ thay bằng kết nối BigQuery trực tiếp ở trên.
 
 Pipeline chạy định kỳ qua launchd (macOS) gọi thẳng `src/orchestrator/run_pipeline.py`
 bare-metal — không có process nào chạy liên tục giữa các lần, vì batdongsan.com.vn chặn IP của
-cloud/CI runner nên bước scrape bắt buộc chạy từ máy cá nhân. Airflow tự host qua Docker
-(`dags/pipeline_weekly_dag.py`) vẫn có trong repo như lựa chọn thay thế cho ai muốn UI/retry, chỉ
-không phải mặc định (chạy 24/7 tốn resource cho một job 1 lần/tuần). GitHub Actions lo lint/dbt
-compile/build Docker image; không chạy scrape thật. Chi tiết: [technical-guides.md](docs/technical-guides.md).
+cloud/CI runner nên bước scrape bắt buộc chạy từ máy cá nhân. Airflow từng là scheduler (xem git
+tag `airflow-final`) nhưng đã bị bỏ: tốn resource 24/7 cho một job 1 lần/tuần, và bước scrape cần
+Chrome headed nên không chạy được trong container. GitHub Actions lo lint/dbt
+parse/build Docker image; không chạy scrape thật. Chi tiết: [technical-guides.md](docs/technical-guides.md).
 
 
 ## Quickstart

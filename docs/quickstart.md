@@ -1,9 +1,7 @@
 # Quickstart
 
 Tài liệu này giúp bạn chạy dự án nhanh trên máy cá nhân. Cách chạy mặc định (giai đoạn 3) là
-**bare-metal + launchd** — không cần Docker. Có mục
-[chạy qua Docker + Airflow](#6-cách-khác--docker--airflow-self-hosted) ở cuối nếu bạn muốn UI
-theo dõi/retry tự động, đánh đổi lấy việc phải giữ `airflow-scheduler` chạy liên tục.
+**bare-metal + launchd** — không cần Docker.
 
 ## 1) Yêu cầu trước khi bắt đầu
 
@@ -64,27 +62,7 @@ bỏ qua hẳn lần chạy đó. Log mỗi lần chạy nằm ở `logs/pipelin
 - Có dữ liệu mới trong BigQuery `re_bronze`/`re_silver`/`re_gold`.
 - `re_silver.snp_real_estate` có dòng với `dbt_valid_from` = thời điểm vừa chạy.
 
-## 6) Cách khác — Docker + Airflow (self-hosted)
-
-Nếu muốn theo dõi qua UI, retry tự động, hoặc backfill — dùng Airflow tự host thay vì launchd.
-Đánh đổi: `airflow-scheduler` + Postgres metadata phải chạy liên tục (~1–1.5GB RAM) chỉ để bắn 1
-job/tuần, xem [CLAUDE.md § Giai đoạn 3](../CLAUDE.md).
-
-```bash
-docker compose build
-docker compose up airflow-init      # migrate DB metadata Airflow + tạo user admin (chạy 1 lần)
-docker compose up -d                # bật scheduler + webserver + metadata DB
-```
-
-Mở [http://localhost:8080](http://localhost:8080) (đăng nhập `admin` / `admin`, đổi
-sau khi dùng thật). Có 2 DAG:
-
-- `pipeline_weekly` — scrape + dbt run/snapshot/test, lịch mặc định Thứ 2 9h sáng (đồng bộ với
-  launchd ở mục 4). Có thể trigger tay để chạy thử ngay.
-- `lineage_rebuild` — chỉ trigger thủ công, dùng khi cần geocode lại district/ward
-  hoặc có district/ward mới (xem [technical-guides.md](technical-guides.md) mục 3).
-
-## 7) Tạo báo cáo
+## 6) Tạo báo cáo
 
 ```bash
 python src/reports/report_builder.py   # hoặc: docker compose run --rm pipeline python src/reports/report_builder.py
@@ -92,17 +70,15 @@ python src/reports/report_builder.py   # hoặc: docker compose run --rm pipelin
 
 Báo cáo được lưu vào `docs/reports/`.
 
-## 8) Xử lý lỗi thường gặp
+## 7) Xử lý lỗi thường gặp
 
 - **Không kết nối được BigQuery**: kiểm tra `gcp_service_account.json` có ở repo root và
   `dbt/profiles.yml` trỏ đúng file.
 - **launchd job không chạy / không thấy log mới**: xem
   [technical-guides.md mục 10](technical-guides.md#10-troubleshooting).
-- **`dbt run`/`dbt test` báo lỗi credentials trong Airflow**: `dbt/profiles.yml` có
+- **`dbt run`/`dbt test` báo lỗi credentials trong container**: `dbt/profiles.yml` có
   path `keyfile` tuyệt đối — path này khác nhau giữa bare-metal và trong container
-  Airflow (`/opt/airflow/repo/gcp_service_account.json`), xem `dbt/profiles.yml.example`.
-- **DAG không xuất hiện trên Airflow UI**: kiểm tra `docker compose logs airflow-scheduler`
-  và `airflow dags list-import-errors` (chạy qua `docker compose exec airflow-scheduler ...`).
+  `pipeline` (`/app/gcp_service_account.json`), xem `dbt/profiles.yml.example`.
 - **Không có listing mới sau khi scrape**: website nguồn có thể đã đổi cấu trúc, cần
   cập nhật lại selector trong `src/_web2br/`.
 

@@ -91,7 +91,7 @@ Blog: <https://spyno.substack.com/p/i-xem-chung-cu-cung-tho-so-p2>
 | CI fast feedback, gated push | `ruff` + build Docker mọi PR; chỉ push GHCR khi merge `main` | PR nào cũng được check rẻ; chỉ code đã merge mới ra artifact |
 | dbt CI theo path | `dbt-ci.yml` filter `dbt/**`, `dbt compile --target ci`, SA từ secret | PR không đụng dbt thì không tốn BigQuery; credentials không nằm trên disk |
 | Release gắn tag | `:latest` + `:${{ github.sha }}` | Rollback = đổi tag, không cần rebuild |
-| **Đảo ngược Airflow** | Airflow self-host tốn ~1–1.5GB RAM 24/7 cho 1 job/tuần → chuyển sang launchd bare-metal | Câu chuyện "consultant" nhất: đo chi phí thật rồi đổi. DAG vẫn giữ trong repo |
+| **Đảo ngược Airflow** | Airflow self-host tốn ~1–1.5GB RAM 24/7 cho 1 job/tuần → chuyển sang launchd bare-metal; sau đó xoá hẳn DAG vì scrape cần Chrome headed, không chạy được trong container | Câu chuyện "consultant" nhất: đo chi phí thật rồi đổi, rồi dọn code chết. Bản có Airflow còn nguyên ở git tag `airflow-final` |
 
 + Bỏ Airflow thì mất: retry, backfill, lịch sử run → biết tự bù bằng cách nào (backoff quanh `run_step()`, tham số ngày, bảng log run).
 

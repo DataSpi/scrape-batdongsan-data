@@ -1,7 +1,7 @@
 # GitHub-hosted runners cannot reach batdongsan.com.vn (blocked by the source site --
 # see CLAUDE.md/docs/technical-guides.md), so CI never runs the real scrape or the
-# Airflow DAGs -- that stays exclusively on the self-hosted local Airflow instance
-# (docker-compose.yml, dags/). CI's job is fast feedback only: lint and a Docker
+# orchestration -- that stays exclusively on the maintainer's machine (launchd, see
+# scripts/). CI's job is fast feedback only: lint and a Docker
 # build (+ publish to GHCR on merge to main). See dbt-ci.yml for the dbt-specific
 # job, split out so it only runs when dbt/** actually changes.
 name: CI
@@ -28,7 +28,7 @@ jobs:
       - name: Python format
         run: ruff format --check .
       - name: Python syntax (no imports; scraper modules have import-time side effects)
-        run: python -m compileall -q src dags
+        run: python -m compileall -q src
       - name: SQL lint (dbt models/tests)
         run: sqlfluff lint dbt/models dbt/tests
       - name: Shell scripts

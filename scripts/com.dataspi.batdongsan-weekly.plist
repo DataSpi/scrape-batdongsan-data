@@ -12,7 +12,7 @@
   of the actual problem, while `bootstrap` reports errors clearly. To remove:
   `launchctl bootout gui/$(id -u)/com.dataspi.batdongsan-weekly`.
 
-  StartCalendarInterval fires Monday 9am, same schedule the Airflow DAG uses - and
+  StartCalendarInterval fires Monday 9am - and
   unlike plain cron, launchd runs a missed job as soon as the machine wakes if it was
   asleep at the scheduled time, instead of silently skipping it.
 
