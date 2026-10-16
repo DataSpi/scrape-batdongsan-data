@@ -7,7 +7,7 @@ pipeline across two machines/schedulers. No standing process needed between runs
 unlike the Airflow DAG kept at dags/pipeline_weekly_dag.py as an optional alternative
 (that path needs airflow-scheduler running continuously; see its docstring).
 
-    python -m src.orchestrator.run_pipeline
+    python -m src.orchestrator.run_pipeline [--only scrape_]
 
 Steps run strictly in order and the pipeline stops at the first failure (except steps
 marked non-fatal, i.e. the observability ones: source freshness + Elementary) -- dbt models
@@ -34,12 +34,23 @@ affect the other) into separate bronze tables (re_bronze.fct_real_estate vs
 re_bronze.fct_real_estate_rent) and built through separate silver/gold models -- rental
 prices are monthly rates, not comparable to sale prices, so they never share a table or
 a price bound/bin with the sale lineage. See dbt/models/silver/facts/fct_real_estate_rent.sql.
+
+Every run and step is also logged to BigQuery dataset `re_meta` (src/utils/pipeline_log.py):
+pipeline_runs, pipeline_step_runs and the summary view vw_pipeline_runs. Logging failures are
+swallowed with a warning -- they never affect the pipeline.
 """
 
+import argparse
+import re
+import signal
 import subprocess
 import sys
+import time
+import uuid
+from collections import deque
 from pathlib import Path
 
+from src.utils import pipeline_log
 from src.utils.common_tools import setup_logging
 
 logger = setup_logging()
@@ -84,8 +95,18 @@ STEPS = [
 ]
 
 
-def run_step(name: str, cmd: list[str]) -> bool:
+ROWS_LOADED_RE = re.compile(r"PIPELINE_METRIC rows_loaded=(\d+)")
+ERROR_TAIL_LINES = 20
+ERROR_TAIL_MAX_CHARS = 4000
+
+
+def run_step(name: str, cmd: list[str]) -> dict:
+    """Run one step; return its outcome (also what gets logged to re_meta.pipeline_step_runs)."""
     logger.info(f"=== Start: {name} ({' '.join(cmd)}) ===")
+    started_at = pipeline_log.now_utc()
+    t0 = time.monotonic()
+    tail = deque(maxlen=ERROR_TAIL_LINES)
+    rows_loaded = None
     process = subprocess.Popen(
         cmd,
         cwd=PROJECT_ROOT,
@@ -95,28 +116,75 @@ def run_step(name: str, cmd: list[str]) -> bool:
         bufsize=1,
     )
     for line in process.stdout:
-        logger.info(f"[{name}] {line.rstrip()}")
+        line = line.rstrip()
+        logger.info(f"[{name}] {line}")
+        tail.append(line)
+        if m := ROWS_LOADED_RE.search(line):
+            rows_loaded = (rows_loaded or 0) + int(m.group(1))
     process.wait()
 
-    if process.returncode != 0:
+    ok = process.returncode == 0
+    if ok:
+        logger.info(f"=== Done: {name} ===")
+    else:
         logger.error(f"=== Failed: {name} (exit code {process.returncode}) ===")
-        return False
-    logger.info(f"=== Done: {name} ===")
-    return True
+    return {
+        "status": "success" if ok else "failed",
+        "exit_code": process.returncode,
+        "started_at": started_at,
+        "ended_at": pipeline_log.now_utc(),
+        "duration_s": round(time.monotonic() - t0, 1),
+        "rows_loaded": rows_loaded,
+        "error_tail": None if ok else "\n".join(tail)[-ERROR_TAIL_MAX_CHARS:],
+    }
 
 
-def main() -> int:
-    for name, cmd, *rest in STEPS:
-        fatal = rest[0] if rest else True
-        if not run_step(name, cmd):
-            if not fatal:
-                logger.warning(f"Non-fatal step failed, continuing: {name}")
-                continue
-            logger.error(f"Pipeline stopped at step: {name}")
-            return 1
-    logger.info("Pipeline completed successfully")
-    return 0
+def main(only: str | None = None) -> int:
+    # launchd/shell wrapper stops the job with SIGTERM: turn it into SystemExit so the
+    # `finally` below still records the run as interrupted instead of leaving it dangling.
+    signal.signal(signal.SIGTERM, lambda *_: sys.exit(143))
+
+    selected = [step for step in STEPS if only is None or step[0].startswith(only)]
+    run_id = uuid.uuid4().hex
+    t0 = time.monotonic()
+    pipeline_log.log_run_event(run_id, "start", status="running", **pipeline_log.run_context())
+    logger.info(f"Pipeline run_id={run_id}")
+
+    status, failed_step, steps_total, steps_failed = "interrupted", None, 0, 0
+    try:
+        for order, (name, cmd, *rest) in enumerate(selected, start=1):
+            fatal = rest[0] if rest else True
+            result = run_step(name, cmd)
+            steps_total += 1
+            pipeline_log.log_step(run_id, step_order=order, step_name=name, fatal=fatal, **result)
+            if result["status"] == "failed":
+                steps_failed += 1
+                if not fatal:
+                    logger.warning(f"Non-fatal step failed, continuing: {name}")
+                    continue
+                logger.error(f"Pipeline stopped at step: {name}")
+                status, failed_step = "failed", name
+                return 1
+        status = "success"
+        logger.info("Pipeline completed successfully")
+        return 0
+    finally:
+        pipeline_log.log_run_event(
+            run_id,
+            "end",
+            status=status,
+            failed_step=failed_step,
+            steps_total=steps_total,
+            steps_failed=steps_failed,
+            duration_s=round(time.monotonic() - t0, 1),
+        )
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    parser = argparse.ArgumentParser(description="Run the weekly scrape -> dbt pipeline.")
+    parser.add_argument(
+        "--only",
+        metavar="PREFIX",
+        help="Run only steps whose name starts with PREFIX (e.g. 'scrape_', 'dbt_'). Default: all steps.",
+    )
+    sys.exit(main(parser.parse_args().only))

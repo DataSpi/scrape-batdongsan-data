@@ -76,6 +76,9 @@ def upload_df_to_bigquery(
         job_config.schema_update_options = [bigquery.SchemaUpdateOption.ALLOW_FIELD_ADDITION]
     job = client.load_table_from_dataframe(df, table_id, job_config=job_config)
     job.result()
+    # Machine-readable marker: src/orchestrator/run_pipeline.py parses it from the step's
+    # output to record rows_loaded in re_meta.pipeline_step_runs.
+    print(f"PIPELINE_METRIC rows_loaded={job.output_rows} table={table_id}", flush=True)
     return job.output_rows
 
 

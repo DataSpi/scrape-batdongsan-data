@@ -72,7 +72,7 @@ hc_ping start
 # Elementary already stores run/test history in BigQuery (re_elementary); this local copy
 # of run_results.json/manifest.json is a safety net independent of the warehouse, since
 # dbt/target/ is overwritten by the next run.
-caffeinate -i "$CONDA_ENV_BIN/python" -m src.orchestrator.run_pipeline >> "$LOG_FILE" 2>&1 || STATUS=$?
+PIPELINE_TRIGGER=launchd caffeinate -i "$CONDA_ENV_BIN/python" -m src.orchestrator.run_pipeline >> "$LOG_FILE" 2>&1 || STATUS=$?
 
 finish 0
 
