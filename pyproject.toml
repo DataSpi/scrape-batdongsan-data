@@ -5,7 +5,7 @@ line-length = 120
 [tool.ruff.lint]
 select = ["E", "F", "I", "W"]
 # Scraper modules read module-level constants from env vars and have top-level
-# script code (see src/_web2br/j_metadata.py) -- not worth restructuring for lint.
+# script code (see src/_web2br/metadata.py) -- not worth restructuring for lint.
 ignore = ["E402"]
 
 [tool.ruff.lint.per-file-ignores]
@@ -16,7 +16,7 @@ ignore = ["E402"]
 "src/utils/getting_metadata.py" = ["W191", "E101", "E501"]
 "src/utils/sqlalchemy_conn.py" = ["E501"]
 "src/_pg2bq/migrate.py" = ["E501"]
-"src/_web2br/j_metadata.py" = ["E501"]
-"src/_web2br/j_real_estate.py" = ["E501"]
-"src/_web2br/j_real_estate_rent.py" = ["E501"]
-"src/_web2br/j_projects.py" = ["E501"]
+"src/_web2br/metadata.py" = ["E501"]
+"src/_web2br/real_estate.py" = ["E501"]
+"src/_web2br/real_estate_rent.py" = ["E501"]
+"src/_web2br/projects.py" = ["E501"]
