@@ -25,6 +25,15 @@ LOG_FILE="$PROJECT_ROOT/logs/pipeline_$(date +%Y%m%d_%H%M%S).log"
 
 cd "$PROJECT_ROOT"
 
+# Run by hand (TTY on stdout): echo step-level progress to the terminal and a summary + macOS
+# notification at the end. Under launchd there is no TTY, so output goes to the log file only.
+INTERACTIVE=0
+[ -t 1 ] && INTERACTIVE=1
+if [ "$INTERACTIVE" -eq 1 ]; then
+  echo "Log: $LOG_FILE"
+  echo "Full detail: tail -f $LOG_FILE"
+fi
+
 # Observability: only pull the two notification vars out of .env (not `source`-ing the whole
 # file, whose other values may contain characters bash would misparse). Both are optional --
 # empty/missing means that channel is silently disabled (e.g. on a dev machine).
@@ -55,6 +64,12 @@ finish() {
   local rc=$STATUS
   [ "$rc" -eq 0 ] && [ "${1:-0}" -ne 0 ] && rc=$1
   hc_ping "$rc"
+  if [ "$INTERACTIVE" -eq 1 ]; then
+    local msg="Pipeline OK"
+    [ "$rc" -eq 0 ] || msg="Pipeline FAILED (exit $rc): $(grep -o 'Pipeline stopped at step: .*' "$LOG_FILE" | tail -1 || true)"
+    echo "$msg -- log: $LOG_FILE"
+    osascript -e "display notification \"$msg\" with title \"batdongsan pipeline\"" >/dev/null 2>&1 || true
+  fi
   if [ "$rc" -eq 0 ]; then
     slack ":white_check_mark: batdongsan weekly pipeline OK ($(date '+%d/%m %H:%M'))"
   else
@@ -82,7 +97,17 @@ hc_ping start
 # Elementary already stores run/test history in BigQuery (re_elementary); this local copy
 # of run_results.json/manifest.json is a safety net independent of the warehouse, since
 # dbt/target/ is overwritten by the next run.
-PIPELINE_TRIGGER=launchd caffeinate -i "$CONDA_ENV_BIN/python" -m src.orchestrator.run_pipeline >> "$LOG_FILE" 2>&1 || STATUS=$?
+if [ "$INTERACTIVE" -eq 1 ]; then
+  # tee keeps the full output in the log; awk shows only the "=== Start/Done/Failed ===" lines
+  # (command trimmed) so the terminal stays readable. The pipeline's exit code is PIPESTATUS[0].
+  set +e
+  caffeinate -i "$CONDA_ENV_BIN/python" -m src.orchestrator.run_pipeline 2>&1 | tee -a "$LOG_FILE" \
+    | awk '/=== (Start|Done|Failed)|Pipeline stopped/ { sub(/ \(.*\) ===/, " ==="); print; fflush() }'
+  STATUS=${PIPESTATUS[0]}
+  set -e
+else
+  PIPELINE_TRIGGER=launchd caffeinate -i "$CONDA_ENV_BIN/python" -m src.orchestrator.run_pipeline >> "$LOG_FILE" 2>&1 || STATUS=$?
+fi
 
 finish 0
 
@@ -90,6 +115,7 @@ ARTIFACT_DIR="$PROJECT_ROOT/logs/dbt_artifacts/$(date +%Y%m%d_%H%M%S)"
 mkdir -p "$ARTIFACT_DIR"
 cp "$PROJECT_ROOT"/dbt/target/run_results.json "$PROJECT_ROOT"/dbt/target/manifest.json "$ARTIFACT_DIR"/ 2>/dev/null || true
 
+[ "$INTERACTIVE" -eq 0 ] || echo "Building Elementary report (best-effort, up to 15 min)..."
 # Elementary HTML report (needs `pip install elementary-data[bigquery]` and an `elementary`
 # profile -- see dbt/profiles.yml.example). Best-effort: never fails the weekly run.
 # perl alarm = 15 min cap: macOS has no `timeout`, and edr hung for days once, which kept the
