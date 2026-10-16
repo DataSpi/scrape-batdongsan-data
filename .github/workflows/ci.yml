@@ -38,7 +38,9 @@ jobs:
       - name: launchd plist is well-formed
         run: python -c "import plistlib,sys; [plistlib.load(open(p,'rb')) for p in sys.argv[1:]]" scripts/*.plist
       - name: docker compose config
-        run: docker compose config -q
+        run: |
+          cp .env.example .env
+          docker compose config -q
 
   actionlint:
     runs-on: ubuntu-latest
@@ -63,6 +65,10 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # GHCR requires a lowercase repository name; github.repository keeps the owner's casing.
+      - id: image
+        run: echo "name=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+
       # Builds on every push/PR to validate the Dockerfile; only pushes to GHCR
       # when merged to main (PRs just prove the image builds, nothing is published).
       - uses: docker/build-push-action@v6
@@ -70,7 +76,7 @@ jobs:
           context: .
           push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
           tags: |
-            ghcr.io/${{ github.repository }}:latest
-            ghcr.io/${{ github.repository }}:${{ github.sha }}
+            ${{ steps.image.outputs.name }}:latest
+            ${{ steps.image.outputs.name }}:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
