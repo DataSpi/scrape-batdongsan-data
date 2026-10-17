@@ -130,7 +130,10 @@ cp "$PROJECT_ROOT"/dbt/target/run_results.json "$PROJECT_ROOT"/dbt/target/manife
 # profile -- see dbt/profiles.yml.example). Best-effort: never fails the weekly run.
 # perl alarm = 15 min cap: macOS has no `timeout`, and edr hung for days once, which kept the
 # launchd job "running" and blocked every later scheduled run.
-perl -e 'alarm shift; exec @ARGV' 900 "$CONDA_ENV_BIN/edr" report --project-dir "$PROJECT_ROOT/dbt" --profiles-dir "$PROJECT_ROOT/dbt" \
+# caffeinate -i as well: the pipeline step above is wrapped in it, but once that returns the Mac
+# may idle-sleep, and edr (which only gets a few seconds of CPU per DarkWake) then crawled for
+# hours -- alarm() doesn't count time asleep, so the cap never fired.
+caffeinate -i perl -e 'alarm shift; exec @ARGV' 900 "$CONDA_ENV_BIN/edr" report --project-dir "$PROJECT_ROOT/dbt" --profiles-dir "$PROJECT_ROOT/dbt" \
   --file-path "$PROJECT_ROOT/logs/elementary_report.html" --open-browser false >> "$LOG_FILE" 2>&1 || true
 
 exit "$STATUS"  # EXIT trap -> finish() sends the ping/alert with this status
