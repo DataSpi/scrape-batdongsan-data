@@ -1,4 +1,4 @@
--- Ports src/_br2sil/j_locations.py (location_v2) to SQL.
+-- Ports the removed legacy Python job j_locations.py (location_v2) to SQL.
 -- Active (post-address-reform) hierarchy, refreshed by src/_web2br/metadata.py.
 
 with ward as (

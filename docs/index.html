@@ -37,10 +37,7 @@ graph TD
   D --> K[dbt mart: dbt/models/marts]
   K --> L[(BigQuery re_gold)]
 
-  D --> E[Malloy model: malloy/malloy_publisher/real_estate.malloy]
-  E --> G[Analysis query: malloy/_materialize/materialize.malloysql]
-  G --> H[Looker Studio dashboard]
-  G --> I[Static HTML reports]
+  L --> H[Looker Studio dashboard]
 
   J[crontab] -. schedule .-> M[src/orchestrator/run_pipeline.py]
   M -. runs .-> A

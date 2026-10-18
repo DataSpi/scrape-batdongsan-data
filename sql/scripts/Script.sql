@@ -1,1 +1,0 @@
-DROP TABLE re_bronze.m_projects CASCADE ; 

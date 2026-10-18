@@ -1,4 +1,4 @@
--- Ports src/_br2sil/j_real_estate.py to SQL. Two behavior changes vs. the legacy
+-- Ports the removed legacy Python job j_real_estate.py to SQL. Two behavior changes vs. the legacy
 -- pandas script (see dbt/models/silver/facts/_facts.yml and dbt/models/silver/_seeds.yml for details):
 --   1. Real dedup by product_id (legacy script only logged duplicates, kept appending
 --      them). Originally keyed on substr(link_clean, -10): the source site appends a

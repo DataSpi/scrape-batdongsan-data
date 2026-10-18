@@ -11,8 +11,9 @@ Dự án thu thập dữ liệu, chuẩn hóa dữ liệu để thực hiện ph
 - Bài viết: [Đi xem nhà cùng Data Analyst - P1](https://spyno.substack.com/p/i-xem-nha-cung-data-analyst-p1)
   - Tháng 9-2025
 
-Báo cáo HTML tĩnh trên được build lần cuối qua pipeline Malloy/Postgres cũ, hiện đã ngừng dùng
-(không còn regenerate) — xem [nợ kỹ thuật](CLAUDE.md). Dashboard bên dưới là nguồn phân tích sống.
+Báo cáo HTML tĩnh trên được build lần cuối (2026-05-20) qua pipeline Malloy/Postgres cũ, code đó
+đã được xoá khỏi repo (còn trong git history) nên báo cáo không còn regenerate. Dashboard bên dưới
+là nguồn phân tích sống.
 
 ### Dashboard 
 *(Updated: 2026-02-16)*
@@ -38,16 +39,12 @@ graph TD
   J -. then .-> S
 ```
 
-Malloy (`malloy/`) và `src/reports/report_builder.py` không còn nằm trong pipeline sống — đã bị
-thay bằng kết nối BigQuery trực tiếp ở trên.
-
 Pipeline chạy định kỳ qua launchd (macOS) gọi thẳng `src/orchestrator/run_pipeline.py`
 bare-metal — không có process nào chạy liên tục giữa các lần, vì batdongsan.com.vn chặn IP của
 cloud/CI runner nên bước scrape bắt buộc chạy từ máy cá nhân. Airflow từng là scheduler (xem git
 tag `airflow-final`) nhưng đã bị bỏ: tốn resource 24/7 cho một job 1 lần/tuần, và bước scrape cần
 Chrome headed nên không chạy được trong container. GitHub Actions lo lint/dbt
 parse/build Docker image; không chạy scrape thật. Chi tiết: [technical-guides.md](docs/technical-guides.md).
-
 
 ## Quickstart
 

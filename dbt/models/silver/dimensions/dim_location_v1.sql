@@ -1,4 +1,4 @@
--- Ports src/_br2sil/j_locations.py (location_v1) to SQL.
+-- Ports the removed legacy Python job j_locations.py (location_v1) to SQL.
 -- Legacy (old-address) hierarchy. dim_city_v1/dim_district_v1 are frozen (see _sources.yml).
 
 with district as (

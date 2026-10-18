@@ -4,7 +4,7 @@ models:
   - name: fct_real_estate
     description: >
       One row per listing (deduped by product_id, keeping the most recent scraped_at).
-      Replaces src/_br2sil/j_real_estate.py, which appended every run's full re-read of
+      Replaces the removed legacy Python job j_real_estate.py, which appended every run's full re-read of
       re_bronze.real_estate to re_silver.real_estate with no real dedup — only a log
       line — so re_silver.real_estate has been accumulating duplicate rows on every run.
     columns:
