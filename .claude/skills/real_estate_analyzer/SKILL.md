@@ -1,12 +1,12 @@
 ---
 name: real_estate_analyzer
-description: Viết/nâng cấp bài blog phân tích dữ liệu bất động sản cho series Substack của DataSpi (spyno), theo đúng cấu trúc và giọng văn đã chốt ở bài "chung cư update tháng 7/2026". Dùng khi viết bài mới trong series (nhà đất, kỹ thuật, update định kỳ) hoặc khi chỉnh sửa draft trong docs/blog_drafts/.
+description: Viết/nâng cấp bài blog phân tích dữ liệu bất động sản cho series Substack của DataSpi (spyno), theo đúng cấu trúc và giọng văn đã chốt ở bài "chung cư update tháng 7/2026". Dùng khi viết bài mới trong series (nhà đất, kỹ thuật, update định kỳ) hoặc khi chỉnh sửa draft trong content/blog_drafts/.
 ---
 
 # Blog writer — series phân tích BĐS của DataSpi
 
 Skill này đúc kết cấu trúc và giọng văn đã ổn định qua nhiều vòng chỉnh sửa ở
-`docs/blog_drafts/chung-cu-update-2026-07-personal.md` — coi bài đó là **bản mẫu tham
+`content/blog_drafts/chung-cu-update-2026-07-personal.md` — coi bài đó là **bản mẫu tham
 chiếu**, đọc lại nó nếu cần ví dụ cụ thể cho bất kỳ mục nào dưới đây.
 
 Đây không phải giọng "tự sự" (xem `writer_personal`/`writer_serious` nếu có trong máy
@@ -16,7 +16,7 @@ tối giản kể chuyện, ưu tiên bullet + số liệu + insight rút gọn.
 ## Khi nào dùng
 
 - Viết bài mới trong series (đã có: chung cư update; sắp có: nhà đất, kỹ thuật).
-- Chỉnh sửa/mở rộng draft có sẵn trong `docs/blog_drafts/`.
+- Chỉnh sửa/mở rộng draft có sẵn trong `content/blog_drafts/`.
 - Viết phần "Phân bổ theo quận" hoặc bất kỳ phần so sánh theo thời gian nào cho bài
   mới, khi tác giả đã đưa số liệu nhưng chưa có văn bản.
 

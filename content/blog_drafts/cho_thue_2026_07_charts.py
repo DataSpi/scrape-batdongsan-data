@@ -1,12 +1,12 @@
 """
-Sinh biểu đồ minh hoạ cho bài docs/blog_drafts/cho-thue-2026-07-personal.md.
+Sinh biểu đồ minh hoạ cho bài content/blog_drafts/cho-thue-2026-07-personal.md.
 
 Query trực tiếp re_gold.mart_real_estate_rent + re_gold.mart_real_estate (BigQuery),
 áp đúng bộ lọc outlier đã dùng khi viết bài (diện tích 15-200m², giá thuê 1-200 tr/tháng,
 giá bán/m² 5-1.000 tr/m² cho `căn hộ chung cư`), rồi xuất PNG vào
-docs/blog_drafts/assets/cho-thue-2026-07/.
+content/blog_drafts/assets/cho-thue-2026-07/.
 
-Chạy: python docs/blog_drafts/cho_thue_2026_07_charts.py
+Chạy: python content/blog_drafts/cho_thue_2026_07_charts.py
 """
 
 from pathlib import Path
