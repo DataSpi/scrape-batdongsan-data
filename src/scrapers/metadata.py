@@ -81,49 +81,50 @@ def get_children_infos(
     "GetProjectsByWardId": "/Product/ProductSearch/GetProjectsByWardIdV2",
 }
 
-ward_sg = response_to_df(
-    custom_request("https://batdongsan.com.vn/Product/ProductSearch/GetWardsByCityCodeV2?cityCode=SG")
-)
 
-response_to_df(custom_request("https://batdongsan.com.vn/Product/ProductSearch/GetProjectsByWardIdV2?wardId=1036"))
+def main():
+    response_to_df(custom_request("https://batdongsan.com.vn/Product/ProductSearch/GetWardsByCityCodeV2?cityCode=SG"))
+
+    response_to_df(custom_request("https://batdongsan.com.vn/Product/ProductSearch/GetProjectsByWardIdV2?wardId=1036"))
+
+    cities_v2 = response_to_df(custom_request("https://batdongsan.com.vn/Product/ProductSearch/GetCitiesV2"))
+    wards_v2 = get_children_infos(
+        cities_v2,
+        key_column="code",
+        url_template="https://batdongsan.com.vn/Product/ProductSearch/GetWardsByCityCodeV2?cityCode={}",
+    )
+    streets_v2 = get_children_infos(
+        wards_v2,
+        key_column="wardId",
+        url_template="https://batdongsan.com.vn/Product/ProductSearch/GetStreetsByWardIdV2?wardId={}",
+    )
+    projects_v2 = get_children_infos(
+        wards_v2,
+        key_column="wardId",
+        url_template="https://batdongsan.com.vn/Product/ProductSearch/GetProjectsByWardIdV2?wardId={}",
+    )
+
+    # write to BigQuery
+    bq_client = get_bigquery_client()
+    # upload_df_to_bigquery(bq_client, cities, f"{bq_client.project}.re_bronze.dim_city_v1", write_disposition="WRITE_TRUNCATE")
+    # upload_df_to_bigquery(bq_client, districts, f"{bq_client.project}.re_bronze.dim_district_v1", write_disposition="WRITE_TRUNCATE")
+    # upload_df_to_bigquery(bq_client, wards_all, f"{bq_client.project}.re_bronze.dim_ward_v1", write_disposition="WRITE_TRUNCATE")
+    # upload_df_to_bigquery(bq_client, streets_all, f"{bq_client.project}.re_bronze.dim_street_v1", write_disposition="WRITE_TRUNCATE")
+    # upload_df_to_bigquery(bq_client, projects_all, f"{bq_client.project}.re_bronze.dim_project_v1", write_disposition="WRITE_TRUNCATE")
+
+    upload_df_to_bigquery(
+        bq_client, cities_v2, f"{bq_client.project}.re_bronze.dim_city_v2", write_disposition="WRITE_TRUNCATE"
+    )
+    upload_df_to_bigquery(
+        bq_client, wards_v2, f"{bq_client.project}.re_bronze.dim_ward_v2", write_disposition="WRITE_TRUNCATE"
+    )
+    upload_df_to_bigquery(
+        bq_client, streets_v2, f"{bq_client.project}.re_bronze.dim_street_v2", write_disposition="WRITE_TRUNCATE"
+    )
+    upload_df_to_bigquery(
+        bq_client, projects_v2, f"{bq_client.project}.re_bronze.dim_project_v2", write_disposition="WRITE_TRUNCATE"
+    )
 
 
-cities_v2 = response_to_df(custom_request("https://batdongsan.com.vn/Product/ProductSearch/GetCitiesV2"))
-wards_v2 = get_children_infos(
-    cities_v2,
-    key_column="code",
-    url_template="https://batdongsan.com.vn/Product/ProductSearch/GetWardsByCityCodeV2?cityCode={}",
-)
-streets_v2 = get_children_infos(
-    wards_v2,
-    key_column="wardId",
-    url_template="https://batdongsan.com.vn/Product/ProductSearch/GetStreetsByWardIdV2?wardId={}",
-)
-projects_v2 = get_children_infos(
-    wards_v2,
-    key_column="wardId",
-    url_template="https://batdongsan.com.vn/Product/ProductSearch/GetProjectsByWardIdV2?wardId={}",
-)
-
-
-# write to BigQuery
-bq_client = get_bigquery_client()
-# upload_df_to_bigquery(bq_client, cities, f"{bq_client.project}.re_bronze.dim_city_v1", write_disposition="WRITE_TRUNCATE")
-# upload_df_to_bigquery(bq_client, districts, f"{bq_client.project}.re_bronze.dim_district_v1", write_disposition="WRITE_TRUNCATE")
-# upload_df_to_bigquery(bq_client, wards_all, f"{bq_client.project}.re_bronze.dim_ward_v1", write_disposition="WRITE_TRUNCATE")
-# upload_df_to_bigquery(bq_client, streets_all, f"{bq_client.project}.re_bronze.dim_street_v1", write_disposition="WRITE_TRUNCATE")
-# upload_df_to_bigquery(bq_client, projects_all, f"{bq_client.project}.re_bronze.dim_project_v1", write_disposition="WRITE_TRUNCATE")
-
-
-upload_df_to_bigquery(
-    bq_client, cities_v2, f"{bq_client.project}.re_bronze.dim_city_v2", write_disposition="WRITE_TRUNCATE"
-)
-upload_df_to_bigquery(
-    bq_client, wards_v2, f"{bq_client.project}.re_bronze.dim_ward_v2", write_disposition="WRITE_TRUNCATE"
-)
-upload_df_to_bigquery(
-    bq_client, streets_v2, f"{bq_client.project}.re_bronze.dim_street_v2", write_disposition="WRITE_TRUNCATE"
-)
-upload_df_to_bigquery(
-    bq_client, projects_v2, f"{bq_client.project}.re_bronze.dim_project_v2", write_disposition="WRITE_TRUNCATE"
-)
+if __name__ == "__main__":
+    main()

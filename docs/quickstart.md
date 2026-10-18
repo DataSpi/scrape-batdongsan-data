@@ -72,7 +72,7 @@ bỏ qua hẳn lần chạy đó. Log mỗi lần chạy nằm ở `logs/pipelin
   path `keyfile` tuyệt đối — path này khác nhau giữa bare-metal và trong container
   `pipeline` (`/app/gcp_service_account.json`), xem `dbt/profiles.yml.example`.
 - **Không có listing mới sau khi scrape**: website nguồn có thể đã đổi cấu trúc, cần
-  cập nhật lại selector trong `src/_web2br/`.
+  cập nhật lại selector trong `src/scrapers/`.
 
 ## Điều hướng
 

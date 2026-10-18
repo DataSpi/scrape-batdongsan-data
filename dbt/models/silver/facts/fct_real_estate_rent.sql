@@ -1,5 +1,5 @@
 -- Rental ("cho thuê") counterpart to fct_real_estate.sql, built from its own bronze
--- table (re_bronze.fct_real_estate_rent, written by src/_web2br/real_estate_rent.py -- a
+-- table (re_bronze.fct_real_estate_rent, written by src/scrapers/real_estate_rent.py -- a
 -- separate scraper script from real_estate.py) rather than commingled with sale
 -- listings: a rental price is a monthly rate ("23 triệu/tháng"), never a lump sum (tỷ),
 -- so it is not comparable to fct_real_estate.price_num/price_1m2 and must not share

@@ -25,7 +25,7 @@ select
     re.*,
     project.name as project_name,
     -- districtId=0 is batdongsan's IsDisplayNewAddress sentinel for "unresolved" (see
-    -- src/_web2br/real_estate.py:crawl_city_by_district), not a real district - treat
+    -- src/scrapers/real_estate.py:crawl_city_by_district), not a real district - treat
     -- it as missing so we fall back to the project's districtId like a NULL would.
     coalesce(nullif(re.districtId, 0), project.districtId) as full_districtId
 from re

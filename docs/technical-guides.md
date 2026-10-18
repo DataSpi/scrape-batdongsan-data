@@ -6,7 +6,7 @@ Tài liệu này dành cho dev đã setup xong môi trường (xem [Quickstart](
 ## 1) Kiến trúc & luồng dữ liệu
 
 ```
-batdongsan.com.vn --(src/_web2br)--> BigQuery re_bronze
+batdongsan.com.vn --(src/scrapers)--> BigQuery re_bronze
                                           |
                                         dbt fact/dim (star schema)
                                           v
@@ -60,10 +60,10 @@ riêng của launchd — `StandardOutPath`/`StandardErrorPath` trong plist — g
 
 Các bước chạy tuần tự, **dừng ngay khi có bước lỗi** (`STEPS` trong `run_pipeline.py`):
 
-1. `scrape_real_estate_hcm` / `scrape_real_estate_hn` — `src/_web2br/real_estate.py`
-2. `scrape_real_estate_rent_hcm` / `scrape_real_estate_rent_hn` — `src/_web2br/real_estate_rent.py`
-3. `scrape_projects_hcm` / `scrape_projects_hn` — `src/_web2br/projects.py`
-4. `scrape_metadata` — `src/_web2br/metadata.py`
+1. `scrape_real_estate_hcm` / `scrape_real_estate_hn` — `src/scrapers/real_estate.py`
+2. `scrape_real_estate_rent_hcm` / `scrape_real_estate_rent_hn` — `src/scrapers/real_estate_rent.py`
+3. `scrape_projects_hcm` / `scrape_projects_hn` — `src/scrapers/projects.py`
+4. `scrape_metadata` — `src/scrapers/metadata.py`
 5. `dbt_run` — `dbt run --select fct_real_estate+ fct_real_estate_rent+`
 6. `dbt_snapshot` — `dbt snapshot --select fct_real_estate+ fct_real_estate_rent+` (SCD2 history,
    xem mục 1b bên dưới)
@@ -116,7 +116,7 @@ Chạy thủ công theo thứ tự các bước bên dưới (geocode → `dbt s
 ### 3.1 Geocode district/ward mới (nếu cần)
 
 ```bash
-python -m src._geocode.geocode_locations
+python -m src.geocode.geocode_locations
 ```
 
 - Cần `GOOGLE_MAPS_API_KEY` trong `.env` (khóa riêng cho Geocoding API, **không** dùng chung
@@ -216,7 +216,7 @@ container; image chủ yếu dùng để build/validate và chạy các bước 
   image layer nào (xem `.dockerignore`).
 - `data/` bị gitignore (dump scrape output) nên không có sẵn khi clone mới — image tự tạo
   thư mục này (`RUN mkdir -p data` trong `Dockerfile`) và `docker-compose.yml` bind-mount
-  `./data` vào service `pipeline`, vì `src/_web2br/*.py` ghi CSV ra path tương đối `data/...`
+  `./data` vào service `pipeline`, vì `src/scrapers/*.py` ghi CSV ra path tương đối `data/...`
   theo mặc định.
 
 ## 8) CI/CD — GitHub Actions
@@ -270,13 +270,13 @@ Sau khi có báo cáo mới trong `docs/reports/`, thêm một card link trong p
   `logs/launchd.err.log` (path set trong
   `StandardErrorPath` của plist) — thường là do path conda env trong
   `scripts/run_weekly_pipeline.sh` không khớp máy đang chạy.
-- **`dbt run` báo thiếu source table**: bước scrape (`src/_web2br/*.py`) chưa chạy hoặc chạy
+- **`dbt run` báo thiếu source table**: bước scrape (`src/scrapers/*.py`) chưa chạy hoặc chạy
   lỗi — kiểm tra log của đúng bước đó (`logs/pipeline_*.log`, hoặc bảng `re_meta.pipeline_step_runs`
   nếu đã có) trước khi rerun dbt.
 - **Geocode script báo `GOOGLE_MAPS_API_KEY not set`**: thêm key vào `.env`, khóa này tách
   biệt với service account BigQuery.
 - **Không có listing mới sau khi scrape**: website nguồn có thể đã đổi cấu trúc HTML, cần cập
-  nhật lại selector trong `src/_web2br/`.
+  nhật lại selector trong `src/scrapers/`.
 - **`assert_known_real_estate_type` fail**: site có loại BĐS mới chưa map — thêm dòng vào
   `dbt/seeds/dim_real_estate_type_mapping.csv` rồi `dbt seed --select dim_real_estate_type_mapping`.
 

@@ -5,7 +5,7 @@ line-length = 120
 [tool.ruff.lint]
 select = ["E", "F", "I", "W"]
 # Scraper modules read module-level constants from env vars and have top-level
-# script code (see src/_web2br/metadata.py) -- not worth restructuring for lint.
+# script code (see src/scrapers/metadata.py) -- not worth restructuring for lint.
 ignore = ["E402"]
 
 [tool.ruff.lint.per-file-ignores]
@@ -13,7 +13,7 @@ ignore = ["E402"]
 # stage-2 CI/CD rollout -- tracked as cleanup in CLAUDE.md, not fixed opportunistically
 # here to keep this diff scoped to CI infrastructure. New code should stay clean;
 # these ignores only cover files that already violate them.
-"src/_web2br/metadata.py" = ["E501"]
-"src/_web2br/real_estate.py" = ["E501"]
-"src/_web2br/real_estate_rent.py" = ["E501"]
-"src/_web2br/projects.py" = ["E501"]
+"src/scrapers/metadata.py" = ["E501"]
+"src/scrapers/real_estate.py" = ["E501"]
+"src/scrapers/real_estate_rent.py" = ["E501"]
+"src/scrapers/projects.py" = ["E501"]

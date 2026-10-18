@@ -66,7 +66,7 @@ erDiagram
   trên listing là `0`/null. FK trực tiếp đáng tin được là nhờ một fix ở tầng scrape: site trả
   `districtId=0` (sentinel "chưa resolve địa giới cũ") cho **mọi** listing — kể cả nhà đất
   không có `projectId` — nếu crawl bằng URL cấp thành phố; crawl riêng từng quận
-  (`src/_web2br/real_estate.py:crawl_city_by_district`) mới ép site trả `districtId`/`wardId`
+  (`src/scrapers/real_estate.py:crawl_city_by_district`) mới ép site trả `districtId`/`wardId`
   thật. Trước fix đó, FK trực tiếp trên listing đúng là thiếu dữ liệu hơn FK qua project — giờ
   thì ngược lại.
 - `real_estate_type` cũng đi qua 1 dimension lookup nhỏ — `dim_real_estate_type_mapping` (seed,
