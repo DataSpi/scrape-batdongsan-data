@@ -1,6 +1,6 @@
 """
 Entrypoint for the whole scrape -> dbt pipeline, triggered weekly by a launchd job on
-the local machine (see scripts/run_weekly_pipeline.sh + scripts/com.dataspi.
+the local machine (see src/ops/run_weekly_pipeline.sh + src/ops/com.dataspi.
 batdongsan-weekly.plist) -- batdongsan.com.vn blocks cloud/CI IPs, so scraping has to
 run here; dbt only talks to BigQuery so it runs here too rather than splitting the
 pipeline across two machines/schedulers. No standing process needed between runs
