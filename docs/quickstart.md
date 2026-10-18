@@ -62,15 +62,7 @@ bỏ qua hẳn lần chạy đó. Log mỗi lần chạy nằm ở `logs/pipelin
 - Có dữ liệu mới trong BigQuery `re_bronze`/`re_silver`/`re_gold`.
 - `re_silver.snp_real_estate` có dòng với `dbt_valid_from` = thời điểm vừa chạy.
 
-## 6) Tạo báo cáo
-
-```bash
-python src/reports/report_builder.py   # hoặc: docker compose run --rm pipeline python src/reports/report_builder.py
-```
-
-Báo cáo được lưu vào `docs/reports/`.
-
-## 7) Xử lý lỗi thường gặp
+## 6) Xử lý lỗi thường gặp
 
 - **Không kết nối được BigQuery**: kiểm tra `gcp_service_account.json` có ở repo root và
   `dbt/profiles.yml` trỏ đúng file.

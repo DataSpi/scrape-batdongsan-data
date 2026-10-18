@@ -1,8 +1,8 @@
 -- Gold layer: one row per listing with resolved location names.
 --
 -- Location is resolved through the listing's projectId, not its own districtId/wardId/
--- cityCode columns directly — matching malloy/malloy_publisher/real_estate.malloy, which
--- deliberately keeps those direct joins commented out because the FK columns on the raw
+-- cityCode columns directly — matching the removed Malloy model real_estate.malloy, which
+-- deliberately kept those direct joins commented out because the FK columns on the raw
 -- listing are unreliable (~95% of apartment listings have projectId, districts/wards
 -- resolved off the listing itself are much less complete; see the docstring in
 -- src/_web2br/real_estate.py:crawl_city_by_district).

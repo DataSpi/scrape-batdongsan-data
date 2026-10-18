@@ -13,9 +13,6 @@ ignore = ["E402"]
 # stage-2 CI/CD rollout -- tracked as cleanup in CLAUDE.md, not fixed opportunistically
 # here to keep this diff scoped to CI infrastructure. New code should stay clean;
 # these ignores only cover files that already violate them.
-"src/utils/getting_metadata.py" = ["W191", "E101", "E501"]
-"src/utils/sqlalchemy_conn.py" = ["E501"]
-"src/_pg2bq/migrate.py" = ["E501"]
 "src/_web2br/metadata.py" = ["E501"]
 "src/_web2br/real_estate.py" = ["E501"]
 "src/_web2br/real_estate_rent.py" = ["E501"]

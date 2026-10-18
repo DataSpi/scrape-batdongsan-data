@@ -1,4 +1,4 @@
--- Ports src/_br2sil/j_projects.py to SQL: full outer join of the legacy (v1) and
+-- Ports the removed legacy Python job j_projects.py to SQL: full outer join of the legacy (v1) and
 -- active (v2) project reference tables on projectId.
 
 with p1 as (

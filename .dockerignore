@@ -11,8 +11,6 @@ data/
 logs/
 tmp/
 docs/
-malloy/
-sql/
 
 dbt/target/
 dbt/dbt_packages/

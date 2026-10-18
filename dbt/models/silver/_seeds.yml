@@ -5,7 +5,7 @@ seeds:
     description: >
       Lookup for normalizing the real_estate_type slug matched out of a listing's link
       into a canonical Vietnamese label. Ported from the `whitelist` + `type_mapping`
-      dict in src/_br2sil/j_real_estate.py. Two whitelist entries (`ban-nha-rieng`,
+      dict in the removed legacy Python job j_real_estate.py. Two whitelist entries (`ban-nha-rieng`,
       `ban-can-ho-chung-cu`) were intentionally dropped: in the legacy Python loop they
       were always shadowed by an earlier, broader substring match (`nha-rieng` /
       `can-ho-chung-cu` respectively) and could never actually be returned, so keeping

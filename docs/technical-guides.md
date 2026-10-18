@@ -22,9 +22,8 @@ batdongsan.com.vn --(src/_web2br)--> BigQuery re_bronze
 ```
 
 Ba schema BigQuery: `re_bronze` (raw scrape) → `re_silver` (dbt star schema — fact/dim, deduped/cleaned) →
-`re_gold` (dbt marts, sẵn sàng cho báo cáo). Malloy (`malloy/`) và
-`src/reports/report_builder.py` (→ `docs/reports/*.html`) không còn nằm trong pipeline sống —
-xem mục 6.
+`re_gold` (dbt marts, sẵn sàng cho báo cáo). Malloy và pipeline báo cáo HTML tĩnh cũ đã được xoá
+khỏi repo — xem mục 6.
 
 Orchestration mặc định (giai đoạn 3) là **launchd bare-metal**: 1 job launchd gọi thẳng
 `src/orchestrator/run_pipeline.py` qua `scripts/run_weekly_pipeline.sh`, không qua Docker, không
@@ -192,17 +191,16 @@ Mở `http://localhost:8080`. Nếu `mart_real_estate` chưa từng được `db
 sẽ cảnh báo "Dataset re_gold not found" khi build catalog — không chặn việc serve, chỉ thiếu
 sample data/column stats cho model đó.
 
-## 6) Dashboard (Looker Studio) & Malloy/Reports (ngừng dùng)
+## 6) Dashboard (Looker Studio) & báo cáo HTML cũ
 
 - Dashboard sống: [Looker Studio](https://lookerstudio.google.com/reporting/9e21618f-97dc-4480-b101-cbda26b9b2a5),
   nối trực tiếp BigQuery `re_gold.mart_real_estate` qua BigQuery connector — không qua semantic
   layer trung gian. Lineage khai báo bằng dbt exposure ở `dbt/models/marts/_exposures.yml`
   (`depends_on: ref('mart_real_estate')`), nên hiện trong `dbt docs generate` / DAG.
-- Malloy (`malloy/malloy_publisher/real_estate.malloy`) và pipeline báo cáo HTML tĩnh
-  (`src/reports/report_builder.py` → `docs/reports/HCM-HN_*.html`) **không còn dùng** — cả hai
-  trỏ vào Supabase/Postgres cũ, từ trước khi pipeline chuyển sang BigQuery. `docs/reports/*.html`
-  hiện tại là artifact đông cứng từ lần build cuối (2026-05-20), không còn regenerate. Xem mục
-  nợ kỹ thuật trong [CLAUDE.md](../CLAUDE.md) — dọn dẹp ở Stage 5.
+- Malloy và pipeline báo cáo HTML tĩnh (`report_builder.py` → `docs/reports/HCM-HN_*.html`) trỏ
+  vào Supabase/Postgres cũ, từ trước khi pipeline chuyển sang BigQuery, và đã bị xoá khỏi repo
+  (còn trong git history). `docs/reports/*.html` hiện tại là artifact đông cứng từ lần build cuối
+  (2026-05-20), không còn regenerate.
 
 ## 7) Docker — layout container
 
@@ -243,7 +241,7 @@ HTML tĩnh, **không dùng Jekyll** (`docs/.nojekyll`) — không có build step
 lên site ngay.
 
 - `docs/index.html` — trang portal chính (giới thiệu, sơ đồ pipeline, link báo cáo/dashboard).
-- `docs/reports/` — báo cáo HTML do `report_builder.py` sinh ra.
+- `docs/reports/` — báo cáo HTML tĩnh, build lần cuối bởi pipeline Malloy cũ (đã xoá khỏi repo).
 - `docs/figs/` — ảnh minh hoạ.
 - `docs/quickstart.md`, `docs/technical-guides.md` — tài liệu kỹ thuật, đọc trực tiếp trên
   GitHub (không render qua Pages), `docs/index.html` link thẳng ra GitHub blob view.
