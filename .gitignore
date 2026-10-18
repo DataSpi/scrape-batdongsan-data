@@ -38,3 +38,5 @@ dbt/profiles.yml
 .DS_Store
 my_local_db.duckdb
 gcp_service_account.json
+edr_target/
+dbt/ci/.user.yml
