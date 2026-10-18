@@ -25,7 +25,7 @@ là nguồn phân tích sống.
 
 ```mermaid
 graph TD
-  A[Web Scraping scripts: src/_web2br] --> B[(BigQuery re_bronze)]
+  A[Web Scraping scripts: src/scrapers] --> B[(BigQuery re_bronze)]
   B --> C[dbt staging models: dbt/models/staging]
   C --> D[(BigQuery re_silver)]
   D --> K[dbt mart: dbt/models/marts]

@@ -1,5 +1,5 @@
 -- Ports the removed legacy Python job j_locations.py (location_v2) to SQL.
--- Active (post-address-reform) hierarchy, refreshed by src/_web2br/metadata.py.
+-- Active (post-address-reform) hierarchy, refreshed by src/scrapers/metadata.py.
 
 with ward as (
     select * from {{ source('bronze', 'dim_ward_v2') }}

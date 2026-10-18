@@ -6,8 +6,8 @@ own bronze table (re_bronze.fct_real_estate_rent), never re_bronze.fct_real_esta
 prices are monthly rates, not comparable to sale prices (see
 dbt/models/silver/facts/fct_real_estate_rent.sql).
 
-    python -m src._web2br.real_estate_rent --mode district --city-code SG
-    python -m src._web2br.real_estate_rent --url https://batdongsan.com.vn/cho-thue-can-ho-chung-cu-ha-noi
+    python -m src.scrapers.real_estate_rent --mode district --city-code SG
+    python -m src.scrapers.real_estate_rent --url https://batdongsan.com.vn/cho-thue-can-ho-chung-cu-ha-noi
 """
 
 import argparse

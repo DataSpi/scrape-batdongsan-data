@@ -23,14 +23,14 @@ A run that got through but with any scrape partial/failed ends as status "partia
 dbt run/snapshot/test are scoped to `fct_real_estate+`/`fct_real_estate_rent+` on purpose:
 dim_location_v1/v2 and dim_project are built from near-static reference data
 (city/district/ward/project lookups, plus geocoded lat/lng seeds -- see
-src/_geocode/geocode_locations.py) that doesn't need rebuilding every week. For the same
+src/geocode/geocode_locations.py) that doesn't need rebuilding every week. For the same
 reason, scrape_metadata (metadata.py -- re_bronze.dim_city_v2/dim_ward_v2/dim_street_v2/
 dim_project_v2, the bronze source for that lineage) isn't a weekly STEP either: scraping it
 fresh every week would just sit unused, since dbt never rebuilds those silver dimension
 models on the weekly schedule anyway. Refresh both manually, together, when the reference
 data actually changes (new city/ward, new project launched, administrative reform):
 
-    python -m src._web2br.metadata
+    python -m src.scrapers.metadata
     dbt seed --project-dir dbt --profiles-dir dbt
     dbt run --project-dir dbt --profiles-dir dbt --select dim_location_v1+ dim_location_v2+ dim_project+
 
@@ -96,16 +96,20 @@ DBT_CURRENT_VIEWS = ["vw_real_estate_current", "vw_real_estate_rent_current"]
 
 STEPS = [
     # Scrapes are non-fatal (third element False): see the gate in main().
-    ("scrape_real_estate_hcm", [sys.executable, "-m", "src._web2br.real_estate", "--mode", "district"], False),
-    ("scrape_real_estate_hn", [sys.executable, "-m", "src._web2br.real_estate", "--url", HN_REAL_ESTATE_URL], False),
+    ("scrape_real_estate_hcm", [sys.executable, "-m", "src.scrapers.real_estate", "--mode", "district"], False),
+    ("scrape_real_estate_hn", [sys.executable, "-m", "src.scrapers.real_estate", "--url", HN_REAL_ESTATE_URL], False),
     (
         "scrape_real_estate_rent_hcm",
-        [sys.executable, "-m", "src._web2br.real_estate_rent", "--mode", "district"],
+        [sys.executable, "-m", "src.scrapers.real_estate_rent", "--mode", "district"],
         False,
     ),
-    ("scrape_real_estate_rent_hn", [sys.executable, "-m", "src._web2br.real_estate_rent", "--url", HN_RENT_URL], False),
-    ("scrape_projects_hcm", [sys.executable, "-m", "src._web2br.projects"], False),
-    ("scrape_projects_hn", [sys.executable, "-m", "src._web2br.projects", "--url", HN_PROJECTS_URL], False),
+    (
+        "scrape_real_estate_rent_hn",
+        [sys.executable, "-m", "src.scrapers.real_estate_rent", "--url", HN_RENT_URL],
+        False,
+    ),
+    ("scrape_projects_hcm", [sys.executable, "-m", "src.scrapers.projects"], False),
+    ("scrape_projects_hn", [sys.executable, "-m", "src.scrapers.projects", "--url", HN_PROJECTS_URL], False),
     # Observability steps are non-fatal (third element False): a broken Elementary
     # package or a stale freshness warning must not block the real data pipeline.
     ("dbt_source_freshness", ["dbt", "source", "freshness", *DBT_FLAGS], False),

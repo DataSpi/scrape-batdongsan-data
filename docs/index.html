@@ -31,7 +31,7 @@
       <p class="section-sub">Từ scraping đến báo cáo, chạy theo lịch trên máy local (crontab).</p>
       <pre class="mermaid">
 graph TD
-  A[Web Scraping: src/_web2br] --> B[(BigQuery re_bronze)]
+  A[Web Scraping: src/scrapers] --> B[(BigQuery re_bronze)]
   B --> C[dbt staging: dbt/models/staging]
   C --> D[(BigQuery re_silver)]
   D --> K[dbt mart: dbt/models/marts]

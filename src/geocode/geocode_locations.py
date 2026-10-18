@@ -8,7 +8,7 @@ when new districts/wards show up (e.g. a future administrative reform, like the 
 that produced the "v2" address scheme).
 
 Usage:
-    python -m src._geocode.geocode_locations
+    python -m src.geocode.geocode_locations
 
 Requires GOOGLE_MAPS_API_KEY in .env, scoped to the Geocoding API only. The Geocoding
 API only accepts an API key -- it does not accept the GCP service account credentials
