@@ -26,7 +26,7 @@
 
     <key>ProgramArguments</key>
     <array>
-        <string>/Users/spinokiem/scrape-batdongsan-data/scripts/run_weekly_pipeline.sh</string>
+        <string>/Users/spinokiem/scrape-batdongsan-data/src/ops/run_weekly_pipeline.sh</string>
     </array>
 
     <key>StartCalendarInterval</key>

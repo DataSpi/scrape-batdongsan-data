@@ -39,9 +39,9 @@ test`. Dừng ngay khi có bước lỗi.
 ## 4) Cài đặt chạy định kỳ (launchd)
 
 ```bash
-cp scripts/com.dataspi.batdongsan-weekly.plist ~/Library/LaunchAgents/
+cp src/ops/com.dataspi.batdongsan-weekly.plist ~/Library/LaunchAgents/
 # sửa các path /Users/spinokiem/... trong file plist + trong
-# scripts/run_weekly_pipeline.sh cho khớp máy bạn (repo path, conda env path)
+# src/ops/run_weekly_pipeline.sh cho khớp máy bạn (repo path, conda env path)
 launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.dataspi.batdongsan-weekly.plist
 
 # test ngay không cần đợi tới lịch (Thứ 2, 9h sáng):

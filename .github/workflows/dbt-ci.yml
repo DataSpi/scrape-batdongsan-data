@@ -1,7 +1,7 @@
 # Static validation of the dbt project: YAML, ref()/source(), Jinja and macros via
 # `dbt parse` with a dummy profile (dbt/ci/profiles.yml). It never connects to
 # BigQuery, so it needs no secrets and also works for fork PRs. The real weekly
-# dbt run/test happens on the local machine (scripts/run_weekly_pipeline.sh).
+# dbt run/test happens on the local machine (src/ops/run_weekly_pipeline.sh).
 name: dbt CI
 
 on:

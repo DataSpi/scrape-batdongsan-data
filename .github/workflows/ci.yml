@@ -1,7 +1,7 @@
 # GitHub-hosted runners cannot reach batdongsan.com.vn (blocked by the source site --
 # see CLAUDE.md/docs/technical-guides.md), so CI never runs the real scrape or the
 # orchestration -- that stays exclusively on the maintainer's machine (launchd, see
-# scripts/). CI's job is fast feedback only: lint and a Docker
+# src/ops/). CI's job is fast feedback only: lint and a Docker
 # build (+ publish to GHCR on merge to main). See dbt-ci.yml for the dbt-specific
 # job, split out so it only runs when dbt/** actually changes.
 name: CI
@@ -33,10 +33,10 @@ jobs:
         run: sqlfluff lint dbt/models dbt/tests
       - name: Shell scripts
         run: |
-          bash -n scripts/run_weekly_pipeline.sh
-          shellcheck scripts/*.sh
+          bash -n src/ops/run_weekly_pipeline.sh
+          shellcheck src/ops/*.sh
       - name: launchd plist is well-formed
-        run: python -c "import plistlib,sys; [plistlib.load(open(p,'rb')) for p in sys.argv[1:]]" scripts/*.plist
+        run: python -c "import plistlib,sys; [plistlib.load(open(p,'rb')) for p in sys.argv[1:]]" src/ops/*.plist
       - name: docker compose config
         run: |
           cp .env.example .env
