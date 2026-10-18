@@ -26,7 +26,7 @@ Ba schema BigQuery: `re_bronze` (raw scrape) → `re_silver` (dbt star schema �
 khỏi repo — xem mục 6.
 
 Orchestration mặc định (giai đoạn 3) là **launchd bare-metal**: 1 job launchd gọi thẳng
-`src/orchestrator/run_pipeline.py` qua `scripts/run_weekly_pipeline.sh`, không qua Docker, không
+`src/orchestrator/run_pipeline.py` qua `src/ops/run_weekly_pipeline.sh`, không qua Docker, không
 có process nào chạy liên tục giữa các lần. Airflow từng là scheduler của dự án (git tag
 `airflow-final` giữ lại bản đó) nhưng đã bị bỏ: `airflow-scheduler` + Postgres metadata phải chạy
 24/7 chỉ để bắn 1 job/tuần, và bước scrape cần Chrome headed (Cloudflare) nên không chạy được
@@ -40,7 +40,7 @@ scrape bắt buộc chạy từ IP dân dụng (máy cá nhân). Máy maintainer
 một dependency nữa (Docker Desktop cũng phải tự khởi động sau reboot) mà không có lợi ích tương
 ứng cho 1 job chạy trên đúng 1 máy cố định.
 
-Setup: copy `scripts/com.dataspi.batdongsan-weekly.plist` vào `~/Library/LaunchAgents/`, sửa
+Setup: copy `src/ops/com.dataspi.batdongsan-weekly.plist` vào `~/Library/LaunchAgents/`, sửa
 path nếu repo/conda env không nằm ở `/Users/spinokiem/...`, rồi:
 
 ```bash
@@ -54,7 +54,7 @@ Dùng `bootstrap`, không dùng `launchctl load` (lệnh cũ) -- trên macOS hi�
 `bootstrap` báo lỗi rõ ràng hơn hẳn. Gỡ job: `launchctl bootout gui/$(id -u)/com.dataspi.batdongsan-weekly`.
 
 `StartCalendarInterval` bắn Thứ 2, 9h sáng. Khác cron thật: nếu máy đang ngủ đúng giờ đó, launchd
-tự chạy bù ngay khi máy thức dậy thay vì bỏ qua hẳn lần chạy. `scripts/run_weekly_pipeline.sh` bọc
+tự chạy bù ngay khi máy thức dậy thay vì bỏ qua hẳn lần chạy. `src/ops/run_weekly_pipeline.sh` bọc
 `caffeinate -i` để máy không ngủ giữa chừng, và ghi log ra `logs/pipeline_<timestamp>.log` (log
 riêng của launchd — `StandardOutPath`/`StandardErrorPath` trong plist — ghi ra `logs/launchd.*.log`).
 
@@ -174,7 +174,7 @@ dbt test --select fct_real_estate+
   (`null_percent` của `price`/`area`) — bắt trường hợp scrape "thành công" nhưng ít row hoặc
   selector HTML hỏng. Bucket **tuần** (batch chạy 1 lần/tuần; default theo ngày sẽ báo sai) và
   cần ~10–12 tuần baseline mới ổn định. Chạy: `dbt test --select tag:elementary`.
-- **Artifacts thô**: `scripts/run_weekly_pipeline.sh` copy `run_results.json` + `manifest.json`
+- **Artifacts thô**: `src/ops/run_weekly_pipeline.sh` copy `run_results.json` + `manifest.json`
   vào `logs/dbt_artifacts/<timestamp>/` sau mỗi lần chạy (target/ bị ghi đè lần sau).
 - **Report HTML**: `edr report` (cần profile `elementary` trong `dbt/profiles.yml`, xem
   `.example`) ghi ra `logs/elementary_report.html` — best-effort cuối script tuần.
@@ -269,7 +269,7 @@ Sau khi có báo cáo mới trong `docs/reports/`, thêm một card link trong p
   nhưng vẫn lỗi ngay từ đầu (trước khi kịp tạo log file trong `logs/`), xem
   `logs/launchd.err.log` (path set trong
   `StandardErrorPath` của plist) — thường là do path conda env trong
-  `scripts/run_weekly_pipeline.sh` không khớp máy đang chạy.
+  `src/ops/run_weekly_pipeline.sh` không khớp máy đang chạy.
 - **`dbt run` báo thiếu source table**: bước scrape (`src/scrapers/*.py`) chưa chạy hoặc chạy
   lỗi — kiểm tra log của đúng bước đó (`logs/pipeline_*.log`, hoặc bảng `re_meta.pipeline_step_runs`
   nếu đã có) trước khi rerun dbt.
