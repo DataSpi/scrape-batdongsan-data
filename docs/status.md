@@ -1,6 +1,6 @@
 ---
 last_verified: 2026-10-18
-verified_commit: dbacd9c
+verified_commit: 6549dc1
 owner: DataSpi
 ---
 
@@ -40,10 +40,9 @@ Scrape batdongsan.com.vn (sale/rent/projects, HCM + HN) → BigQuery `re_bronze`
     - PR #11 `refactor/src-naming`: `src/_web2br` thành `src/scrapers`, `src/_geocode` thành `src/geocode`; `scrapers/metadata.py` bọc trong `main()` với `__main__` guard (trước đó import là scrape và `WRITE_TRUNCATE` vào `re_bronze.dim_*_v2`).
     - PR #12 `chore/content-layout`: `docs/blog_drafts/` và `docs/interview-prep.md` sang `content/`.
     - PR #14 `refactor/ops-folder`: `scripts/` thành `src/ops/` (`PROJECT_ROOT` trong wrapper lên 2 cấp).
+    - PR #13 `chore/runtime-dirs` (merge sau #14, phải gộp main để hết conflict đổi tên file): `edr report --target-path logs/edr_target`, để `edr_target/` không còn sinh ra ở gốc repo. Chưa thấy chạy thật; xác nhận sau lần chạy tuần kế tiếp.
 
 ### Đang chờ merge (chưa vào main)
-
-- PR #13 `chore/runtime-dirs` (mở 2026-10-18, đã gộp main để hết conflict với #14): `edr report --target-path logs/edr_target`, để `edr_target/` không còn sinh ra ở gốc repo. Chưa merge.
 
 - `test/dbt-unit-tests` (local, chưa push/PR, 2026-10-16; commit hiện tại `8ab5e41`, `562116a`, `08c91b2`, `0c6e482`; tạo trước PR #5–#14 nên cần rebase lên main, dự kiến xung đột ở `run_pipeline.py` vì module `src.scrapers`/`src.geocode` và đường dẫn `src/ops/` đã đổi):
     - 14 dbt unit test (mock input) cho `fct_real_estate`, `fct_real_estate_rent`, 2 mart, 2 view `vw_*_current`: parse giá/diện tích VN, thứ tự token `can-ho-chung-cu-mini`, link tuyệt đối, ngưỡng outlier [5, 1000], dedupe, hash phone, bin ở biên, fallback `districtId=0`, status snapshot.
@@ -67,7 +66,7 @@ Scrape batdongsan.com.vn (sale/rent/projects, HCM + HN) → BigQuery `re_bronze`
 - Cảnh báo dbt test đang có (kiểm 2026-10-16): outlier giá/m2 (397 dòng), FK `projectId` thiếu (sale 43.057, rent 347 dòng), `area_num` rác vượt 1.000.000 m2 (1 dòng mỗi bảng, vd 931 triệu m2 ở sale, 76 triệu m2 ở rent; chưa lọc ở silver).
 - `fct_real_estate` có 24.172 dòng `date_scraped` null (kiểm 2026-10-16); watermark incremental `date_scraped > max(...)` không quét lại các dòng này. Chưa rõ là dữ liệu legacy hay lỗi scraper, nên chưa thêm test `not_null`.
 - Testing còn lại: pytest cho parser scraper (`soup_to_df`, `extract_page_tracking_data`... cần sửa tối thiểu vì import có side effect), CI chưa chạy unit test dbt (cần credential BigQuery, hiện CI chỉ `dbt parse`), chưa bật `--store-failures`, chưa cập nhật CLAUDE.md/`docs/technical-guides.md` (còn thiếu step `dbt_unit_tests`).
-- Còn phải quét các comment/doc nhắc code đã xoá: `docs/blog_drafts` → `content/blog_drafts` và `src/_web2br` trong các bản nháp blog cũ không sửa (nội dung lịch sử).
+- Các bản nháp blog trong `content/blog_drafts/` còn nhắc đường dẫn cũ (`src/_web2br`, `docs/blog_drafts`); để nguyên vì là nội dung lịch sử.
 
 ## Quyết định đã chốt
 
