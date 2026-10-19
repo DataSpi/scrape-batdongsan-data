@@ -41,3 +41,29 @@ seeds:
         data_tests:
           - unique
           - not_null
+
+  - name: dim_report_period
+    description: >
+      Report windows ("kỳ báo cáo") for the period site: each row is a named date range
+      of date_scraped. fct_real_estate(_rent)_period buckets bronze rows into these
+      windows. Add a row (and `dbt seed -s dim_report_period` + `dbt run -s
+      dim_report_period+`) when a new monthly report is cut; windows must not overlap
+      (tests/assert_report_periods_do_not_overlap.sql).
+    config:
+      column_types:
+        period: string
+        label: string
+        start_date: date
+        end_date: date
+    columns:
+      - name: period
+        description: Period key, 'YYYY-MM' of the report month.
+        data_tests:
+          - unique
+          - not_null
+      - name: start_date
+        data_tests:
+          - not_null
+      - name: end_date
+        data_tests:
+          - not_null

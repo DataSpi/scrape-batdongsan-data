@@ -25,105 +25,9 @@ with source as (
     {% endif %}
 ),
 
-cleaned_link as (
-    select
-        *,
-        case
-            when link is null then null
-            when starts_with(link, 'http') then link
-            else concat('https://batdongsan.com.vn', regexp_replace(link, r'^\./', ''))
-        end as link_clean,
-        trim(lower(regexp_replace(coalesce(link, ''), r'^https://batdongsan\.com\.vn/', ''))) as type_source
-    from source
-),
-
-type_matched as (
-    select
-        *,
-        case
-            when strpos(type_source, 'cho-thue-can-ho-chung-cu') > 0 then 'cho-thue-can-ho-chung-cu'
-            else null
-        end as matched_token
-    from cleaned_link
-),
-
-price_area as (
-    select
-        *,
-        -- Vietnamese number format: '.' is a thousands separator, ',' is the decimal
-        -- point (e.g. "1.030 m²" = 1030, "76,5 m²" = 76.5) -- strip the former before
-        -- converting the latter, or "1.030" parses as the float 1.03. Same treatment as
-        -- price in fct_real_estate.sql -- no rent row hits this today (rents stay well
-        -- under 1000 triệu/tháng), but the bug would be silent if one ever did.
-        lower(replace(replace(replace(price, '.', ''), ',', '.'), ' ', '')) as price_clean,
-        replace(replace(area, '.', ''), ',', '.') as area_clean
-    from type_matched
-),
-
-parsed as (
-    select
-        *,
-        -- Rental cards are always "X triệu/tháng" in practice (never tỷ), but the tỷ
-        -- branch below is kept for parity with fct_real_estate.sql in case a
-        -- source-site data-entry slip ever lists one that way.
-        regexp_extract(price_clean, r'^([\d\.]+)(?:tỷ|triệu)') as price_value_str,
-        regexp_extract(price_clean, r'^[\d\.]+(tỷ|triệu)') as price_unit,
-        safe_cast(regexp_extract(area_clean, r'([\d\.]+)\s*m') as float64) as area_num
-    from price_area
-),
-
-final as (
-    select
-        p.product_id,
-        p.title,
-        p.verify,
-        p.verified,
-        p.link_clean as link,
-        coalesce(m.real_estate_type, p.matched_token, p.type_source) as real_estate_type,
-        case
-            when p.price_unit = 'tỷ' then round(safe_cast(p.price_value_str as float64) * 1000)
-            when p.price_unit = 'triệu' then round(safe_cast(p.price_value_str as float64))
-            else null
-        end as price_per_month,
-        p.area_num,
-        p.bedrooms,
-        p.toilets,
-        p.location,
-        p.description,
-        -- Hashed rather than carried through raw -- see fct_real_estate.sql for the
-        -- rationale (same treatment, same scraper field, separate bronze table).
-        to_hex(sha256(p.phone)) as agent_phone_hash,
-        p.intent,
-        p.pageType,
-        p.productId,
-        p.projectId,
-        p.vipType,
-        p.expired,
-        p.cateId,
-        p.cityCode,
-        p.districtId,
-        p.wardId,
-        p.streetId,
-        p.pageId,
-        p.createByUser,
-        p.productType,
-        -- IsDisplayNewAddress not carried through: absent from the rental tracking-data
-        -- JSON entirely (unlike sale listings), and unused downstream even there.
-        p.date_scraped,
-        p.scraped_at
-    from parsed p
-    left join {{ ref('dim_real_estate_type_mapping') }} m on p.matched_token = m.raw_token
-),
-
-with_price_per_m2 as (
-    select
-        *,
-        case
-            when price_per_month is not null and area_num is not null and area_num != 0
-            then price_per_month / area_num
-        end as price_per_m2_per_month
-    from final
-),
+-- Per-row cleaning (link, type, price/area parsing) lives in
+-- macros/clean_listings.sql, shared with fct_real_estate_rent_period.sql; only the dedup grain differs.
+{{ clean_rent_listings('source') }},
 
 deduped as (
     select
@@ -139,40 +43,6 @@ deduped as (
 )
 
 select
-product_id
-, title
-, verify
--- , verified
-, link
-, real_estate_type
-, price_per_month
-, price_per_m2_per_month
--- No is_price_outlier column yet -- fct_real_estate's [5,1000] triệu/m2 bound was
--- derived empirically from real sale listings (see that model's comments); there's no
--- equivalent observed rental price/m2 distribution yet to calibrate a bound from.
--- Revisit once there's enough real data to eyeball.
-, area_num
-, bedrooms
-, toilets
--- , location
--- , description
-, agent_phone_hash
-, intent
--- , pageType
--- , productId
-, projectId
-, vipType
-, expired
-, cateId
-, cityCode
-, districtId
-, wardId
-, streetId
--- , pageId
--- , createByUser
-, productType
--- , IsDisplayNewAddress
-, date_scraped
--- , scraped_at
+{{ rent_listing_columns() }}
 from deduped
 where rn = 1
