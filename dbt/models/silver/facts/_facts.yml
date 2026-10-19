@@ -51,3 +51,33 @@ models:
         description: >
           SHA-256 (hex) of the raw agent phone number scraped off the listing card --
           see fct_real_estate.agent_phone_hash above for the rationale.
+
+  - name: fct_real_estate_period
+    description: >
+      One row per (listing, report period), rebuilt from bronze for each window in
+      dim_report_period. Same cleaning as fct_real_estate (shared macro
+      clean_sale_listings); only the dedup grain differs. Exists because
+      fct_real_estate overwrites a listing's old row on rescrape, so it can't reproduce
+      an older period's market (see model SQL comment).
+    columns:
+      - name: period
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_report_period')
+                field: period
+      - name: product_id
+        data_tests:
+          - not_null
+
+  - name: fct_real_estate_rent_period
+    description: >
+      Rent counterpart to fct_real_estate_period (shared macro clean_rent_listings).
+    columns:
+      - name: period
+        data_tests:
+          - not_null
+      - name: product_id
+        data_tests:
+          - not_null

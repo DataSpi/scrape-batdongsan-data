@@ -194,3 +194,28 @@ models:
           - accepted_values:
               arguments:
                 values: ["active", "closed"]
+
+  - name: mart_real_estate_period
+    description: >
+      mart_real_estate per (listing, report period), over fct_real_estate_period (shared
+      macro sale_mart). Source of the period report site (scrape-bds-rp-evidence).
+      Uniqueness of (period, product_id): tests/assert_period_marts_unique_per_listing.sql.
+    columns:
+      - name: period
+        data_tests:
+          - not_null
+      - name: product_id
+        data_tests:
+          - not_null
+
+  - name: mart_real_estate_rent_period
+    description: >
+      mart_real_estate_rent per (listing, report period), over
+      fct_real_estate_rent_period (shared macro rent_mart).
+    columns:
+      - name: period
+        data_tests:
+          - not_null
+      - name: product_id
+        data_tests:
+          - not_null
