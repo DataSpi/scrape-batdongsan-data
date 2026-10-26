@@ -26,7 +26,7 @@
 
     <key>ProgramArguments</key>
     <array>
-        <string>/Users/spinokiem/scrape-batdongsan-data/src/ops/run_weekly_pipeline.sh</string>
+        <string>/Users/spinokiem/wrk/scrape-batdongsan-data/src/ops/run_weekly_pipeline.sh</string>
     </array>
 
     <key>StartCalendarInterval</key>
@@ -34,17 +34,17 @@
         <key>Weekday</key>
         <integer>1</integer>
         <key>Hour</key>
-        <integer>9</integer>
-        <key>Minute</key>
         <integer>0</integer>
+        <key>Minute</key>
+        <integer>25</integer>
     </dict>
 
     <key>RunAtLoad</key>
     <false/>
 
     <key>StandardOutPath</key>
-    <string>/Users/spinokiem/scrape-batdongsan-data/logs/launchd.out.log</string>
+    <string>/Users/spinokiem/wrk/scrape-batdongsan-data/logs/launchd.out.log</string>
     <key>StandardErrorPath</key>
-    <string>/Users/spinokiem/scrape-batdongsan-data/logs/launchd.err.log</string>
+    <string>/Users/spinokiem/wrk/scrape-batdongsan-data/logs/launchd.err.log</string>
 </dict>
 </plist>
