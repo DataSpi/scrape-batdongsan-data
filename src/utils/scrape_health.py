@@ -25,11 +25,17 @@ EXIT_PARTIAL = 2
 MIN_PAGE_SUCCESS_RATIO = float(os.getenv("SCRAPE_MIN_PAGE_SUCCESS_RATIO", "0.5"))
 
 
+class NoListingsError(AssertionError):
+    """A page fetched fine but held no listings (e.g. a district with nothing for sale). Subclasses
+    AssertionError so existing callers keep working; district loops skip it without counting a failure."""
+
+
 class ScrapeHealth:
     def __init__(self):
         self.pages_total = 0
         self.pages_failed = 0
         self.districts_skipped = []
+        self.districts_empty = []
 
     def record_pages(self, total, failed):
         """Count one crawl's pages. The first page is fetched separately and has to succeed for
@@ -44,6 +50,10 @@ class ScrapeHealth:
         self.pages_total += 1
         self.pages_failed += 1
 
+    def record_empty_district(self, name):
+        """A district whose first page had no listings is skipped but not counted as a failed page."""
+        self.districts_empty.append(name)
+
     @property
     def success_ratio(self):
         return 1.0 if self.pages_total == 0 else (self.pages_total - self.pages_failed) / self.pages_total
@@ -54,6 +64,8 @@ class ScrapeHealth:
         print(f"PIPELINE_METRIC pages_ok={pages_ok} pages_total={self.pages_total}", flush=True)
         if self.districts_skipped:
             logger.warning(f"Skipped districts: {', '.join(self.districts_skipped)}")
+        if self.districts_empty:
+            logger.warning(f"Empty districts (no listings, not counted as failures): {', '.join(self.districts_empty)}")
         logger.info(f"Scrape health: {pages_ok}/{self.pages_total} pages ({self.success_ratio:.0%}), {len(df)} rows")
 
         if df.empty or self.success_ratio < MIN_PAGE_SUCCESS_RATIO:
