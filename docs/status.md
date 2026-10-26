@@ -1,6 +1,6 @@
 ---
-last_verified: 2026-10-18
-verified_commit: 6549dc1
+last_verified: 2026-10-26
+verified_commit: 2c4618c
 owner: DataSpi
 ---
 
@@ -10,7 +10,7 @@ Tài liệu DUY NHẤT chứa trạng thái theo ngày. README và CLAUDE.md ch�
 
 ## Phạm vi
 
-Scrape batdongsan.com.vn (sale/rent/projects, HCM + HN) → BigQuery `re_bronze` → dbt → `re_silver` → `re_gold` → Looker Studio. Dự án cá nhân, một người maintain. Chạy tuần bằng launchd trên máy local (scrape bắt buộc IP dân dụng).
+Scrape batdongsan.com.vn (sale/rent/projects, HCM + HN) → BigQuery `re_bronze` → dbt → `re_silver` → `re_gold` → Looker Studio (đang thử thay bằng site tĩnh ở 2 repo phụ, xem mục "Dashboard site tĩnh"). Dự án cá nhân, một người maintain. Chạy tuần bằng launchd trên máy local (scrape bắt buộc IP dân dụng).
 
 ## Đã làm
 
@@ -41,8 +41,33 @@ Scrape batdongsan.com.vn (sale/rent/projects, HCM + HN) → BigQuery `re_bronze`
     - PR #12 `chore/content-layout`: `docs/blog_drafts/` và `docs/interview-prep.md` sang `content/`.
     - PR #14 `refactor/ops-folder`: `scripts/` thành `src/ops/` (`PROJECT_ROOT` trong wrapper lên 2 cấp).
     - PR #13 `chore/runtime-dirs` (merge sau #14, phải gộp main để hết conflict đổi tên file): `edr report --target-path logs/edr_target`, để `edr_target/` không còn sinh ra ở gốc repo. Chưa thấy chạy thật; xác nhận sau lần chạy tuần kế tiếp.
+- `src/ops/launchd_ctl.py` (2026-10-18, `38cb952`, trên main): CLI stdlib cho job launchd (`status`, `schedule`, `install`, `run`, `uninstall`). Nguồn thật là plist trong `src/ops/`; `install`/`schedule` copy sang `~/Library/LaunchAgents` rồi nạp lại.
+- 2026-10-19: repo chuyển từ `~/scrape-batdongsan-data` sang `~/wrk/scrape-batdongsan-data` (gom mọi repo vào `~/wrk`). Đã sửa đường dẫn tuyệt đối trong `src/ops/com.dataspi.batdongsan-weekly.plist` (3 chỗ) và `dbt/profiles.yml` (gitignored), cài lại plist vào `~/Library/LaunchAgents`, job đã load. Plist (lịch **Thứ 2 00:25**, khớp bản đang cài) và xử lý quận trống của scraper (`NoListingsError`: quận không có tin bị bỏ qua, không tính là trang lỗi) commit 2026-10-26 ở branch `chore/wrk-move-empty-districts`, **PR đang mở**. Hai lần chạy tự động gần nhất (đọc từ log, kiểm 2026-10-26):
+    - 2026-10-19 (bắt đầu 00:25, đường dẫn cũ): `scrape_real_estate_hcm` Partial (exit 2), `scrape_real_estate_rent_hcm` Failed (exit 1), các bước còn lại Done; kết thúc "partial data".
+    - 2026-10-26 (đường dẫn mới `~/wrk`, dbt xong lúc 11:33): `scrape_real_estate_hcm` Failed (timeout 3600s), các bước còn lại Done; kết thúc "partial data", exit 3. Xác nhận job chạy được từ đường dẫn mới.
+
+### Dashboard site tĩnh thay Looker (2 repo phụ, tạo 2026-10-19)
+
+Hai repo phụ cùng cấp với repo này trong `~/wrk/`, đều public, deploy GitHub Pages bằng GitHub Actions từ **CSV đã tổng hợp được commit**, nên CI không cần key. Key GCP của repo này chỉ dùng ở máy local qua biến môi trường/đường dẫn (không copy vào repo phụ); script trích xuất chỉ `SELECT` và không xuất dữ liệu từng tin. Looker Studio vẫn chạy song song (dbt exposure `dashboard_gia_bds_hcm_hn`; chưa có exposure cho 2 site mới).
+
+- `DataSpi/scrape-bds-rp-evidence` → <https://dataspi.github.io/scrape-bds-rp-evidence/>
+    - Evidence **legacy** 40.x (SQL DuckDB WASM chạy trong trình duyệt). PR #1 (prototype + Pages), #2 (dữ liệu thật, chung cư snapshot 16–18/10/2026), #3 (site theo kỳ: home Giá mua/Giá thuê, template `[period].md`, mục "So với kỳ trước", trang thuê có P/R ratio) đều merge 2026-10-19, deploy xanh.
+    - Đọc `re_gold.mart_real_estate_period` / `mart_real_estate_rent_period` (PR #16 của repo này) qua `scripts/extract_data.py`; dùng **trung bình** (khớp bài P2). Có chung cư mua và thuê cho kỳ 2026-07 và 2026-10; nhà đất mua chỉ kỳ 2026-07 (chưa cào nhà đất kỳ 10); thuê nhà đất "sắp có".
+    - Bản build local khoảng 179 MB (kiểm 2026-10-26; có 2 file DuckDB WASM, trình duyệt tải một file 30+ MB lần đầu); chữ trên giao diện chung (sidebar, nhãn tháng trên trục) còn tiếng Anh.
+- `DataSpi/scrape-bds-rp-astro` → <https://dataspi.github.io/scrape-bds-rp-astro/>
+    - Astro + Observable Plot: chart là SVG dựng lúc build, **không có JavaScript** ở trình duyệt, `dist/` khoảng 168 KB (kiểm 2026-10-26). Hai commit 2026-10-19 (`87abaf3` scaffold, `188e6be` dữ liệu thật, trang theo bài P2), deploy xanh.
+    - Chỉ chung cư mua, **một snapshot**: tin thấy trong cửa sổ 14 ngày tính từ đợt cào gần nhất của mỗi thành phố, đọc `mart_real_estate` qua `scripts/export_data.py`; dùng **trung vị**; mỗi thành phố một URL (`/ho-chi-minh/`, `/ha-noi/`). Chưa có so sánh theo kỳ, chưa có trang thuê hay nhà đất.
+- Observable Framework: chưa dựng.
+- Hai site **không cho cùng một con số** vì định nghĩa khác nhau. Ví dụ HCM: giá/m² 84,2 (trung bình, Evidence) và 68,0 (trung vị, Astro); Quận 1 240,9 và 206,7; số tin có giá 14.973 và 14.977.
 
 ### Đang chờ merge (chưa vào main)
+
+- PR #16 `feat/report-period-models` (2026-10-19, `2c4618c`, **đang mở**; nội dung theo mô tả PR, chưa tự chạy lại dbt): dựng báo cáo theo kỳ từ bronze để so sánh tháng 7 và tháng 10 cùng điều kiện. Lọc `date_scraped` trên `mart_real_estate` không dùng được cho kỳ cũ vì mart chỉ giữ bản cào mới nhất của mỗi tin, và `snp_*` mới bắt đầu từ 2026-09-23.
+    - Seed `dim_report_period` (2026-07: 10–14/07, 2026-10: 16–18/10); `fct_real_estate(_rent)_period` (silver) và `mart_real_estate(_rent)_period` (gold), grain tin × kỳ. Logic làm sạch chuyển vào macro `clean_sale_listings`/`clean_rent_listings`, body mart vào `sale_mart`/`rent_mart`; SQL compile của `fct_*`/`mart_*` hiện có không đổi (đã so sánh bản compile trước/sau). Test: `(period, product_id)` không trùng, các kỳ không chồng nhau.
+    - **Các bảng đã được tạo trên BigQuery production** (`re_bronze.dim_report_period`, `re_silver.fct_*_period`, `re_gold.mart_*_period`), chỉ thêm bảng mới. Repo Evidence (đã merge) đang đọc các bảng này, nhưng code dbt tạo ra chúng chưa nằm trong `main`.
+    - `dbt test` liên quan: PASS=31, WARN=3 (cả 3 có từ trước). Các model `*_period` không nằm trong `DBT_SELECT` của lịch tuần; thêm kỳ mới chạy tay `dbt seed -s dim_report_period` + `dbt run -s dim_report_period+`.
+    - CI đỏ do `launchd_ctl.py` chưa format (từ `38cb952` trên main) và sqlfluff không load macro; sửa ở `cfee540` (thêm `load_macros_from_path = dbt/macros` vào `.sqlfluff`), CI xanh 2026-10-26.
+    - Đối chiếu với bài cũ: thuê HCM 7.674 tin và nhà riêng HCM 9,20 tỷ / 129,2 tr/m² khớp bài tháng 7; chung cư tháng 7 lệch nhẹ (8,41 so với 8,22 tỷ ở HCM) vì bài cũ dùng mẫu khác (gồm cả tin không có ngày cào).
 
 - `test/dbt-unit-tests` (local, chưa push/PR, 2026-10-16; commit hiện tại `8ab5e41`, `562116a`, `08c91b2`, `0c6e482`; tạo trước PR #5–#14 nên cần rebase lên main, dự kiến xung đột ở `run_pipeline.py` vì module `src.scrapers`/`src.geocode` và đường dẫn `src/ops/` đã đổi):
     - 14 dbt unit test (mock input) cho `fct_real_estate`, `fct_real_estate_rent`, 2 mart, 2 view `vw_*_current`: parse giá/diện tích VN, thứ tự token `can-ho-chung-cu-mini`, link tuyệt đối, ngưỡng outlier [5, 1000], dedupe, hash phone, bin ở biên, fallback `districtId=0`, status snapshot.
@@ -60,7 +85,18 @@ Scrape batdongsan.com.vn (sale/rent/projects, HCM + HN) → BigQuery `re_bronze`
 - `re_bronze.fct_project`: các dòng cũ (10.805 dòng cho 2.752 dự án, `prid`) không có `scraped_at`, giữ null, không dọn. Bảng chưa được model nào đọc.
 - Retry cho lỗi tạm thời của scraper (403, mạng).
 - Chưa có view/dashboard sức khoẻ pipeline gộp `re_meta` với `re_elementary`, SLA bằng số, runbook sự cố, retention cho `re_meta`/`logs/`.
-- Plist launchd chưa reload sau PR #14 (kiểm 2026-10-18): file cài ở `~/Library/LaunchAgents` vẫn trỏ `scripts/run_weekly_pipeline.sh`, mà thư mục chính đã chuyển sang `main` mới nhất (không còn `scripts/`). Cho đến khi `launchctl bootout` + copy `src/ops/com.dataspi.batdongsan-weekly.plist` + `bootstrap` lại, job tuần sẽ không chạy được (lần gần nhất bị ảnh hưởng: Thứ 2 2026-10-19 9h).
+- Scrape HCM không ổn định, chưa tìm nguyên nhân (chưa đọc log từng step): `scrape_real_estate_hcm` Partial (exit 2) ngày 2026-10-19 rồi Failed do timeout 3600s ngày 2026-10-26; `scrape_real_estate_rent_hcm` Failed (exit 1) ngày 2026-10-19 nhưng Done ngày 2026-10-26. Ảnh hưởng độ phủ HCM của dữ liệu cho các dashboard.
+- Thay Looker bằng site tĩnh (xem mục "Dashboard site tĩnh" ở Đã làm):
+    - Merge PR #16 (code dbt của các bảng `*_period` đã có trên prod).
+    - Chuyển SQL tổng hợp trong 2 repo phụ (`scripts/extract_data.py`, `scripts/export_data.py`) thành dbt `mart_site_*` ở repo này để test được; hiện SQL nằm trong script.
+    - Service account riêng chỉ có quyền đọc cho việc trích xuất; hiện cả hai repo phụ dùng chung key của pipeline (liên quan mục Governance bên dưới).
+    - Chưa có step extract/build/deploy trong `STEPS` hay lịch tuần: số trên site đang cập nhật tay (chạy script, commit CSV, push).
+    - Dbt exposure cho 2 site vào `dbt/models/marts/_exposures.yml` (hiện chỉ có Looker).
+    - Phần Looker có mà 2 site chưa có: trang theo dự án, lọc khoảng giá, click-để-lọc.
+    - Cào nhà đất kỳ 2026-10 (site Evidence chỉ có nhà đất kỳ 07).
+    - CLAUDE.md của repo này chưa nhắc 2 repo phụ.
+- CI của `main` đỏ từ 2026-10-18: `ruff format --check` fail ở `src/ops/launchd_ctl.py` (`38cb952` push thẳng main). Hết khi merge PR #16 hoặc PR `chore/wrk-move-empty-districts` (cả hai đều format file này). Job GitHub Pages ("pages build and deployment") trên main cũng fail, chưa xem nguyên nhân.
+- `snp_real_estate*` không bao giờ ghi nhận tin bị gỡ: 0 dòng `dbt_is_deleted = 'True'` qua 5 lần chạy 23/09–26/10 (kiểm 2026-10-26). Snapshot đọc `fct_real_estate*`, mà fct là incremental merge nên không bao giờ xoá tin; `hard_deletes='new_record'` vì thế không kích hoạt, `vw_real_estate*_current` luôn trả `active`. Hướng đã bàn: bỏ `snp_*`, dựng lịch sử SCD2 từ bronze (append-only, có từ tháng 7, `valid_from` = ngày cào), làm sau khi PR #16 merge vì dùng lại macro làm sạch (xem Câu hỏi chờ).
 - Service `pipeline` trong `docker-compose.yml` còn đó nhưng không scrape được trong container (cần Chrome headed).
 - Governance còn trống: PII register (`agent_name`, `agent_phone_hash`), ghi chú ToS/phạm vi dùng dữ liệu scrape, ADR (`docs/decisions/`), metadata dbt (`meta:` owner/pii/sla, description còn thưa), tách service account theo vai trò, secret scanning (gitleaks/pre-commit).
 - Cảnh báo dbt test đang có (kiểm 2026-10-16): outlier giá/m2 (397 dòng), FK `projectId` thiếu (sale 43.057, rent 347 dòng), `area_num` rác vượt 1.000.000 m2 (1 dòng mỗi bảng, vd 931 triệu m2 ở sale, 76 triệu m2 ở rent; chưa lọc ở silver).
@@ -87,8 +123,19 @@ Scrape batdongsan.com.vn (sale/rent/projects, HCM + HN) → BigQuery `re_bronze`
 - 2026-10-16: bronze là lớp landing append-only, trùng ở đó là bình thường; việc dedupe nằm ở bước bronze → silver. Hướng đề xuất (chưa chốt): không xoá bản trùng cũ ở bronze, chỉ chỉnh luật chọn dòng ở silver.
 - 2026-10-16: test dbt và CI/CD do một session riêng phụ trách, không làm trong nhánh observability (session đó là `test/dbt-unit-tests`).
 - 2026-10-16: unit test dbt chạy ở local trong `run_pipeline.py`, trước bước scrape; CI không giữ service-account secret nên chỉ chạy `dbt parse`. Target `dev` trỏ thẳng dataset production, nên không dùng `dbt run` để thử đột biến.
+- 2026-10-19: báo cáo công khai chuyển sang **site tĩnh dựng bằng code**, thay dần Looker Studio (không dùng Streamlit hay server chạy liên tục). Lý do: dữ liệu cập nhật hàng tuần, người xem là độc giả blog, muốn dashboard-as-code thay vì kéo thả, host miễn phí. Chấp nhận: người xem chỉ lọc trong dữ liệu đã build sẵn; site public nên chỉ đưa bảng đã tổng hợp, không bao giờ dữ liệu từng tin.
+- 2026-10-19: host GitHub Pages; repo phụ public, build trong GitHub Actions từ CSV đã commit. Key GCP không vào repo phụ, CI hay GitHub Secrets.
+- 2026-10-19: Evidence dùng bản **legacy** 40.x, không dùng Evidence Core/Studio. Core không có lệnh build tĩnh (chỉ `evidence serve` + Docker, Basic Auth) nên không lên Pages được. Chấp nhận legacy đã đóng băng (template chuyển sang Core 2026-08-20, bản npm cuối 40.1.8). Đây là chọn giữa Core và legacy, chưa phải chọn Evidence thay cho các framework khác (xem Câu hỏi chờ).
+- 2026-10-19: mỗi framework một repo `scrape-bds-rp-<framework>`, cùng đặc tả đầu ra để so sánh; đặt cùng cấp với repo này trong `~/wrk/`.
+- 2026-10-19: so sánh giữa các kỳ phải cùng điều kiện, nên dựng bảng theo kỳ từ bronze (PR #16) thay vì lọc `date_scraped` trên `mart_real_estate`.
+- 2026-10-19: gom mọi repo vào `~/wrk`; cài lại plist sau khi job 00:25 của ngày đó đã chạy xong.
+- Looker Studio chưa tắt: còn trang theo dự án và lọc khoảng giá mà 2 site chưa có.
 
 ## Câu hỏi chờ
 
 - Luật chọn dòng ở silver khi một tin trùng nhiều quận trong cùng một lần scrape: đổi sang ưu tiên dòng có `crawled_district_id = districtId` (tin nằm đúng trang quận của nó) thay cho `link asc`? Và có xoá bản trùng cũ ở bronze sale không (đề xuất: không)?
-- Khi nào pull `main` về thư mục chính và reload launchd (xem mục Chưa làm)? Cần chọn một ngày không phải Thứ 2, và merge PR #13 trước hoặc sau đó.
+- Bản nào thay Looker: Evidence legacy, Astro, hay cả hai, và có dựng thêm Observable Framework để so sánh không? Chưa có quyết định chọn giữa các bản. Astro nhẹ hơn nhiều (khoảng 168 KB, không JS, so với khoảng 179 MB) nhưng mới có chung cư mua, một snapshot; Evidence có site theo kỳ và trang thuê nhưng nặng.
+- Thống nhất định nghĩa số giữa các site và bài Substack: trung bình hay trung vị; kỳ theo `dim_report_period` hay cửa sổ 14 ngày tính từ đợt cào gần nhất.
+- Deploy site từ launchd thế nào: tự commit+push CSV, hay build local rồi đẩy `build/`/`dist/`; xác thực git dưới launchd ra sao. Step này phải non-fatal.
+- Lịch sử SCD2 từ bronze (thay `snp_*`): thế nào là "một đợt cào đầy đủ" để đóng tin? Đề xuất: ngày cào cách nhau ≤ 3 ngày là một đợt; theo thành phố × mua/thuê, đợt chỉ được đóng tin khi số tin ≥ 70% đợt trước (bronze có các ngày lẻ như 23/09 1.000 dòng, 28/09 260, 25/10 376, nếu coi là đợt đủ sẽ đóng sai khoảng 100 nghìn tin). Chưa chốt; tạm giữ hướng hiện tại.
+- Vì sao chung cư HN kỳ 2026-10 có nhiều hơn kỳ 07 tới **+64%** số tin (HCM −3%): độ phủ scraper, tin chưa xác thực, hay thực tế? Chưa rõ thì các site không kết luận xu hướng giá HN.
