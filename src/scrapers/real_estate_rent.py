@@ -24,7 +24,7 @@ from curl_cffi.requests import AsyncSession
 
 from src.utils.common_tools import setup_logging
 from src.utils.gcp_conn import get_bigquery_client, load_scrape_batch, query_to_df
-from src.utils.scrape_health import ScrapeHealth
+from src.utils.scrape_health import NoListingsError, ScrapeHealth
 from src.utils.scrape_session import async_get_with_cf_bypass, get_session
 
 logger = setup_logging()
@@ -252,8 +252,10 @@ async def main(url=URL, health=None):
     async with AsyncSession(headers=headers, cookies=cookies) as session:
         df_combined_first, html_content = await fetch_and_parse(url, session, semaphore)
     if df_combined_first is None or len(df_combined_first) == 0:
-        logger.error(f"No listings found on the first page. HTML content:\n{html_content}")
-        raise AssertionError(
+        logger.error(
+            f"No listings found on the first page. HTML content (first 1000 chars):\n{str(html_content or '')[:1000]}"
+        )
+        raise NoListingsError(
             "No listings found on the first page. Check if the page structure has changed or if the URL is correct."
         )
 
@@ -321,6 +323,11 @@ async def crawl_city_by_district(
             logger.info(f"Crawling district '{district_row['name']}' (id={district_row['districtId']}) at {url}")
             try:
                 df_district = await main(url=url, health=health)
+            except NoListingsError as e:
+                logger.warning(f"Skipping district '{district_row['name']}': {e}")
+                if health is not None:
+                    health.record_empty_district(district_row["name"])
+                continue
             except AssertionError as e:
                 logger.warning(f"Skipping district '{district_row['name']}': {e}")
                 if health is not None:
