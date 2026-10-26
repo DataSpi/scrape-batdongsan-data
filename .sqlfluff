@@ -8,3 +8,6 @@ exclude_rules = AM04, AL01, CP02, CV03, LT01, LT02, LT04, LT05, LT08, LT09, RF02
 
 [sqlfluff:templater:jinja]
 apply_dbt_builtins = True
+# Project macros (clean_listings.sql, listing_marts.sql) emit whole CTE chains; without
+# them models that call these macros render as undefined variables and fail to parse.
+load_macros_from_path = dbt/macros

@@ -4,4 +4,4 @@ from {{ ref('dim_report_period') }} a
 inner join {{ ref('dim_report_period') }} b
     on a.period < b.period
     and a.start_date <= b.end_date
-    and b.start_date <= a.end_date
+    and a.end_date >= b.start_date

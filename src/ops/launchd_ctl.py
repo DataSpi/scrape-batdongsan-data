@@ -65,8 +65,10 @@ def cmd_status(_):
         for line in r.stdout.splitlines():
             k, _, v = line.strip().partition(" = ")
             info.setdefault(k, v)
-        print(f"Trạng thái: {info.get('state')} | số lần chạy: {info.get('runs')}"
-              f" | last exit: {info.get('last exit code')}")
+        print(
+            f"Trạng thái: {info.get('state')} | số lần chạy: {info.get('runs')}"
+            f" | last exit: {info.get('last exit code')}"
+        )
 
     logs = Path(p["StandardOutPath"]).parent
     latest = sorted(logs.glob("pipeline_*.log"))
