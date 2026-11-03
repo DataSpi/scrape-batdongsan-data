@@ -58,9 +58,17 @@ tự chạy bù ngay khi máy thức dậy thay vì bỏ qua hẳn lần chạy.
 `caffeinate -i` để máy không ngủ giữa chừng, và ghi log ra `logs/pipeline_<timestamp>.log` (log
 riêng của launchd — `StandardOutPath`/`StandardErrorPath` trong plist — ghi ra `logs/launchd.*.log`).
 
-Các bước chạy tuần tự, **dừng ngay khi có bước lỗi** (`STEPS` trong `run_pipeline.py`):
+Các bước chạy tuần tự, **dừng ngay khi có bước lỗi** (`build_steps()` trong `run_pipeline.py`):
 
-1. `scrape_real_estate_hcm` / `scrape_real_estate_hn` — `src/scrapers/real_estate.py`
+1. Tin bán (`src/scrapers/real_estate.py`), **luân phiên theo tuần**, mỗi lần chạy một loại:
+   - tuần chẵn: chung cư (`ban-can-ho-chung-cu`), step `scrape_real_estate_hcm` / `scrape_real_estate_hn`
+   - tuần lẻ: nhà đất (`ban-nha-dat`), step `scrape_real_estate_land_hcm` / `scrape_real_estate_land_hn`
+
+   Đếm luân phiên từ mốc `SALE_ALTERNATION_ANCHOR` (thứ 2 2026-11-02, ISO W45 = nhà đất), không
+   theo chẵn/lẻ của số tuần ISO, để năm 53 tuần không làm 2 tuần liền cùng một loại. Đến hết 2026
+   hai cách trùng nhau; từ 2027-W01 tuần chẵn là nhà đất. Ép loại khi chạy tay:
+   `python -m src.orchestrator.run_pipeline --sale-category land` (hoặc `apartment`).
+   Log mỗi lần chạy có dòng `sale_category=...`.
 2. `scrape_real_estate_rent_hcm` / `scrape_real_estate_rent_hn` — `src/scrapers/real_estate_rent.py`
 3. `scrape_projects_hcm` / `scrape_projects_hn` — `src/scrapers/projects.py`
 4. `scrape_metadata` — `src/scrapers/metadata.py`

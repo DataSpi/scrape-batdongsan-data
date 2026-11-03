@@ -16,7 +16,7 @@ set -euo pipefail
 # python binary directly instead of relying on `conda activate`/PATH lookup.
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 CONDA_ENV_BIN="/Users/spinokiem/miniconda3/envs/scrape_bds/bin"
-# run_pipeline.py also shells out to `dbt` by bare name (see its STEPS list), so PATH
+# run_pipeline.py also shells out to `dbt` by bare name (see build_steps()), so PATH
 # needs the env's bin dir too, not just an absolute python path.
 export PATH="$CONDA_ENV_BIN:$PATH"
 

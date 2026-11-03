@@ -56,6 +56,7 @@ import threading
 import time
 import uuid
 from collections import deque
+from datetime import date
 from pathlib import Path
 
 from src.utils import pipeline_log
@@ -68,11 +69,23 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DBT_PROJECT_DIR = PROJECT_ROOT / "dbt"
 DBT_FLAGS = ["--project-dir", str(DBT_PROJECT_DIR), "--profiles-dir", str(DBT_PROJECT_DIR)]
 
+# Sale listings alternate by week: one category per run, so a weekly run stays inside the
+# per-step timeout and the site sees one big crawl a week, not two. Each category is still
+# refreshed every 2 weeks. Rent and projects are not affected (rent only has an apartment
+# scraper so far) and run every week.
+SALE_CATEGORY_URLS = {
+    "apartment": "https://batdongsan.com.vn/ban-can-ho-chung-cu",
+    "land": "https://batdongsan.com.vn/ban-nha-dat",
+}
+# Strict alternation counted from a fixed Monday, not ISO-week parity: ISO years with 53
+# weeks (2026 is one) would give two odd weeks in a row (W53, W01). 2026-11-02 is ISO 2026-W45
+# (odd) -> land, so through 2026 this matches "odd ISO week = land, even = apartment"; from
+# 2027-W01 the parity of the ISO week number flips but the alternation doesn't.
+SALE_ALTERNATION_ANCHOR = date(2026, 11, 2)
 # real_estate.py/real_estate_rent.py default to HCM (--url) when no override is
 # passed; projects.py same. HN needs an explicit --url since none of these scripts
 # derive a city-level URL from --city-code (--city-code only drives district-mode
 # crawling).
-HN_REAL_ESTATE_URL = "https://batdongsan.com.vn/ban-can-ho-chung-cu-ha-noi"
 HN_PROJECTS_URL = "https://batdongsan.com.vn/du-an-bat-dong-san-ha-noi"
 HN_RENT_URL = "https://batdongsan.com.vn/cho-thue-can-ho-chung-cu-ha-noi"
 
@@ -82,6 +95,8 @@ SCRAPE_PREFIX = "scrape_"
 DBT_FEEDING_SCRAPES = {
     "scrape_real_estate_hcm",
     "scrape_real_estate_hn",
+    "scrape_real_estate_land_hcm",
+    "scrape_real_estate_land_hn",
     "scrape_real_estate_rent_hcm",
     "scrape_real_estate_rent_hn",
 }
@@ -94,34 +109,51 @@ DBT_SELECT = ["fct_real_estate+", "fct_real_estate_rent+"]
 # Building the views is deferred to its own step, after the snapshot exists.
 DBT_CURRENT_VIEWS = ["vw_real_estate_current", "vw_real_estate_rent_current"]
 
-STEPS = [
-    # Scrapes are non-fatal (third element False): see the gate in main().
-    ("scrape_real_estate_hcm", [sys.executable, "-m", "src.scrapers.real_estate", "--mode", "district"], False),
-    ("scrape_real_estate_hn", [sys.executable, "-m", "src.scrapers.real_estate", "--url", HN_REAL_ESTATE_URL], False),
-    (
-        "scrape_real_estate_rent_hcm",
-        [sys.executable, "-m", "src.scrapers.real_estate_rent", "--mode", "district"],
-        False,
-    ),
-    (
-        "scrape_real_estate_rent_hn",
-        [sys.executable, "-m", "src.scrapers.real_estate_rent", "--url", HN_RENT_URL],
-        False,
-    ),
-    ("scrape_projects_hcm", [sys.executable, "-m", "src.scrapers.projects"], False),
-    ("scrape_projects_hn", [sys.executable, "-m", "src.scrapers.projects", "--url", HN_PROJECTS_URL], False),
-    # Observability steps are non-fatal (third element False): a broken Elementary
-    # package or a stale freshness warning must not block the real data pipeline.
-    ("dbt_source_freshness", ["dbt", "source", "freshness", *DBT_FLAGS], False),
-    ("dbt_run", ["dbt", "run", *DBT_FLAGS, "--select", *DBT_SELECT, "--exclude", *DBT_CURRENT_VIEWS]),
-    ("dbt_snapshot", ["dbt", "snapshot", *DBT_FLAGS, "--select", *DBT_SELECT]),
-    ("dbt_run_current_views", ["dbt", "run", *DBT_FLAGS, "--select", *DBT_CURRENT_VIEWS]),
-    ("dbt_test", ["dbt", "test", *DBT_FLAGS, "--select", *DBT_SELECT]),
-    # Elementary: build/refresh its own models, then run the bronze anomaly tests
-    # (weekly volume/freshness/null-rate); results land in re_elementary.
-    ("dbt_run_elementary", ["dbt", "run", *DBT_FLAGS, "--select", "elementary"], False),
-    ("dbt_test_anomalies", ["dbt", "test", *DBT_FLAGS, "--select", "tag:elementary"], False),
-]
+
+def sale_category_for(day: date) -> str:
+    """'land' or 'apartment' for the run on `day` (see SALE_ALTERNATION_ANCHOR)."""
+    weeks = (day - SALE_ALTERNATION_ANCHOR).days // 7
+    return "land" if weeks % 2 == 0 else "apartment"
+
+
+def sale_steps(category: str) -> list[tuple]:
+    category_url = SALE_CATEGORY_URLS[category]
+    prefix = "scrape_real_estate" if category == "apartment" else f"scrape_real_estate_{category}"
+    scraper = [sys.executable, "-m", "src.scrapers.real_estate"]
+    return [
+        (f"{prefix}_hcm", [*scraper, "--mode", "district", "--category-url", category_url], False),
+        (f"{prefix}_hn", [*scraper, "--url", f"{category_url}-ha-noi"], False),
+    ]
+
+
+def build_steps(sale_category: str) -> list[tuple]:
+    return [
+        # Scrapes are non-fatal (third element False): see the gate in main().
+        *sale_steps(sale_category),
+        (
+            "scrape_real_estate_rent_hcm",
+            [sys.executable, "-m", "src.scrapers.real_estate_rent", "--mode", "district"],
+            False,
+        ),
+        (
+            "scrape_real_estate_rent_hn",
+            [sys.executable, "-m", "src.scrapers.real_estate_rent", "--url", HN_RENT_URL],
+            False,
+        ),
+        ("scrape_projects_hcm", [sys.executable, "-m", "src.scrapers.projects"], False),
+        ("scrape_projects_hn", [sys.executable, "-m", "src.scrapers.projects", "--url", HN_PROJECTS_URL], False),
+        # Observability steps are non-fatal (third element False): a broken Elementary
+        # package or a stale freshness warning must not block the real data pipeline.
+        ("dbt_source_freshness", ["dbt", "source", "freshness", *DBT_FLAGS], False),
+        ("dbt_run", ["dbt", "run", *DBT_FLAGS, "--select", *DBT_SELECT, "--exclude", *DBT_CURRENT_VIEWS]),
+        ("dbt_snapshot", ["dbt", "snapshot", *DBT_FLAGS, "--select", *DBT_SELECT]),
+        ("dbt_run_current_views", ["dbt", "run", *DBT_FLAGS, "--select", *DBT_CURRENT_VIEWS]),
+        ("dbt_test", ["dbt", "test", *DBT_FLAGS, "--select", *DBT_SELECT]),
+        # Elementary: build/refresh its own models, then run the bronze anomaly tests
+        # (weekly volume/freshness/null-rate); results land in re_elementary.
+        ("dbt_run_elementary", ["dbt", "run", *DBT_FLAGS, "--select", "elementary"], False),
+        ("dbt_test_anomalies", ["dbt", "test", *DBT_FLAGS, "--select", "tag:elementary"], False),
+    ]
 
 
 ROWS_LOADED_RE = re.compile(r"PIPELINE_METRIC rows_loaded=(\d+)")
@@ -216,16 +248,19 @@ def _scrape_gate_failure(scrape_status: dict[str, str]) -> str | None:
     return failed[0] if failed else next(iter(scrape_status))
 
 
-def main(only: str | None = None) -> int:
+def main(only: str | None = None, sale_category: str = "auto") -> int:
     # launchd/shell wrapper stops the job with SIGTERM: turn it into SystemExit so the
     # `finally` below still records the run as interrupted instead of leaving it dangling.
     signal.signal(signal.SIGTERM, lambda *_: sys.exit(143))
 
-    selected = [step for step in STEPS if only is None or step[0].startswith(only)]
+    if sale_category == "auto":
+        sale_category = sale_category_for(date.today())
+    steps = build_steps(sale_category)
+    selected = [step for step in steps if only is None or step[0].startswith(only)]
     run_id = uuid.uuid4().hex
     t0 = time.monotonic()
     pipeline_log.log_run_event(run_id, "start", status="running", **pipeline_log.run_context())
-    logger.info(f"Pipeline run_id={run_id}")
+    logger.info(f"Pipeline run_id={run_id} sale_category={sale_category} (ISO week {date.today().isocalendar().week})")
 
     status, failed_step, steps_total, steps_failed = "interrupted", None, 0, 0
     scrape_status: dict[str, str] = {}
@@ -283,4 +318,12 @@ if __name__ == "__main__":
         metavar="PREFIX",
         help="Run only steps whose name starts with PREFIX (e.g. 'scrape_', 'dbt_'). Default: all steps.",
     )
-    sys.exit(main(parser.parse_args().only))
+    parser.add_argument(
+        "--sale-category",
+        choices=["auto", *SALE_CATEGORY_URLS],
+        default="auto",
+        help="Sale category to scrape this run. 'auto' alternates by week (see SALE_ALTERNATION_ANCHOR). "
+        "Default: %(default)s",
+    )
+    args = parser.parse_args()
+    sys.exit(main(args.only, args.sale_category))
